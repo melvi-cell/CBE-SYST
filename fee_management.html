@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fee Management | LearnPro</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <style>
+        .glass-card { background: rgba(255,255,255,0.7); backdrop-filter: blur(20px); border-radius: 24px; border: 1px solid rgba(255,255,255,0.3); }
+        .toast { position: fixed; bottom: 24px; right: 24px; background: #003f87; color: white; padding: 12px 24px; border-radius: 48px; z-index: 1000; font-weight: 600; }
+        .toast-error { background: #dc2626; }
+        .toast-success { background: #059669; }
+    </style>
+</head>
+<body class="bg-[#f9f9ff] p-6">
+
+    <div class="max-w-6xl mx-auto">
+        <div class="flex justify-between items-center mb-6">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-gradient-to-br from-[#003f87] to-[#0056b3] rounded-xl flex items-center justify-center shadow-md">
+                    <span class="material-symbols-outlined text-white">school</span>
+                </div>
+                <h1 class="text-2xl font-bold text-[#003f87]">Fee Management</h1>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="goToDashboard()" class="px-4 py-2 border border-[#003f87] text-[#003f87] rounded-xl hover:bg-[#003f87]/5 transition">Dashboard</button>
+                <button onclick="logout()" class="px-4 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 transition">Logout</button>
+            </div>
+        </div>
+
+        <div class="grid md:grid-cols-3 gap-6 mb-8">
+            <div class="glass-card p-6 text-center">
+                <span class="text-3xl font-bold text-[#003f87]" id="totalCollected">KSh 0</span>
+                <p class="text-gray-600 mt-1">Total Collected</p>
+            </div>
+            <div class="glass-card p-6 text-center">
+                <span class="text-3xl font-bold text-red-600" id="outstanding">KSh 0</span>
+                <p class="text-gray-600 mt-1">Outstanding</p>
+            </div>
+            <div class="glass-card p-6 text-center">
+                <span class="text-3xl font-bold text-green-600" id="mpesaTotal">KSh 0</span>
+                <p class="text-gray-600 mt-1">M-Pesa Collections</p>
+            </div>
+        </div>
+
+        <div class="glass-card p-6">
+            <h2 class="text-xl font-bold text-[#003f87] mb-4">Recent Payments</h2>
+            <div id="paymentList" class="space-y-2 max-h-64 overflow-y-auto mb-6">
+                <div class="text-center text-gray-400 py-8">Loading payments...</div>
+            </div>
+
+            <h3 class="text-lg font-bold text-gray-800 mb-3">Record New Payment</h3>
+            <form id="paymentForm" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <input id="studentName" type="text" placeholder="Student Name" class="p-3 border rounded-xl" required>
+                <input id="amount" type="number" placeholder="Amount (KES)" class="p-3 border rounded-xl" required>
+                <select id="method" class="p-3 border rounded-xl" required>
+                    <option value="">Payment Method</option>
+                    <option>M-Pesa</option>
+                    <option>Cash</option>
+                    <option>Bank Transfer</option>
+                    <option>Cheque</option>
+                </select>
+                <button type="submit" class="bg-gradient-to-r from-[#003f87] to-[#0056b3] text-white font-semibold rounded-xl py-3">Record Payment</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="toast" style="display:none" class="toast"></div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyA4cm7chJXz90yOLWPtbdIW8KlEozG1lxo",
+            authDomain: "learnpro-kenya-erp.firebaseapp.com",
+            projectId: "learnpro-kenya-erp",
+            storageBucket: "learnpro-kenya-erp.firebasestorage.app",
+            messagingSenderId: "327168081514",
+            appId: "1:327168081514:web:13cdc8b827fa76d95a9413"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        let currentSchoolCode = null;
+
+        function showToast(msg, isError = false) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.className = `toast ${isError ? 'toast-error' : 'toast-success'}`;
+            toast.style.display = 'block';
+            setTimeout(() => toast.style.display = 'none', 3000);
+        }
+
+        function goToDashboard() {
+            window.location.href = 'dashboard.html';
+        }
+
+        async function logout() {
+            await auth.signOut();
+            sessionStorage.clear();
+            window.location.href = 'index.html';
+        }
+
+        async function loadFees() {
+            if (!currentSchoolCode) return;
+            try {
+                const feesSnap = await db.collection('schools').doc(currentSchoolCode).collection('fees').get();
+                let total = 0, mpesa = 0;
+                let paymentsHtml = '';
+                
+                if (feesSnap.empty) {
+                    paymentsHtml = '<div class="text-center text-gray-400 py-8">No payments recorded yet</div>';
+                } else {
+                    feesSnap.forEach(doc => {
+                        const f = doc.data();
+                        const amount = f.amount || 0;
+                        total += amount;
+                        if (f.method === 'M-Pesa') mpesa += amount;
+                        paymentsHtml += `
+                            <div class="p-3 bg-white rounded-xl flex justify-between items-center">
+                                <div>
+                                    <p class="font-semibold text-gray-800">${f.student || 'Unknown'}</p>
+                                    <p class="text-xs text-gray-500">${f.method || 'N/A'} • ${new Date(f.date?.toDate()).toLocaleDateString() || 'Recent'}</p>
+                                </div>
+                                <span class="font-bold text-green-700">KSh ${amount.toLocaleString()}</span>
+                            </div>
+                        `;
+                    });
+                }
+                
+                document.getElementById('paymentList').innerHTML = paymentsHtml;
+                document.getElementById('totalCollected').innerText = `KSh ${total.toLocaleString()}`;
+                document.getElementById('mpesaTotal').innerText = `KSh ${mpesa.toLocaleString()}`;
+                
+                const expectedTotal = 500000;
+                const outstanding = Math.max(0, expectedTotal - total);
+                document.getElementById('outstanding').innerText = `KSh ${outstanding.toLocaleString()}`;
+                
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        document.getElementById('paymentForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!currentSchoolCode) {
+                showToast('School not loaded', true);
+                return;
+            }
+
+            const student = document.getElementById('studentName').value.trim();
+            const amount = parseInt(document.getElementById('amount').value);
+            const method = document.getElementById('method').value;
+
+            if (!student || !amount || !method) {
+                showToast('Please fill all fields', true);
+                return;
+            }
+
+            const btn = e.target.querySelector('button');
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = 'Recording...';
+
+            try {
+                await db.collection('schools').doc(currentSchoolCode).collection('fees').add({
+                    student: student,
+                    amount: amount,
+                    method: method,
+                    date: new Date()
+                });
+                showToast('Payment recorded successfully!');
+                document.getElementById('paymentForm').reset();
+                await loadFees();
+            } catch (error) {
+                console.error(error);
+                showToast('Error recording payment', true);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+        });
+
+        auth.onAuthStateChanged(async (user) => {
+            if (!user) {
+                window.location.href = 'index.html';
+                return;
+            }
+
+            try {
+                currentSchoolCode = sessionStorage.getItem('currentSchoolCode');
+                if (!currentSchoolCode) {
+                    const schoolsSnap = await db.collection('schools').where('adminId', '==', user.uid).get();
+                    if (!schoolsSnap.empty) {
+                        currentSchoolCode = schoolsSnap.docs[0].id;
+                        sessionStorage.setItem('currentSchoolCode', currentSchoolCode);
+                    }
+                }
+                await loadFees();
+            } catch (error) {
+                console.error(error);
+            }
+        });
+    </script>
+</body>
+</html>

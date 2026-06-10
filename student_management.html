@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Management | LearnPro</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <style>
+        .glass-card { background: rgba(255,255,255,0.7); backdrop-filter: blur(20px); border-radius: 24px; border: 1px solid rgba(255,255,255,0.3); }
+        .toast { position: fixed; bottom: 24px; right: 24px; background: #003f87; color: white; padding: 12px 24px; border-radius: 48px; z-index: 1000; font-weight: 600; }
+        .toast-error { background: #dc2626; }
+        .toast-success { background: #059669; }
+    </style>
+</head>
+<body class="bg-[#f9f9ff] p-6">
+
+    <div class="max-w-6xl mx-auto">
+        <div class="flex justify-between items-center mb-6">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-gradient-to-br from-[#003f87] to-[#0056b3] rounded-xl flex items-center justify-center shadow-md">
+                    <span class="material-symbols-outlined text-white">group</span>
+                </div>
+                <h1 class="text-2xl font-bold text-[#003f87]">Student Management</h1>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="goToDashboard()" class="px-4 py-2 border border-[#003f87] text-[#003f87] rounded-xl hover:bg-[#003f87]/5 transition">Dashboard</button>
+                <button onclick="logout()" class="px-4 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 transition">Logout</button>
+            </div>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-6">
+            <!-- Add Student Form -->
+            <div class="glass-card p-6">
+                <h2 class="text-xl font-bold text-[#003f87] mb-4">Add New Student</h2>
+                <form id="studentForm" class="space-y-4">
+                    <input id="studentName" type="text" placeholder="Full Name" class="w-full p-3 border rounded-xl focus:border-[#003f87] focus:ring-2 focus:ring-[#003f87]/20" required>
+                    <input id="admNo" type="text" placeholder="Admission Number" class="w-full p-3 border rounded-xl focus:border-[#003f87] focus:ring-2 focus:ring-[#003f87]/20" required>
+                    <input id="grade" type="text" placeholder="Grade/Class" class="w-full p-3 border rounded-xl focus:border-[#003f87] focus:ring-2 focus:ring-[#003f87]/20" required>
+                    <div class="grid grid-cols-2 gap-3">
+                        <input id="parentName" type="text" placeholder="Parent/Guardian Name" class="w-full p-3 border rounded-xl focus:border-[#003f87] focus:ring-2 focus:ring-[#003f87]/20">
+                        <input id="parentPhone" type="tel" placeholder="Parent Phone Number" class="w-full p-3 border rounded-xl focus:border-[#003f87] focus:ring-2 focus:ring-[#003f87]/20">
+                    </div>
+                    <select id="gender" class="w-full p-3 border rounded-xl focus:border-[#003f87] focus:ring-2 focus:ring-[#003f87]/20">
+                        <option value="">Select Gender</option>
+                        <option>Male</option>
+                        <option>Female</option>
+                    </select>
+                    <button type="submit" class="w-full py-3 bg-gradient-to-r from-[#003f87] to-[#0056b3] text-white font-semibold rounded-xl hover:shadow-lg transition">Add Student</button>
+                </form>
+            </div>
+
+            <!-- Student List -->
+            <div class="glass-card p-6">
+                <h2 class="text-xl font-bold text-[#003f87] mb-4">Student Roster</h2>
+                <div id="studentRoster" class="space-y-2 max-h-96 overflow-y-auto">
+                    <div class="text-center text-gray-400 py-8">Loading students...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" style="display:none" class="toast"></div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyA4cm7chJXz90yOLWPtbdIW8KlEozG1lxo",
+            authDomain: "learnpro-kenya-erp.firebaseapp.com",
+            projectId: "learnpro-kenya-erp",
+            storageBucket: "learnpro-kenya-erp.firebasestorage.app",
+            messagingSenderId: "327168081514",
+            appId: "1:327168081514:web:13cdc8b827fa76d95a9413"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        let currentSchoolCode = null;
+
+        function showToast(msg, isError = false) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.className = `toast ${isError ? 'toast-error' : 'toast-success'}`;
+            toast.style.display = 'block';
+            setTimeout(() => toast.style.display = 'none', 3000);
+        }
+
+        function goToDashboard() {
+            window.location.href = 'dashboard.html';
+        }
+
+        async function logout() {
+            await auth.signOut();
+            sessionStorage.clear();
+            window.location.href = 'index.html';
+        }
+
+        async function loadStudents() {
+            if (!currentSchoolCode) return;
+            try {
+                const snap = await db.collection('schools').doc(currentSchoolCode).collection('students').get();
+                let html = '';
+                if (snap.empty) {
+                    html = '<div class="text-center text-gray-400 py-8">No students added yet</div>';
+                } else {
+                    snap.forEach(doc => {
+                        const s = doc.data();
+                        html += `
+                            <div class="p-3 bg-white rounded-xl flex justify-between items-center">
+                                <div>
+                                    <p class="font-semibold text-gray-800">${s.name || 'Unknown'}</p>
+                                    <p class="text-xs text-gray-500">Adm: ${s.admNo || 'N/A'} | Grade: ${s.grade || 'N/A'}</p>
+                                    ${s.parentPhone ? `<p class="text-xs text-gray-400 mt-1">Parent: ${s.parentPhone}</p>` : ''}
+                                </div>
+                                <span class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">Active</span>
+                            </div>
+                        `;
+                    });
+                }
+                document.getElementById('studentRoster').innerHTML = html;
+            } catch (error) {
+                console.error(error);
+                document.getElementById('studentRoster').innerHTML = '<div class="text-center text-gray-400 py-8">Error loading students</div>';
+            }
+        }
+
+        document.getElementById('studentForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!currentSchoolCode) {
+                showToast('School not loaded', true);
+                return;
+            }
+
+            const name = document.getElementById('studentName').value.trim();
+            const admNo = document.getElementById('admNo').value.trim();
+            const grade = document.getElementById('grade').value.trim();
+            const parentName = document.getElementById('parentName').value.trim();
+            const parentPhone = document.getElementById('parentPhone').value.trim();
+            const gender = document.getElementById('gender').value;
+
+            if (!name || !admNo || !grade) {
+                showToast('Please fill all required fields', true);
+                return;
+            }
+
+            const btn = e.target.querySelector('button');
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = 'Adding...';
+
+            try {
+                await db.collection('schools').doc(currentSchoolCode).collection('students').add({
+                    name: name,
+                    admNo: admNo,
+                    grade: grade,
+                    parentName: parentName,
+                    parentPhone: parentPhone,
+                    gender: gender,
+                    status: 'active',
+                    createdAt: new Date().toISOString()
+                });
+                showToast('Student added successfully!');
+                document.getElementById('studentForm').reset();
+                await loadStudents();
+            } catch (error) {
+                console.error(error);
+                showToast('Error adding student', true);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+        });
+
+        auth.onAuthStateChanged(async (user) => {
+            if (!user) {
+                window.location.href = 'index.html';
+                return;
+            }
+
+            try {
+                currentSchoolCode = sessionStorage.getItem('currentSchoolCode');
+                if (!currentSchoolCode) {
+                    const schoolsSnap = await db.collection('schools').where('adminId', '==', user.uid).get();
+                    if (!schoolsSnap.empty) {
+                        currentSchoolCode = schoolsSnap.docs[0].id;
+                        sessionStorage.setItem('currentSchoolCode', currentSchoolCode);
+                        sessionStorage.setItem('currentSchoolName', schoolsSnap.docs[0].data().schoolName);
+                    } else {
+                        showToast('No school found for this account', true);
+                        setTimeout(() => logout(), 2000);
+                        return;
+                    }
+                }
+                await loadStudents();
+            } catch (error) {
+                console.error(error);
+                showToast('Authentication error', true);
+            }
+        });
+    </script>
+</body>
+</html>
