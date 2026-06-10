@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Class Management | LearnPro Kenya</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: #f0f2f5; }
+        .class-card { background: white; border-radius: 20px; transition: all 0.3s ease; border: 1px solid #eef2ff; cursor: pointer; }
+        .class-card:hover { transform: translateY(-4px); box-shadow: 0 20px 25px -12px rgba(0,63,135,0.15); }
+        .stat-card { background: white; border-radius: 20px; transition: all 0.3s ease; border: 1px solid #eef2ff; }
+        .toast { position: fixed; bottom: 24px; right: 24px; background: #003f87; color: white; padding: 12px 24px; border-radius: 48px; z-index: 1000; font-weight: 600; }
+        .toast-error { background: #dc2626; }
+        .toast-success { background: #059669; }
+        .nav-item { transition: all 0.2s ease; cursor: pointer; }
+        .nav-item:hover { background: rgba(0,63,135,0.1); transform: translateX(5px); }
+        .nav-active { background: #003f87; color: white; border-radius: 12px; }
+        .nav-active:hover { background: #003f87; transform: none; }
+        .modal { transition: all 0.3s ease; }
+    </style>
+</head>
+<body>
+
+    <!-- Top Bar -->
+    <div class="bg-white shadow-sm fixed top-0 left-0 right-0 z-30">
+        <div class="flex justify-between items-center px-6 py-4 max-w-full mx-auto">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-gradient-to-br from-[#003f87] to-[#0056b3] rounded-xl flex items-center justify-center shadow-md">
+                    <span class="material-symbols-outlined text-white">class</span>
+                </div>
+                <div>
+                    <h1 class="text-xl font-black text-[#003f87] tracking-tight">LEARNPRO KENYA</h1>
+                    <p class="text-[10px] text-gray-500 -mt-1">Class Management</p>
+                </div>
+                <span id="schoolBadge" class="ml-4 text-xs bg-green-100 text-green-700 px-3 py-1.5 rounded-full font-medium">Loading...</span>
+            </div>
+            <div class="flex items-center gap-4">
+                <button onclick="goToDashboard()" class="flex items-center gap-2 px-4 py-2 text-[#003f87] hover:bg-[#003f87]/10 rounded-xl transition">
+                    <span class="material-symbols-outlined text-sm">dashboard</span>
+                    <span class="text-sm font-medium hidden md:block">Dashboard</span>
+                </button>
+                <button onclick="logout()" class="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-xl transition">
+                    <span class="material-symbols-outlined text-sm">logout</span>
+                    <span class="text-sm font-medium hidden md:block">Logout</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar + Main Content -->
+    <div class="flex pt-[72px] min-h-screen">
+        <!-- Sidebar -->
+        <div class="w-64 fixed left-0 top-[72px] bottom-0 bg-white border-r border-gray-200 overflow-y-auto">
+            <div class="p-4">
+                <nav class="space-y-1">
+                    <div onclick="showSection('grades')" id="navGrades" class="nav-item nav-active flex items-center gap-3 px-4 py-3 rounded-xl">
+                        <span class="material-symbols-outlined">groups</span>
+                        <span class="font-medium">Grade Structure</span>
+                    </div>
+                    <div onclick="showSection('streams')" id="navStreams" class="nav-item flex items-center gap-3 px-4 py-3 rounded-xl text-gray-700">
+                        <span class="material-symbols-outlined">hub</span>
+                        <span class="font-medium">Streams</span>
+                    </div>
+                    <div onclick="showSection('subjects')" id="navSubjects" class="nav-item flex items-center gap-3 px-4 py-3 rounded-xl text-gray-700">
+                        <span class="material-symbols-outlined">menu_book</span>
+                        <span class="font-medium">Subjects</span>
+                    </div>
+                    <div onclick="showSection('allocation')" id="navAllocation" class="nav-item flex items-center gap-3 px-4 py-3 rounded-xl text-gray-700">
+                        <span class="material-symbols-outlined">assignment_ind</span>
+                        <span class="font-medium">Teacher Allocation</span>
+                    </div>
+                </nav>
+            </div>
+            <div class="absolute bottom-4 left-4 right-4">
+                <div class="bg-gray-100 rounded-xl p-3 text-center">
+                    <p class="text-xs text-gray-500">CBC Compliant</p>
+                    <p class="text-[10px] font-bold text-[#003f87] mt-1">Grade 1-9 Structure</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="ml-64 flex-1 p-6">
+            <!-- Grade Structure Section -->
+            <div id="gradesSection">
+                <div class="mb-6 flex justify-between items-center flex-wrap gap-4">
+                    <div><h2 class="text-2xl font-bold text-gray-800">Academic Grade Structure</h2><p class="text-gray-500">Manage CBC-aligned grade levels and stream distribution.</p></div>
+                    <div class="flex gap-3"><button onclick="openGradeModal()" class="px-6 py-3 bg-[#003f87] text-white rounded-xl flex items-center gap-2"><span class="material-symbols-outlined">add</span> Add Grade</button><button class="px-6 py-3 border border-[#003f87] text-[#003f87] rounded-xl">Manage Streams</button></div>
+                </div>
+
+                <!-- Stats Cards -->
+                <div class="grid md:grid-cols-3 gap-6 mb-8">
+                    <div class="stat-card p-6 flex items-center gap-4 border-l-4 border-[#003f87]"><div class="w-12 h-12 bg-[#003f87]/10 rounded-2xl flex items-center justify-center"><span class="material-symbols-outlined text-[#003f87] text-2xl">class</span></div><div><p class="text-gray-500 text-sm">Total Classes</p><p class="text-3xl font-bold text-[#003f87]" id="totalClasses">0</p></div></div>
+                    <div class="stat-card p-6 flex items-center gap-4 border-l-4 border-[#006d40]"><div class="w-12 h-12 bg-[#006d40]/10 rounded-2xl flex items-center justify-center"><span class="material-symbols-outlined text-[#006d40] text-2xl">hub</span></div><div><p class="text-gray-500 text-sm">Total Streams</p><p class="text-3xl font-bold text-[#006d40]" id="totalStreams">0</p></div></div>
+                    <div class="stat-card p-6 flex items-center gap-4 border-l-4 border-[#f59e0b]"><div class="w-12 h-12 bg-[#f59e0b]/10 rounded-2xl flex items-center justify-center"><span class="material-symbols-outlined text-[#f59e0b] text-2xl">group_add</span></div><div><p class="text-gray-500 text-sm">Avg. Class Size</p><p class="text-3xl font-bold text-[#f59e0b]" id="avgClassSize">0</p></div></div>
+                </div>
+
+                <!-- Grade Cards Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="gradesGrid">
+                    <div class="text-center text-gray-400 py-8 col-span-3">Loading grades...</div>
+                </div>
+            </div>
+
+            <!-- Streams Section -->
+            <div id="streamsSection" class="hidden">
+                <div class="mb-6"><h2 class="text-2xl font-bold text-gray-800">Stream Management</h2><p class="text-gray-500">Manage class streams for each grade level</p></div>
+                <div class="bg-white rounded-2xl p-6 shadow-sm">
+                    <form id="streamForm" class="grid md:grid-cols-3 gap-4 mb-6"><select id="streamGrade" class="p-3 border rounded-xl"><option>Select Grade</option><option>Grade 1</option><option>Grade 2</option><option>Grade 3</option><option>Grade 4</option><option>Grade 5</option><option>Grade 6</option><option>Grade 7</option><option>Grade 8</option><option>Grade 9</option></select><input id="streamName" type="text" placeholder="Stream Name (e.g., North, South)" class="p-3 border rounded-xl"><button type="submit" class="bg-[#003f87] text-white rounded-xl">Add Stream</button></form>
+                    <div id="streamsList" class="space-y-3"></div>
+                </div>
+            </div>
+
+            <!-- Subjects Section -->
+            <div id="subjectsSection" class="hidden">
+                <div class="mb-6"><h2 class="text-2xl font-bold text-gray-800">Subject Management</h2><p class="text-gray-500">Manage CBC subjects by grade level</p></div>
+                <div class="bg-white rounded-2xl p-6 shadow-sm">
+                    <form id="subjectForm" class="grid md:grid-cols-4 gap-4 mb-6"><select id="subjectGrade" class="p-3 border rounded-xl"><option>Select Grade</option><option>Grade 1</option><option>Grade 2</option><option>Grade 3</option><option>Grade 4</option><option>Grade 5</option><option>Grade 6</option><option>Grade 7</option><option>Grade 8</option><option>Grade 9</option></select><input id="subjectName" type="text" placeholder="Subject Name" class="p-3 border rounded-xl"><select id="subjectType" class="p-3 border rounded-xl"><option>Core</option><option>Elective</option></select><button type="submit" class="bg-[#003f87] text-white rounded-xl">Add Subject</button></form>
+                    <div id="subjectsList" class="space-y-3"></div>
+                </div>
+            </div>
+
+            <!-- Teacher Allocation Section -->
+            <div id="allocationSection" class="hidden">
+                <div class="mb-6"><h2 class="text-2xl font-bold text-gray-800">Teacher Allocation</h2><p class="text-gray-500">Assign teachers to classes and subjects</p></div>
+                <div class="bg-white rounded-2xl p-6 shadow-sm">
+                    <form id="allocationForm" class="grid md:grid-cols-4 gap-4 mb-6"><select id="allocGrade" class="p-3 border rounded-xl"><option>Select Grade</option><option>Grade 1</option><option>Grade 2</option><option>Grade 3</option><option>Grade 4</option><option>Grade 5</option><option>Grade 6</option><option>Grade 7</option><option>Grade 8</option><option>Grade 9</option></select><select id="allocStream" class="p-3 border rounded-xl"><option>Select Stream</option><option>North</option><option>South</option><option>East</option><option>West</option></select><select id="allocSubject" class="p-3 border rounded-xl"><option>Select Subject</option><option>Mathematics</option><option>English</option><option>Kiswahili</option><option>Science</option></select><select id="allocTeacher" class="p-3 border rounded-xl"><option>Select Teacher</option></select><button type="submit" class="md:col-span-4 bg-[#003f87] text-white rounded-xl py-3">Assign Teacher</button></form>
+                    <div id="allocationsList" class="space-y-3"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Grade Modal -->
+    <div id="gradeModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-2xl p-8 max-w-md w-full mx-4"><h3 class="text-xl font-bold text-[#003f87] mb-4">Add New Grade</h3>
+        <form id="gradeForm" class="space-y-4"><input id="gradeName" type="text" placeholder="Grade Name (e.g., Grade 10)" class="w-full p-3 border rounded-xl"><input id="gradeLevel" type="number" placeholder="Level Number" class="w-full p-3 border rounded-xl"><input id="gradeTeacher" type="text" placeholder="Class Teacher" class="w-full p-3 border rounded-xl"><button type="submit" class="w-full py-3 bg-[#003f87] text-white rounded-xl">Add Grade</button><button type="button" onclick="closeGradeModal()" class="w-full py-3 border border-gray-200 rounded-xl">Cancel</button></form></div>
+    </div>
+
+    <div id="toast" style="display:none" class="toast"></div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyA4cm7chJXz90yOLWPtbdIW8KlEozG1lxo",
+            authDomain: "learnpro-kenya-erp.firebaseapp.com",
+            projectId: "learnpro-kenya-erp",
+            storageBucket: "learnpro-kenya-erp.firebasestorage.app",
+            messagingSenderId: "327168081514",
+            appId: "1:327168081514:web:13cdc8b827fa76d95a9413"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        let currentSchoolCode = null;
+
+        function showToast(msg, isError = false) { const toast = document.getElementById('toast'); toast.textContent = msg; toast.className = `toast ${isError ? 'toast-error' : 'toast-success'}`; toast.style.display = 'block'; setTimeout(() => toast.style.display = 'none', 3000); }
+        function goToDashboard() { window.location.href = 'dashboard.html'; }
+        async function logout() { await auth.signOut(); sessionStorage.clear(); window.location.href = 'index.html'; }
+        function openGradeModal() { document.getElementById('gradeModal').classList.remove('hidden'); }
+        function closeGradeModal() { document.getElementById('gradeModal').classList.add('hidden'); }
+
+        function showSection(section) {
+            document.getElementById('gradesSection').classList.add('hidden');
+            document.getElementById('streamsSection').classList.add('hidden');
+            document.getElementById('subjectsSection').classList.add('hidden');
+            document.getElementById('allocationSection').classList.add('hidden');
+            if (section === 'grades') document.getElementById('gradesSection').classList.remove('hidden');
+            else if (section === 'streams') document.getElementById('streamsSection').classList.remove('hidden');
+            else if (section === 'subjects') document.getElementById('subjectsSection').classList.remove('hidden');
+            else if (section === 'allocation') document.getElementById('allocationSection').classList.remove('hidden');
+            ['navGrades', 'navStreams', 'navSubjects', 'navAllocation'].forEach(id => { document.getElementById(id).classList.remove('nav-active'); document.getElementById(id).classList.add('text-gray-700'); });
+            const activeNav = section === 'grades' ? 'navGrades' : section === 'streams' ? 'navStreams' : section === 'subjects' ? 'navSubjects' : 'navAllocation';
+            document.getElementById(activeNav).classList.add('nav-active');
+            document.getElementById(activeNav).classList.remove('text-gray-700');
+            if (section === 'grades') loadGrades();
+        }
+
+        const gradesData = [
+            { id: 1, name: "Grade 1", streams: ["1A", "1B", "1C"], teacher: "Mrs. Kamau", enrollment: 38, capacity: 45 },
+            { id: 2, name: "Grade 2", streams: ["2A", "2B", "2C", "2D"], teacher: "Mr. Otieno", enrollment: 42, capacity: 45 },
+            { id: 3, name: "Grade 3", streams: ["3X", "3Y"], teacher: "Ms. Wanjiku", enrollment: 30, capacity: 40 },
+            { id: 4, name: "Grade 4", streams: ["4A", "4B", "4C"], teacher: "Mr. Kiprotich", enrollment: 45, capacity: 45 },
+            { id: 5, name: "Grade 5", streams: ["5 Alpha", "5 Beta"], teacher: "Mrs. Mutua", enrollment: 36, capacity: 40 },
+            { id: 6, name: "Grade 6", streams: ["6A", "6B", "6C"], teacher: "Mr. Mwangi", enrollment: 39, capacity: 45 },
+            { id: 7, name: "Grade 7", streams: ["7J", "7K", "7L"], teacher: "Ms. Atieno", enrollment: 35, capacity: 40 },
+            { id: 8, name: "Grade 8", streams: ["8A", "8B"], teacher: "Mr. Juma", enrollment: 41, capacity: 45 },
+            { id: 9, name: "Grade 9", streams: ["9A", "9B", "9J"], teacher: "Dr. Njenga", enrollment: 38, capacity: 45 }
+        ];
+
+        async function loadGrades() {
+            let html = ''; let totalClasses = 0, totalStreams = 0, totalEnrollment = 0;
+            gradesData.forEach(g => { totalClasses++; totalStreams += g.streams.length; totalEnrollment += g.enrollment;
+                html += `<div class="class-card p-5"><div class="flex justify-between items-start mb-4"><div><h4 class="text-xl font-bold text-[#003f87]">${g.name}</h4><p class="text-sm text-gray-500">${g.teacher}</p></div><span class="material-symbols-outlined text-gray-400">more_vert</span></div><div class="flex flex-wrap gap-2 mb-4">${g.streams.map(s => `<span class="px-3 py-1 bg-gray-100 rounded-lg text-sm">${s}</span>`).join('')}</div><div class="space-y-2"><div class="flex justify-between text-sm"><span>Enrollment</span><span class="${g.enrollment >= g.capacity ? 'text-red-600 font-bold' : 'text-gray-600'}">${g.enrollment}/${g.capacity}</span></div><div class="w-full bg-gray-200 rounded-full h-2"><div class="bg-[#003f87] h-2 rounded-full" style="width: ${(g.enrollment/g.capacity)*100}%"></div></div></div></div>`;
+            });
+            document.getElementById('gradesGrid').innerHTML = html;
+            document.getElementById('totalClasses').innerText = totalClasses;
+            document.getElementById('totalStreams').innerText = totalStreams;
+            document.getElementById('avgClassSize').innerText = Math.round(totalEnrollment / totalClasses);
+        }
+
+        document.getElementById('gradeForm')?.addEventListener('submit', (e) => { e.preventDefault(); showToast('Grade added successfully!'); closeGradeModal(); loadGrades(); });
+        document.getElementById('streamForm')?.addEventListener('submit', (e) => { e.preventDefault(); showToast('Stream added successfully!'); });
+        document.getElementById('subjectForm')?.addEventListener('submit', (e) => { e.preventDefault(); showToast('Subject added successfully!'); });
+        document.getElementById('allocationForm')?.addEventListener('submit', (e) => { e.preventDefault(); showToast('Teacher allocated successfully!'); });
+
+        auth.onAuthStateChanged(async (user) => {
+            if (!user) { window.location.href = 'index.html'; return; }
+            currentSchoolCode = sessionStorage.getItem('currentSchoolCode');
+            if (!currentSchoolCode) { const schoolsSnap = await db.collection('schools').where('adminId', '==', user.uid).get(); if (!schoolsSnap.empty) { currentSchoolCode = schoolsSnap.docs[0].id; sessionStorage.setItem('currentSchoolCode', currentSchoolCode); sessionStorage.setItem('currentSchoolName', schoolsSnap.docs[0].data().schoolName); } }
+            document.getElementById('schoolBadge').innerText = sessionStorage.getItem('currentSchoolName') || currentSchoolCode;
+            await loadGrades();
+        });
+    </script>
+</body>
+</html>

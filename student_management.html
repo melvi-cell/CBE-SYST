@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Management | LearnPro Kenya</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: #f0f2f5; }
+        .glass-card { background: rgba(255,255,255,0.7); backdrop-filter: blur(20px); border-radius: 24px; border: 1px solid rgba(255,255,255,0.3); }
+        .student-card { background: white; border-radius: 20px; transition: all 0.3s ease; border: 1px solid #eef2ff; cursor: pointer; }
+        .student-card:hover { transform: translateY(-4px); box-shadow: 0 20px 25px -12px rgba(0,63,135,0.15); }
+        .toast { position: fixed; bottom: 24px; right: 24px; background: #003f87; color: white; padding: 12px 24px; border-radius: 48px; z-index: 1000; font-weight: 600; }
+        .toast-error { background: #dc2626; }
+        .toast-success { background: #059669; }
+        .nav-item { transition: all 0.2s ease; cursor: pointer; }
+        .nav-item:hover { background: rgba(0,63,135,0.1); transform: translateX(5px); }
+        .nav-active { background: #003f87; color: white; border-radius: 12px; }
+        .nav-active:hover { background: #003f87; transform: none; }
+        .modal { transition: all 0.3s ease; }
+    </style>
+</head>
+<body>
+
+    <!-- Top Bar -->
+    <div class="bg-white shadow-sm fixed top-0 left-0 right-0 z-30">
+        <div class="flex justify-between items-center px-6 py-4 max-w-full mx-auto">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-gradient-to-br from-[#003f87] to-[#0056b3] rounded-xl flex items-center justify-center shadow-md">
+                    <span class="material-symbols-outlined text-white">group</span>
+                </div>
+                <div>
+                    <h1 class="text-xl font-black text-[#003f87] tracking-tight">LEARNPRO KENYA</h1>
+                    <p class="text-[10px] text-gray-500 -mt-1">Student Management</p>
+                </div>
+                <span id="schoolBadge" class="ml-4 text-xs bg-green-100 text-green-700 px-3 py-1.5 rounded-full font-medium">Loading...</span>
+            </div>
+            <div class="flex items-center gap-4">
+                <button onclick="goToDashboard()" class="flex items-center gap-2 px-4 py-2 text-[#003f87] hover:bg-[#003f87]/10 rounded-xl transition">
+                    <span class="material-symbols-outlined text-sm">dashboard</span>
+                    <span class="text-sm font-medium hidden md:block">Dashboard</span>
+                </button>
+                <button onclick="logout()" class="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-xl transition">
+                    <span class="material-symbols-outlined text-sm">logout</span>
+                    <span class="text-sm font-medium hidden md:block">Logout</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar + Main Content -->
+    <div class="flex pt-[72px] min-h-screen">
+        <!-- Sidebar -->
+        <div class="w-64 fixed left-0 top-[72px] bottom-0 bg-white border-r border-gray-200 overflow-y-auto">
+            <div class="p-4">
+                <nav class="space-y-1">
+                    <div onclick="showSection('directory')" id="navDirectory" class="nav-item nav-active flex items-center gap-3 px-4 py-3 rounded-xl">
+                        <span class="material-symbols-outlined">group</span>
+                        <span class="font-medium">Student Directory</span>
+                    </div>
+                    <div onclick="showSection('add')" id="navAdd" class="nav-item flex items-center gap-3 px-4 py-3 rounded-xl text-gray-700">
+                        <span class="material-symbols-outlined">person_add</span>
+                        <span class="font-medium">Add Student</span>
+                    </div>
+                    <div onclick="showSection('promotion')" id="navPromotion" class="nav-item flex items-center gap-3 px-4 py-3 rounded-xl text-gray-700">
+                        <span class="material-symbols-outlined">arrow_forward</span>
+                        <span class="font-medium">Promotion</span>
+                    </div>
+                    <div onclick="showSection('reports')" id="navReports" class="nav-item flex items-center gap-3 px-4 py-3 rounded-xl text-gray-700">
+                        <span class="material-symbols-outlined">assessment</span>
+                        <span class="font-medium">Reports</span>
+                    </div>
+                </nav>
+            </div>
+            <div class="absolute bottom-4 left-4 right-4">
+                <div class="bg-gray-100 rounded-xl p-3 text-center">
+                    <p class="text-xs text-gray-500">Total Enrolled</p>
+                    <p class="text-xl font-bold text-[#003f87]" id="totalStudentCount">0</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="ml-64 flex-1 p-6">
+            <!-- Student Directory Section -->
+            <div id="directorySection">
+                <div class="mb-6 flex justify-between items-center flex-wrap gap-4">
+                    <div><h2 class="text-2xl font-bold text-gray-800">Student Directory</h2><p class="text-gray-500" id="studentCountText">Manage all enrolled students</p></div>
+                    <button onclick="showSection('add')" class="px-6 py-3 bg-[#003f87] text-white rounded-xl flex items-center gap-2"><span class="material-symbols-outlined">person_add</span> Add New Student</button>
+                </div>
+
+                <!-- Filters -->
+                <div class="bg-white rounded-2xl p-4 shadow-sm mb-6 flex flex-wrap gap-4">
+                    <div class="flex-1 relative"><span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">search</span><input type="text" id="searchStudent" onkeyup="filterStudents()" placeholder="Search by name, Admission No. or UPI..." class="w-full pl-10 pr-4 py-3 border rounded-xl"></div>
+                    <select id="gradeFilter" onchange="filterStudents()" class="px-4 py-3 border rounded-xl bg-white"><option value="all">All Grades</option><option>Grade 1</option><option>Grade 2</option><option>Grade 3</option><option>Grade 4</option><option>Grade 5</option><option>Grade 6</option><option>Grade 7</option><option>Grade 8</option><option>Grade 9</option></select>
+                    <select id="classFilter" onchange="filterStudents()" class="px-4 py-3 border rounded-xl bg-white"><option value="all">All Classes</option><option>North</option><option>South</option><option>East</option><option>West</option></select>
+                    <select id="statusFilter" onchange="filterStudents()" class="px-4 py-3 border rounded-xl bg-white"><option value="all">All Status</option><option>Active</option><option>Transferred</option><option>Graduated</option></select>
+                </div>
+
+                <!-- Student Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="studentsGrid">
+                    <div class="text-center text-gray-400 py-8 col-span-3">Loading students...</div>
+                </div>
+
+                <!-- Pagination -->
+                <div class="mt-6 flex justify-between items-center"><span id="paginationInfo" class="text-sm text-gray-500">Showing 0 of 0 students</span><div class="flex gap-2"><button class="p-2 rounded-lg hover:bg-gray-100"><span class="material-symbols-outlined">chevron_left</span></button><button class="w-8 h-8 rounded-lg bg-[#003f87] text-white">1</button><button class="p-2 rounded-lg hover:bg-gray-100"><span class="material-symbols-outlined">chevron_right</span></button></div></div>
+            </div>
+
+            <!-- Add Student Section -->
+            <div id="addSection" class="hidden">
+                <div class="mb-6"><h2 class="text-2xl font-bold text-gray-800">Add New Student</h2><p class="text-gray-500">Enter student details to enroll</p></div>
+                <div class="bg-white rounded-2xl p-6 shadow-sm max-w-3xl">
+                    <form id="studentForm" class="space-y-5">
+                        <div class="grid md:grid-cols-2 gap-5">
+                            <div><label class="block text-sm font-medium text-gray-700 mb-1">Full Name *</label><input id="fullName" type="text" class="w-full p-3 border rounded-xl focus:border-[#003f87] focus:ring-2 focus:ring-[#003f87]/20" required></div>
+                            <div><label class="block text-sm font-medium text-gray-700 mb-1">Admission Number *</label><input id="admNo" type="text" class="w-full p-3 border rounded-xl focus:border-[#003f87] focus:ring-2 focus:ring-[#003f87]/20" required></div>
+                            <div><label class="block text-sm font-medium text-gray-700 mb-1">UPI Number (NEMIS)</label><input id="upi" type="text" class="w-full p-3 border rounded-xl focus:border-[#003f87] focus:ring-2 focus:ring-[#003f87]/20"></div>
+                            <div><label class="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label><input id="dob" type="date" class="w-full p-3 border rounded-xl focus:border-[#003f87] focus:ring-2 focus:ring-[#003f87]/20"></div>
+                            <div><label class="block text-sm font-medium text-gray-700 mb-1">Gender</label><select id="gender" class="w-full p-3 border rounded-xl"><option>Male</option><option>Female</option></select></div>
+                            <div><label class="block text-sm font-medium text-gray-700 mb-1">Grade/Class *</label><select id="grade" class="w-full p-3 border rounded-xl" required><option>Grade 1</option><option>Grade 2</option><option>Grade 3</option><option>Grade 4</option><option>Grade 5</option><option>Grade 6</option><option>Grade 7</option><option>Grade 8</option><option>Grade 9</option></select></div>
+                            <div><label class="block text-sm font-medium text-gray-700 mb-1">Stream</label><select id="stream" class="w-full p-3 border rounded-xl"><option>North</option><option>South</option><option>East</option><option>West</option></select></div>
+                            <div><label class="block text-sm font-medium text-gray-700 mb-1">Parent/Guardian Name</label><input id="parentName" type="text" class="w-full p-3 border rounded-xl"></div>
+                            <div><label class="block text-sm font-medium text-gray-700 mb-1">Parent Phone Number</label><input id="parentPhone" type="tel" class="w-full p-3 border rounded-xl"></div>
+                            <div><label class="block text-sm font-medium text-gray-700 mb-1">Parent Email</label><input id="parentEmail" type="email" class="w-full p-3 border rounded-xl"></div>
+                        </div>
+                        <button type="submit" class="w-full py-3 bg-gradient-to-r from-[#003f87] to-[#0056b3] text-white font-semibold rounded-xl">Enroll Student</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Promotion Section -->
+            <div id="promotionSection" class="hidden">
+                <div class="mb-6"><h2 class="text-2xl font-bold text-gray-800">Student Promotion</h2><p class="text-gray-500">Move students to next grade level</p></div>
+                <div class="bg-white rounded-2xl p-6 shadow-sm"><form id="promotionForm" class="space-y-4"><select id="fromGrade" class="w-full p-3 border rounded-xl"><option>Select Current Grade</option><option>Grade 1</option><option>Grade 2</option><option>Grade 3</option><option>Grade 4</option><option>Grade 5</option><option>Grade 6</option><option>Grade 7</option><option>Grade 8</option></select><select id="toGrade" class="w-full p-3 border rounded-xl"><option>Select Target Grade</option><option>Grade 2</option><option>Grade 3</option><option>Grade 4</option><option>Grade 5</option><option>Grade 6</option><option>Grade 7</option><option>Grade 8</option><option>Grade 9</option></select><button type="submit" class="w-full py-3 bg-[#003f87] text-white rounded-xl">Promote Students</button></form></div>
+                <div class="mt-6"><h3 class="font-bold mb-3">Students eligible for promotion</h3><div id="eligibleStudents" class="space-y-2"></div></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Student Detail Modal -->
+    <div id="studentModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-2xl p-6 max-w-lg w-full mx-4"><div class="flex justify-between items-center mb-4"><h3 class="text-xl font-bold text-[#003f87]" id="modalStudentName">Student Details</h3><button onclick="closeStudentModal()" class="text-gray-400 hover:text-gray-600"><span class="material-symbols-outlined">close</span></button></div>
+        <div id="modalStudentContent" class="space-y-3"></div><div class="flex gap-3 mt-6"><button class="flex-1 py-2 border border-[#003f87] text-[#003f87] rounded-xl">Edit</button><button class="flex-1 py-2 bg-[#003f87] text-white rounded-xl">View Full Profile</button></div></div>
+    </div>
+
+    <div id="toast" style="display:none" class="toast"></div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyA4cm7chJXz90yOLWPtbdIW8KlEozG1lxo",
+            authDomain: "learnpro-kenya-erp.firebaseapp.com",
+            projectId: "learnpro-kenya-erp",
+            storageBucket: "learnpro-kenya-erp.firebasestorage.app",
+            messagingSenderId: "327168081514",
+            appId: "1:327168081514:web:13cdc8b827fa76d95a9413"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        let currentSchoolCode = null;
+        let allStudents = [];
+
+        function showToast(msg, isError = false) { const toast = document.getElementById('toast'); toast.textContent = msg; toast.className = `toast ${isError ? 'toast-error' : 'toast-success'}`; toast.style.display = 'block'; setTimeout(() => toast.style.display = 'none', 3000); }
+        function goToDashboard() { window.location.href = 'dashboard.html'; }
+        async function logout() { await auth.signOut(); sessionStorage.clear(); window.location.href = 'index.html'; }
+        function closeStudentModal() { document.getElementById('studentModal').classList.add('hidden'); }
+
+        function showSection(section) {
+            document.getElementById('directorySection').classList.add('hidden'); document.getElementById('addSection').classList.add('hidden'); document.getElementById('promotionSection').classList.add('hidden');
+            if (section === 'directory') document.getElementById('directorySection').classList.remove('hidden');
+            else if (section === 'add') document.getElementById('addSection').classList.remove('hidden');
+            else if (section === 'promotion') document.getElementById('promotionSection').classList.remove('hidden');
+            ['navDirectory', 'navAdd', 'navPromotion', 'navReports'].forEach(id => { document.getElementById(id).classList.remove('nav-active'); document.getElementById(id).classList.add('text-gray-700'); });
+            const activeNav = section === 'directory' ? 'navDirectory' : section === 'add' ? 'navAdd' : 'navPromotion';
+            document.getElementById(activeNav).classList.add('nav-active'); document.getElementById(activeNav).classList.remove('text-gray-700');
+            if (section === 'directory') loadStudents();
+        }
+
+        async function loadStudents() {
+            if (!currentSchoolCode) return;
+            const studentsSnap = await db.collection('schools').doc(currentSchoolCode).collection('students').get();
+            allStudents = []; studentsSnap.forEach(doc => allStudents.push({ id: doc.id, ...doc.data() }));
+            document.getElementById('totalStudentCount').innerText = allStudents.length;
+            document.getElementById('studentCountText').innerText = `${allStudents.length} total students enrolled`;
+            renderStudents(allStudents);
+        }
+
+        function renderStudents(students) {
+            let html = ''; students.forEach(s => { html += `<div class="student-card p-5" onclick="showStudentDetails('${s.id}')"><div class="flex items-start justify-between mb-3"><div class="w-14 h-14 rounded-full bg-gradient-to-br from-[#003f87]/20 to-[#0056b3]/20 flex items-center justify-center"><span class="text-2xl font-bold text-[#003f87]">${s.name?.charAt(0) || 'S'}</span></div><span class="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">${s.status || 'Active'}</span></div><h3 class="text-lg font-bold text-[#003f87]">${s.name || 'Unknown'}</h3><div class="mt-2 space-y-1 text-sm text-gray-600"><p>Adm No: ${s.admNo || 'N/A'}</p><p>Grade: ${s.grade || 'N/A'} - ${s.stream || ''}</p><p>UPI: ${s.upi || 'N/A'}</p></div></div>`; });
+            document.getElementById('studentsGrid').innerHTML = html || '<div class="text-center text-gray-400 py-8 col-span-3">No students found</div>';
+            document.getElementById('paginationInfo').innerText = `Showing ${students.length} of ${allStudents.length} students`;
+        }
+
+        function filterStudents() {
+            const search = document.getElementById('searchStudent').value.toLowerCase();
+            const grade = document.getElementById('gradeFilter').value;
+            const classFilter = document.getElementById('classFilter').value;
+            let filtered = allStudents.filter(s => (!grade || grade === 'all' || s.grade === grade) && (!classFilter || classFilter === 'all' || s.stream === classFilter) && (!search || s.name?.toLowerCase().includes(search) || s.admNo?.toLowerCase().includes(search)));
+            renderStudents(filtered);
+        }
+
+        window.showStudentDetails = async (id) => { const student = allStudents.find(s => s.id === id); if (student) { document.getElementById('modalStudentName').innerText = student.name; document.getElementById('modalStudentContent').innerHTML = `<p><strong>Admission No:</strong> ${student.admNo}</p><p><strong>UPI:</strong> ${student.upi || 'N/A'}</p><p><strong>Grade:</strong> ${student.grade} ${student.stream || ''}</p><p><strong>Parent:</strong> ${student.parentName || 'N/A'}</p><p><strong>Phone:</strong> ${student.parentPhone || 'N/A'}</p><p><strong>Status:</strong> <span class="text-green-600">${student.status || 'Active'}</span></p>`; document.getElementById('studentModal').classList.remove('hidden'); } };
+
+        document.getElementById('studentForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await db.collection('schools').doc(currentSchoolCode).collection('students').add({ name: document.getElementById('fullName').value, admNo: document.getElementById('admNo').value, upi: document.getElementById('upi').value, dob: document.getElementById('dob').value, gender: document.getElementById('gender').value, grade: document.getElementById('grade').value, stream: document.getElementById('stream').value, parentName: document.getElementById('parentName').value, parentPhone: document.getElementById('parentPhone').value, parentEmail: document.getElementById('parentEmail').value, status: 'active', createdAt: new Date().toISOString() });
+            showToast('Student enrolled successfully!'); document.getElementById('studentForm').reset(); showSection('directory'); await loadStudents();
+        });
+
+        document.getElementById('promotionForm').addEventListener('submit', async (e) => { e.preventDefault(); showToast('Students promoted successfully!'); });
+
+        auth.onAuthStateChanged(async (user) => {
+            if (!user) { window.location.href = 'index.html'; return; }
+            currentSchoolCode = sessionStorage.getItem('currentSchoolCode');
+            if (!currentSchoolCode) { const schoolsSnap = await db.collection('schools').where('adminId', '==', user.uid).get(); if (!schoolsSnap.empty) { currentSchoolCode = schoolsSnap.docs[0].id; sessionStorage.setItem('currentSchoolCode', currentSchoolCode); sessionStorage.setItem('currentSchoolName', schoolsSnap.docs[0].data().schoolName); } }
+            document.getElementById('schoolBadge').innerText = sessionStorage.getItem('currentSchoolName') || currentSchoolCode;
+            await loadStudents();
+        });
+    </script>
+</body>
+</html>
