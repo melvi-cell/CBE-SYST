@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KNEC Registration | LearnPro Kenya ERP</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: #f0f2f5; }
+        .stat-card { background: white; border-radius: 20px; transition: all 0.3s ease; border: 1px solid #eef2ff; cursor: pointer; }
+        .stat-card:hover { transform: translateY(-3px); box-shadow: 0 15px 30px -12px rgba(0,0,0,0.1); }
+        .toast { position: fixed; bottom: 24px; right: 24px; background: #003f87; color: white; padding: 12px 24px; border-radius: 48px; z-index: 1000; font-weight: 500; }
+        .toast-error { background: #dc2626; }
+        .toast-success { background: #059669; }
+        .status-badge { display: inline-flex; align-items: center; padding: 4px 12px; border-radius: 30px; font-size: 11px; font-weight: 600; }
+        .status-pending { background: #fef3c7; color: #92400e; }
+        .status-submitted { background: #dbeafe; color: #1e40af; }
+        .status-approved { background: #dcfce7; color: #166534; }
+        .status-rejected { background: #fee2e2; color: #991b1b; }
+        .status-transferred { background: #e0e7ff; color: #3730a3; }
+        .status-not-registered { background: #f3f4f6; color: #6b7280; }
+        .nav-tab { cursor: pointer; padding: 8px 20px; border-radius: 30px; font-size: 13px; font-weight: 500; transition: all 0.2s; }
+        .nav-tab-active { background: #003f87; color: white; }
+        .nav-tab-inactive { background: white; color: #4a5568; border: 1px solid #e2e8f0; }
+        .nav-tab-inactive:hover { background: #f1f5f9; border-color: #003f87; }
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; padding: 12px 10px; background: #f8fafc; font-weight: 600; border-bottom: 1px solid #e2e8f0; font-size: 12px; }
+        td { padding: 10px; border-bottom: 1px solid #e2e8f0; font-size: 13px; vertical-align: middle; }
+        .chart-container { height: 180px; position: relative; }
+        .rank-1 { background: linear-gradient(135deg, #ffd70020, #ffd70008); border-left: 3px solid #ffd700; }
+        .rank-2 { background: linear-gradient(135deg, #c0c0c020, #c0c0c008); border-left: 3px solid #c0c0c0; }
+        .rank-3 { background: linear-gradient(135deg, #cd7f3220, #cd7f3208); border-left: 3px solid #cd7f32; }
+        .transferred-row { background: #f3e8ff; opacity: 0.7; text-decoration: line-through; }
+        @media print { .no-print { display: none; } }
+        button { cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <!-- Top Bar -->
+    <div class="bg-white shadow-sm fixed top-0 left-0 right-0 z-40 border-b border-gray-100 no-print">
+        <div class="flex justify-between items-center px-6 py-2">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-gradient-to-br from-[#003f87] to-[#0056b3] rounded-lg flex items-center justify-center">
+                    <span class="material-symbols-outlined text-white text-lg">how_to_reg</span>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold text-[#003f87]">LEARNPRO KENYA</h1>
+                    <p class="text-[9px] text-gray-400 -mt-0.5">KNEC Registration | KEPSEA & KJSEA</p>
+                </div>
+                <span id="schoolBadge" class="ml-2 text-xs bg-[#003f87]/10 text-[#003f87] px-2 py-0.5 rounded-full">Loading...</span>
+            </div>
+            <div class="flex gap-2 items-center">
+                <div class="relative"><button onclick="showNotifications()" class="p-1.5 hover:bg-gray-100 rounded-full"><span class="material-symbols-outlined text-gray-600 text-sm">notifications</span></button><span id="notificationCount" class="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] rounded-full px-1 hidden">0</span></div>
+                <button onclick="window.location.href='dashboard.html'" class="px-3 py-1 text-gray-600 hover:bg-gray-100 rounded-lg text-xs">Dashboard</button>
+                <button onclick="logout()" class="px-3 py-1 text-red-600 hover:bg-red-50 rounded-lg text-xs">Logout</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="pt-14 px-6 pb-6">
+        <div class="max-w-7xl mx-auto">
+            
+            <!-- Banner -->
+            <div class="bg-gradient-to-r from-[#003f87] to-[#006d40] rounded-xl p-4 mb-5 text-white">
+                <div class="flex justify-between items-center">
+                    <div><h2 class="text-xl font-bold">KNEC Candidate Registration</h2><p class="text-white/80 text-xs">KEPSEA (Grade 6) & KJSEA (Grade 9)</p>
+                    <div class="flex gap-4 mt-2"><div><span class="text-xl font-bold" id="registeredCount">0</span><span class="text-xs ml-1">Registered</span></div><div><span class="text-xl font-bold" id="approvedCount">0</span><span class="text-xs ml-1">Approved</span></div><div><span class="text-xl font-bold text-yellow-200" id="transferCount">0</span><span class="text-xs ml-1">Transfers</span></div></div></div>
+                    <div class="text-right bg-white/10 rounded-lg p-3"><div class="text-3xl font-bold" id="daysLeft">0</div><div class="text-xs">Days Left</div><div class="text-[10px]">31st Oct 2024</div></div>
+                </div>
+            </div>
+
+            <!-- Tabs -->
+            <div class="flex gap-1 mb-4 border-b pb-2 flex-wrap">
+                <button onclick="showTab('register')" id="tabRegister" class="nav-tab nav-tab-active">📝 Register</button>
+                <button onclick="showTab('eligible')" id="tabEligible" class="nav-tab nav-tab-inactive">📋 Eligible (Gr6 & Gr9)</button>
+                <button onclick="showTab('submissions')" id="tabSubmissions" class="nav-tab nav-tab-inactive">✅ Submissions</button>
+                <button onclick="showTab('transfers')" id="tabTransfers" class="nav-tab nav-tab-inactive">🔄 Transfers</button>
+                <button onclick="showTab('analytics')" id="tabAnalytics" class="nav-tab nav-tab-inactive">📊 Analytics</button>
+                <button onclick="showTab('bulk')" id="tabBulk" class="nav-tab nav-tab-inactive">📎 Bulk</button>
+            </div>
+
+            <!-- ========== REGISTER TAB ========== -->
+            <div id="registerTab">
+                <div class="grid lg:grid-cols-2 gap-5">
+                    <div class="bg-white rounded-xl p-5 shadow-sm">
+                        <h3 class="text-lg font-bold text-[#003f87] mb-3 pb-1 border-b">Candidate Registration Form</h3>
+                        <form id="registrationForm" onsubmit="return false;">
+                            <div class="mb-3"><label class="block text-xs font-medium mb-1">Select Student</label><select id="selectStudent" class="w-full p-2 border rounded-lg text-sm" onchange="fillStudentData()"><option value="">-- Select from Grade 6 or 9 students --</option></select></div>
+                            <div class="relative my-2"><div class="absolute inset-0 flex items-center"><div class="w-full border-t border-gray-200"></div></div><div class="relative flex justify-center text-xs"><span class="bg-white px-2 text-gray-400">OR manual entry</span></div></div>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div><label class="block text-xs font-medium">Full Name *</label><input type="text" id="fullName" class="w-full p-1.5 border rounded-lg text-sm" required></div>
+                                <div><label class="block text-xs font-medium">Admission No *</label><input type="text" id="admNo" class="w-full p-1.5 border rounded-lg text-sm" required></div>
+                                <div><label class="block text-xs font-medium">UPI/NEMIS *</label><input type="text" id="upi" class="w-full p-1.5 border rounded-lg text-sm" placeholder="10-digit ID" required></div>
+                                <div><label class="block text-xs font-medium">Birth Certificate *</label><input type="text" id="birthCert" class="w-full p-1.5 border rounded-lg text-sm" required></div>
+                                <div><label class="block text-xs font-medium">Date of Birth</label><input type="date" id="dob" class="w-full p-1.5 border rounded-lg text-sm"></div>
+                                <div><label class="block text-xs font-medium">Gender</label><select id="gender" class="w-full p-1.5 border rounded-lg text-sm"><option>Male</option><option>Female</option></select></div>
+                                <div><label class="block text-xs font-medium">Assessment Grade *</label><select id="assessmentGrade" class="w-full p-1.5 border rounded-lg text-sm" required><option value="">Select</option><option value="KEPSEA">Grade 6 - KEPSEA</option><option value="KJSEA">Grade 9 - KJSEA</option></select></div>
+                                <div><label class="block text-xs font-medium">Stream</label><select id="stream" class="w-full p-1.5 border rounded-lg text-sm"><option>North</option><option>South</option><option>East</option><option>West</option></select></div>
+                                <div><label class="block text-xs font-medium">Parent/Guardian</label><input type="text" id="parentName" class="w-full p-1.5 border rounded-lg text-sm"></div>
+                                <div><label class="block text-xs font-medium">Parent Phone</label><input type="tel" id="parentPhone" class="w-full p-1.5 border rounded-lg text-sm"></div>
+                            </div>
+                            <div class="mt-3"><label class="block text-xs font-medium mb-1">KNEC Subjects</label><div class="grid grid-cols-2 gap-1 text-sm" id="subjectsContainer"></div></div>
+                            <div class="grid grid-cols-2 gap-2 mt-3">
+                                <div><div class="border-2 border-dashed border-gray-300 rounded-lg p-2 text-center cursor-pointer hover:border-[#003f87]" onclick="document.getElementById('certFile').click()"><span class="material-symbols-outlined text-xl text-gray-400">cloud_upload</span><p class="text-[10px]">Birth Cert</p><input type="file" id="certFile" accept="image/*,.pdf" class="hidden" onchange="handleCertUpload(this)"></div><p id="certStatus" class="text-[10px] text-gray-400">No file</p></div>
+                                <div><div class="border-2 border-dashed border-gray-300 rounded-lg p-2 text-center cursor-pointer hover:border-[#003f87]" onclick="document.getElementById('photoFile').click()"><span class="material-symbols-outlined text-xl text-gray-400">photo_camera</span><p class="text-[10px]">Passport Photo</p><input type="file" id="photoFile" accept="image/*" class="hidden" onchange="handlePhotoUpload(this)"></div><p id="photoStatus" class="text-[10px] text-gray-400">No file</p></div>
+                            </div>
+                            <div class="mt-3 p-2 bg-yellow-50 rounded-lg text-xs"><p class="font-bold">✓ Admin Verification</p><div class="flex gap-3 mt-1"><label class="flex items-center gap-1"><input type="checkbox" id="verifyCert"> Birth Cert</label><label class="flex items-center gap-1"><input type="checkbox" id="verifyUpi"> UPI Valid</label><label class="flex items-center gap-1"><input type="checkbox" id="verifyPhoto"> Photo OK</label></div></div>
+                            <div class="flex gap-2 mt-3"><button type="submit" class="flex-1 py-1.5 bg-[#003f87] text-white rounded-lg text-sm">Submit to KNEC</button><button type="button" onclick="resetForm()" class="flex-1 py-1.5 border rounded-lg text-sm">Reset</button></div>
+                        </form>
+                    </div>
+                    <div class="space-y-4">
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="bg-blue-50 rounded-lg p-3"><div class="flex justify-between"><span class="text-sm">KEPSEA (Gr6)</span><span class="text-2xl font-bold text-blue-600" id="kepseaRegistered">0</span></div><div class="h-1.5 bg-gray-200 rounded-full mt-1"><div class="h-1.5 bg-blue-600 rounded-full" id="kepseaProgress" style="width:0%"></div></div><p class="text-xs mt-1">Of <span id="kepseaTotal">0</span> eligible</p></div>
+                            <div class="bg-green-50 rounded-lg p-3"><div class="flex justify-between"><span class="text-sm">KJSEA (Gr9)</span><span class="text-2xl font-bold text-green-600" id="kjseaRegistered">0</span></div><div class="h-1.5 bg-gray-200 rounded-full mt-1"><div class="h-1.5 bg-green-600 rounded-full" id="kjseaProgress" style="width:0%"></div></div><p class="text-xs mt-1">Of <span id="kjseaTotal">0</span> eligible</p></div>
+                        </div>
+                        
+                        <!-- Recently Registered with Search Bar -->
+                        <div class="bg-white rounded-lg p-3 shadow-sm">
+                            <div class="flex justify-between items-center mb-2">
+                                <h3 class="font-bold text-sm">📋 Registered Students</h3>
+                                <div class="relative">
+                                    <span class="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm">search</span>
+                                    <input type="text" id="recentSearchInput" placeholder="Search by name, adm, UPI..." class="pl-7 pr-2 py-1 border rounded-lg text-xs w-48" onkeyup="filterRecentRegistrations()">
+                                </div>
+                            </div>
+                            <div id="recentRegistrationsList" class="space-y-1 max-h-80 overflow-y-auto"></div>
+                            <p id="noResultsMsg" class="text-center text-gray-400 text-xs py-3 hidden">No matching students found</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========== ELIGIBLE STUDENTS TAB ========== -->
+            <div id="eligibleTab" class="hidden">
+                <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+                    <div class="p-3 border-b bg-gray-50 flex justify-between items-center"><h3 class="font-bold text-sm">🎓 Eligible Students (Grade 6 & Grade 9)</h3><button onclick="loadEligibleStudents()" class="px-2 py-1 bg-[#003f87] text-white rounded-lg text-xs">Refresh</button></div>
+                    <div class="overflow-x-auto"><table class="w-full"><thead><tr><th class="p-2">Student</th><th>Adm No</th><th>Grade</th><th>Stream</th><th>UPI</th><th>Status</th><th>Actions</th></tr></thead><tbody id="eligibleTableBody"></tbody></table></div>
+                </div>
+            </div>
+
+            <!-- ========== SUBMISSIONS TAB ========== -->
+            <div id="submissionsTab" class="hidden">
+                <div class="grid grid-cols-4 gap-3 mb-4">
+                    <div class="stat-card p-3 text-center"><p class="text-gray-400 text-xs">Total</p><p class="text-xl font-bold text-blue-600" id="totalSubmissions">0</p></div>
+                    <div class="stat-card p-3 text-center"><p class="text-gray-400 text-xs">KEPSEA</p><p class="text-xl font-bold text-green-600" id="kepseaCount">0</p></div>
+                    <div class="stat-card p-3 text-center"><p class="text-gray-400 text-xs">KJSEA</p><p class="text-xl font-bold text-purple-600" id="kjseaCount">0</p></div>
+                    <div class="stat-card p-3 text-center"><p class="text-gray-400 text-xs">Transferred</p><p class="text-xl font-bold text-indigo-600" id="transferredCount">0</p></div>
+                </div>
+                <div class="bg-white rounded-lg p-3 mb-3 flex flex-wrap gap-2"><select id="filterGrade" class="p-1.5 border rounded text-xs"><option value="all">All Grades</option><option>KEPSEA</option><option>KJSEA</option></select><select id="filterStatus" class="p-1.5 border rounded text-xs"><option value="all">All Status</option><option>pending</option><option>submitted</option><option>approved</option><option>rejected</option><option>transferred</option></select><input type="text" id="searchSubmissions" placeholder="Search..." class="p-1.5 border rounded text-xs flex-1"><button onclick="loadSubmissions()" class="px-3 py-1 bg-[#003f87] text-white rounded text-xs">Search</button><button onclick="exportSubmissions()" class="px-3 py-1 border rounded text-xs">Export</button></div>
+                <div class="bg-white rounded-lg overflow-hidden"><div class="overflow-x-auto"><table class="w-full"><thead><tr><th class="p-2">Name</th><th>Adm No</th><th>Grade</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead><tbody id="submissionsTableBody"></tbody></table></div></div>
+            </div>
+
+            <!-- ========== TRANSFERS TAB ========== -->
+            <div id="transfersTab" class="hidden">
+                <div class="bg-white rounded-lg shadow-sm overflow-hidden mb-4">
+                    <div class="p-3 border-b bg-gray-50"><h3 class="font-bold text-sm">🔄 Incoming Transfer Requests</h3></div>
+                    <div class="overflow-x-auto"><table class="w-full"><thead><tr><th>Student</th><th>From School</th><th>Grade</th><th>UPI</th><th>Request Date</th><th>Actions</th></tr></thead><tbody id="transfersTableBody"></tbody></table></div>
+                </div>
+                <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+                    <div class="p-3 border-b bg-gray-50"><h3 class="font-bold text-sm">📤 Outgoing Transfer Requests</h3></div>
+                    <div class="overflow-x-auto"><table class="w-full"><thead><tr><th>Student</th><th>To School</th><th>Grade</th><th>Status</th><th>Request Date</th></tr></thead><tbody id="outgoingTransfersBody"></tbody></table></div>
+                </div>
+            </div>
+
+            <!-- ========== ANALYTICS TAB ========== -->
+            <div id="analyticsTab" class="hidden">
+                <div class="grid grid-cols-4 gap-3 mb-4">
+                    <div class="bg-white rounded-lg p-2 shadow-sm"><h4 class="font-bold text-xs text-gray-600 mb-1">Registration Progress</h4><div class="chart-container" style="height: 120px;"><canvas id="progressChart"></canvas></div></div>
+                    <div class="bg-white rounded-lg p-2 shadow-sm"><h4 class="font-bold text-xs text-gray-600 mb-1">By Grade</h4><div class="chart-container" style="height: 120px;"><canvas id="gradeChart"></canvas></div></div>
+                    <div class="bg-white rounded-lg p-2 shadow-sm"><h4 class="font-bold text-xs text-gray-600 mb-1">Weekly Trend</h4><div class="chart-container" style="height: 120px;"><canvas id="trendChart"></canvas></div></div>
+                    <div class="bg-white rounded-lg p-2 shadow-sm"><h4 class="font-bold text-xs text-gray-600 mb-1">By Stream</h4><div class="chart-container" style="height: 120px;"><canvas id="streamChart"></canvas></div></div>
+                </div>
+                <div class="bg-white rounded-lg shadow-sm overflow-hidden mb-4">
+                    <div class="p-2 border-b bg-gray-50"><h3 class="font-bold text-sm">🏆 Class Performance Ranking</h3></div>
+                    <div class="overflow-x-auto"><table class="w-full"><thead><tr><th>Rank</th><th>Class</th><th>Stream</th><th>Students</th><th>Registered</th><th>Pending</th><th>Approved</th><th>Completion</th></tr></thead><tbody id="classRankingBody"></tbody></table></div>
+                </div>
+                <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+                    <div class="p-2 border-b bg-gray-50"><h3 class="font-bold text-sm">📚 Subject Registration Summary</h3></div>
+                    <div class="overflow-x-auto"><table class="w-full"><thead><tr><th>Subject</th><th>KEPSEA</th><th>KJSEA</th><th>Total</th></tr></thead><tbody id="subjectPerformanceBody"></tbody></table></div>
+                </div>
+            </div>
+
+            <!-- ========== BULK TAB ========== -->
+            <div id="bulkTab" class="hidden">
+                <div class="bg-white rounded-lg p-5 shadow-sm"><h3 class="text-lg font-bold text-[#003f87] mb-3">📎 Bulk Registration</h3><div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-[#003f87]" onclick="document.getElementById('bulkExcel').click()"><span class="material-symbols-outlined text-4xl text-gray-400">upload_file</span><p class="text-sm">Click to upload Excel/CSV</p><input type="file" id="bulkExcel" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleBulkUpload(this)"></div><button onclick="downloadBulkTemplate()" class="mt-3 text-[#003f87] text-sm">Download Template</button><div id="bulkPreview" class="mt-3 hidden"></div><button id="confirmBulkBtn" onclick="confirmBulkUpload()" class="mt-3 px-4 py-1.5 bg-green-600 text-white rounded-lg text-sm hidden">Confirm Upload</button></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Modal -->
+    <div id="editModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-xl p-5 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between mb-3"><h3 class="text-lg font-bold text-[#003f87]">Edit Candidate</h3><button onclick="closeEditModal()" class="text-gray-400">✕</button></div>
+            <input type="hidden" id="editId">
+            <div class="grid grid-cols-2 gap-2">
+                <div><label class="text-xs">Full Name</label><input type="text" id="editName" class="w-full p-1.5 border rounded text-sm"></div>
+                <div><label class="text-xs">Admission No</label><input type="text" id="editAdmNo" class="w-full p-1.5 border rounded text-sm"></div>
+                <div><label class="text-xs">UPI</label><input type="text" id="editUpi" class="w-full p-1.5 border rounded text-sm"></div>
+                <div><label class="text-xs">Birth Certificate</label><input type="text" id="editBirthCert" class="w-full p-1.5 border rounded text-sm"></div>
+                <div><label class="text-xs">DOB</label><input type="date" id="editDob" class="w-full p-1.5 border rounded text-sm"></div>
+                <div><label class="text-xs">Gender</label><select id="editGender" class="w-full p-1.5 border rounded text-sm"><option>Male</option><option>Female</option></select></div>
+                <div><label class="text-xs">Grade</label><select id="editGrade" class="w-full p-1.5 border rounded text-sm"><option>KEPSEA</option><option>KJSEA</option></select></div>
+                <div><label class="text-xs">Stream</label><select id="editStream" class="w-full p-1.5 border rounded text-sm"><option>North</option><option>South</option><option>East</option><option>West</option></select></div>
+                <div><label class="text-xs">Parent Name</label><input type="text" id="editParentName" class="w-full p-1.5 border rounded text-sm"></div>
+                <div><label class="text-xs">Parent Phone</label><input type="tel" id="editParentPhone" class="w-full p-1.5 border rounded text-sm"></div>
+            </div>
+            <div class="flex gap-2 mt-4"><button onclick="saveEdit()" class="flex-1 py-1.5 bg-[#003f87] text-white rounded-lg text-sm">Save Changes</button><button onclick="closeEditModal()" class="flex-1 py-1.5 border rounded-lg text-sm">Cancel</button></div>
+        </div>
+    </div>
+
+    <!-- Transfer Modal -->
+    <div id="transferModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-xl p-5 max-w-md w-full">
+            <h3 class="text-lg font-bold text-[#003f87] mb-3">Transfer Student</h3>
+            <input type="hidden" id="transferStudentId">
+            <input type="hidden" id="transferStudentData">
+            <div class="mb-3"><label class="block text-sm font-medium mb-1">Select Destination School</label><select id="targetSchool" class="w-full p-2 border rounded-lg text-sm"><option value="">Select existing school</option></select><div class="relative my-2"><div class="absolute inset-0 flex items-center"><div class="w-full border-t border-gray-200"></div></div><div class="relative flex justify-center text-xs"><span class="bg-white px-2 text-gray-400">OR</span></div></div><input type="text" id="newSchoolName" placeholder="Type new school name if not listed" class="w-full p-2 border rounded-lg text-sm"></div>
+            <div class="mb-3"><label class="block text-sm font-medium mb-1">Transfer Reason</label><textarea id="transferReason" rows="2" class="w-full p-2 border rounded-lg text-sm" placeholder="e.g., Family relocation..."></textarea></div>
+            <div class="flex gap-2"><button onclick="submitTransfer()" class="flex-1 py-2 bg-[#003f87] text-white rounded-lg text-sm">Request Transfer</button><button onclick="closeTransferModal()" class="flex-1 py-2 border rounded-lg text-sm">Cancel</button></div>
+        </div>
+    </div>
+
+    <!-- View Modal -->
+    <div id="viewModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-xl p-5 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between mb-3"><h3 class="text-lg font-bold text-[#003f87]">Candidate Details</h3><button onclick="closeViewModal()" class="text-gray-400">✕</button></div>
+            <div id="viewContent" class="space-y-2 text-sm"></div>
+            <div class="flex gap-2 mt-4"><button onclick="updateStatus('approved')" class="flex-1 py-1.5 bg-green-600 text-white rounded-lg text-sm">Approve</button><button onclick="updateStatus('rejected')" class="flex-1 py-1.5 bg-red-600 text-white rounded-lg text-sm">Reject</button><button onclick="closeViewModal()" class="flex-1 py-1.5 border rounded-lg text-sm">Close</button></div>
+        </div>
+    </div>
+
+    <!-- Notifications Panel -->
+    <div id="notificationsPanel" class="fixed right-4 top-14 w-80 bg-white rounded-lg shadow-xl z-50 hidden border"><div class="p-2 border-b bg-gray-50 flex justify-between"><h3 class="font-bold text-sm">Notifications</h3><button onclick="closeNotifications()" class="text-gray-400">✕</button></div><div id="notificationsList" class="max-h-80 overflow-y-auto p-2 text-sm"></div></div>
+
+    <div id="toast" style="display:none" class="toast"></div>
+
+    <script>
+        const firebaseConfig = { apiKey: "AIzaSyA4cm7chJXz90yOLWPtbdIW8KlEozG1lxo", authDomain: "learnpro-kenya-erp.firebaseapp.com", projectId: "learnpro-kenya-erp", storageBucket: "learnpro-kenya-erp.firebasestorage.app", messagingSenderId: "327168081514", appId: "1:327168081514:web:13cdc8b827fa76d95a9413" };
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        const storage = firebase.storage();
+
+        let currentSchool = null, schoolName = '';
+        let allRegistrations = [], allEligibleStudents = [], allStudents = [], allSchools = [];
+        let currentViewId = null, currentEditId = null;
+        let certFileData = null, photoFileData = null;
+        let bulkData = [];
+        let progressChart, gradeChart, trendChart, streamChart;
+
+        const knecSubjects = { KEPSEA: ['Mathematics', 'English', 'Kiswahili', 'Integrated Science', 'Social Studies', 'Creative Arts'], KJSEA: ['Mathematics', 'English', 'Kiswahili', 'Integrated Science', 'Social Studies', 'Creative Arts', 'Physical Education'] };
+
+        function showToast(msg, isErr) { let toast = document.getElementById('toast'); toast.textContent = msg; toast.className = `toast ${isErr ? 'toast-error' : 'toast-success'}`; toast.style.display = 'block'; setTimeout(() => toast.style.display = 'none', 3000); }
+        async function logout() { await auth.signOut(); sessionStorage.clear(); window.location.href = 'index.html'; }
+
+        function showTab(tab) {
+            document.querySelectorAll('[id$="Tab"]').forEach(el => el.classList.add('hidden'));
+            document.getElementById(tab + 'Tab').classList.remove('hidden');
+            document.querySelectorAll('.nav-tab').forEach(btn => btn.classList.remove('nav-tab-active', 'nav-tab-inactive'));
+            let btnMap = { register: 'tabRegister', eligible: 'tabEligible', submissions: 'tabSubmissions', transfers: 'tabTransfers', analytics: 'tabAnalytics', bulk: 'tabBulk' };
+            document.getElementById(btnMap[tab]).classList.add('nav-tab-active');
+            if (tab === 'submissions') loadSubmissions();
+            if (tab === 'eligible') loadEligibleStudents();
+            if (tab === 'analytics') { updateCharts(); updateClassRanking(); updateSubjectPerformance(); }
+            if (tab === 'transfers') loadTransfers();
+        }
+
+        function filterRecentRegistrations() {
+            let searchTerm = document.getElementById('recentSearchInput').value.toLowerCase();
+            let container = document.getElementById('recentRegistrationsList');
+            let noResultsMsg = document.getElementById('noResultsMsg');
+            
+            // Filter out transferred students from recent list
+            let activeRegistrations = allRegistrations.filter(r => r.status !== 'transferred');
+            
+            if (!searchTerm) {
+                let recent = [...activeRegistrations].sort((a,b) => new Date(b.registeredAt) - new Date(a.registeredAt)).slice(0, 20);
+                displayRecentRegistrations(recent);
+                noResultsMsg.classList.add('hidden');
+                return;
+            }
+            
+            let filtered = activeRegistrations.filter(r => 
+                r.name.toLowerCase().includes(searchTerm) ||
+                r.admNo.toLowerCase().includes(searchTerm) ||
+                (r.upi && r.upi.toLowerCase().includes(searchTerm))
+            ).sort((a,b) => new Date(b.registeredAt) - new Date(a.registeredAt));
+            
+            if (filtered.length === 0) {
+                container.innerHTML = '';
+                noResultsMsg.classList.remove('hidden');
+            } else {
+                displayRecentRegistrations(filtered);
+                noResultsMsg.classList.add('hidden');
+            }
+        }
+        
+        function displayRecentRegistrations(registrations) {
+            let container = document.getElementById('recentRegistrationsList');
+            let searchTerm = document.getElementById('recentSearchInput').value.toLowerCase();
+            
+            if (registrations.length === 0) {
+                container.innerHTML = '<p class="text-center text-gray-400 text-xs py-3">No active registrations</p>';
+                return;
+            }
+            
+            container.innerHTML = registrations.slice(0, 15).map(r => {
+                let nameDisplay = r.name;
+                let admDisplay = r.admNo;
+                
+                if (searchTerm) {
+                    const regex = new RegExp(`(${searchTerm})`, 'gi');
+                    nameDisplay = r.name.replace(regex, '<mark class="bg-yellow-200 px-0.5 rounded">$1</mark>');
+                    admDisplay = r.admNo.replace(regex, '<mark class="bg-yellow-200 px-0.5 rounded">$1</mark>');
+                }
+                
+                return `
+                    <div class="flex justify-between items-center p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition cursor-pointer" onclick="viewCandidateFromList('${r.id}')">
+                        <div>
+                            <p class="font-medium text-xs">${nameDisplay}</p>
+                            <p class="text-[10px] text-gray-500">${r.grade} | ${admDisplay} | UPI: ${r.upi}</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="status-badge status-${r.status} text-[10px]">${r.status}</span>
+                            <span class="text-[10px] text-gray-400">${new Date(r.registeredAt).toLocaleDateString()}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function viewCandidateFromList(id) { viewCandidate(id); }
+
+        async function loadAllSchools() {
+            let snap = await db.collection('schools').get();
+            allSchools = []; snap.forEach(d => { if (d.id !== currentSchool) allSchools.push({ id: d.id, name: d.data().schoolName }); });
+            let select = document.getElementById('targetSchool');
+            select.innerHTML = '<option value="">Select existing school</option>' + allSchools.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+        }
+
+        async function loadAllData() {
+            if (!currentSchool) return;
+            
+            // Load students (excluding transferred/deleted)
+            let studentsSnap = await db.collection('schools').doc(currentSchool).collection('students').where('deleted', '==', false).get();
+            allStudents = []; studentsSnap.forEach(d => allStudents.push({ id: d.id, ...d.data() }));
+            
+            // Load registrations (excluding transferred for active views)
+            let regSnap = await db.collection('schools').doc(currentSchool).collection('knecRegistrations').get();
+            allRegistrations = []; regSnap.forEach(d => allRegistrations.push({ id: d.id, ...d.data() }));
+            
+            // Eligible students = Grade 6 or 9 AND not transferred/deleted
+            allEligibleStudents = allStudents.filter(s => 
+                (s.grade === 'Grade 6' || s.grade === 'Grade 9') && 
+                s.status !== 'Transferred' && 
+                s.deleted !== true
+            );
+            
+            await loadEligibleStudents();
+            await loadSubmissions();
+            await loadTransfers();
+            await updateCharts();
+        }
+
+        async function loadEligibleStudents() {
+            if (!currentSchool) return;
+            
+            let regMap = new Map(); 
+            allRegistrations.forEach(r => {
+                if (r.status !== 'transferred') {
+                    regMap.set(r.admNo, r);
+                }
+            });
+            
+            let tbody = document.getElementById('eligibleTableBody');
+            if (allEligibleStudents.length === 0) { 
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center py-6 text-gray-400">No Grade 6 or Grade 9 students found. Add students first. </td> <table>'; 
+                return; 
+            }
+            
+            tbody.innerHTML = allEligibleStudents.map(s => {
+                let reg = regMap.get(s.admNo);
+                let status = reg ? reg.status : 'not_registered';
+                let statusText = reg ? reg.status.toUpperCase() : 'NOT REGISTERED';
+                let statusClass = reg ? `status-${reg.status}` : 'status-not-registered';
+                return `<tr class="border-b hover:bg-gray-50"><td class="font-medium">${s.name}</td><td>${s.admNo}</td><td class="font-bold">${s.grade}</td><td>${s.stream || '-'}</td><td>${s.upi || 'N/A'}</td><td><span class="status-badge ${statusClass} text-xs">${statusText}</span></td>
+                <td class="text-center"><div class="flex gap-1 justify-center">${reg ? `<button onclick="viewCandidate('${reg.id}')" class="text-blue-600 text-xs hover:underline">View</button><button onclick="openEditModal('${reg.id}')" class="text-green-600 text-xs hover:underline">Edit</button><button onclick="openTransferModalFromReg('${reg.id}', '${s.name}', '${s.admNo}', '${s.grade}')" class="text-indigo-600 text-xs hover:underline">Transfer</button>` : `<button onclick="registerStudent('${s.id}')" class="text-green-600 text-xs hover:underline">Register</button>`}</div></td></tr>`;
+            }).join('');
+            
+            let kepseaEligible = allEligibleStudents.filter(s => s.grade === 'Grade 6').length;
+            let kjseaEligible = allEligibleStudents.filter(s => s.grade === 'Grade 9').length;
+            let activeRegistrations = allRegistrations.filter(r => r.status !== 'transferred');
+            let kepseaReg = activeRegistrations.filter(r => r.grade === 'KEPSEA').length;
+            let kjseaReg = activeRegistrations.filter(r => r.grade === 'KJSEA').length;
+            
+            document.getElementById('kepseaTotal').innerText = kepseaEligible;
+            document.getElementById('kjseaTotal').innerText = kjseaEligible;
+            document.getElementById('kepseaRegistered').innerText = kepseaReg;
+            document.getElementById('kjseaRegistered').innerText = kjseaReg;
+            document.getElementById('kepseaProgress').style.width = kepseaEligible > 0 ? `${(kepseaReg / kepseaEligible) * 100}%` : '0%';
+            document.getElementById('kjseaProgress').style.width = kjseaEligible > 0 ? `${(kjseaReg / kjseaEligible) * 100}%` : '0%';
+            document.getElementById('registeredCount').innerText = activeRegistrations.length;
+            document.getElementById('approvedCount').innerText = activeRegistrations.filter(r => r.status === 'approved').length;
+            document.getElementById('transferCount').innerText = allRegistrations.filter(r => r.status === 'transferred').length;
+            
+            let select = document.getElementById('selectStudent');
+            select.innerHTML = '<option value="">-- Select Grade 6 or 9 student --</option>' + allEligibleStudents.map(s => `<option value="${s.id}" data-name="${s.name}" data-adm="${s.admNo}" data-upi="${s.upi || ''}" data-grade="${s.grade === 'Grade 6' ? 'KEPSEA' : 'KJSEA'}" data-stream="${s.stream || ''}" data-parent="${s.parentName || ''}" data-phone="${s.parentPhone || ''}" data-dob="${s.dob || ''}" data-gender="${s.gender || 'Male'}">${s.name} (${s.admNo}) - ${s.grade}</option>`).join('');
+            
+            filterRecentRegistrations();
+        }
+
+        async function loadSubmissions() {
+            if (!currentSchool) return;
+            
+            let grade = document.getElementById('filterGrade').value;
+            let status = document.getElementById('filterStatus').value;
+            let search = document.getElementById('searchSubmissions').value.toLowerCase();
+            
+            // For total counts, include all registrations
+            let totalRegistrations = allRegistrations.length;
+            let transferredRegistrations = allRegistrations.filter(r => r.status === 'transferred').length;
+            let activeRegistrations = allRegistrations.filter(r => r.status !== 'transferred');
+            
+            let filtered = activeRegistrations.filter(r => 
+                (grade === 'all' || r.grade === grade) && 
+                (status === 'all' || r.status === status) && 
+                (!search || r.name.toLowerCase().includes(search) || r.upi.includes(search))
+            );
+            
+            document.getElementById('totalSubmissions').innerText = totalRegistrations;
+            document.getElementById('kepseaCount').innerText = activeRegistrations.filter(r => r.grade === 'KEPSEA').length;
+            document.getElementById('kjseaCount').innerText = activeRegistrations.filter(r => r.grade === 'KJSEA').length;
+            document.getElementById('transferredCount').innerText = transferredRegistrations;
+            
+            let tbody = document.getElementById('submissionsTableBody');
+            if (filtered.length === 0) { 
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center py-6 text-gray-400">No active submissions</td></tr>'; 
+                return; 
+            }
+            
+            tbody.innerHTML = filtered.map(r => `<tr class="border-b"><td class="font-medium">${r.name}</td><td>${r.admNo}</td><td>${r.grade}</td><td><span class="status-badge status-${r.status} text-xs">${r.status}</span></td><td>${new Date(r.registeredAt).toLocaleDateString()}</td><td class="text-center"><button onclick="viewCandidate('${r.id}')" class="text-blue-600 text-xs mr-1 hover:underline">View</button><button onclick="openEditModal('${r.id}')" class="text-green-600 text-xs mr-1 hover:underline">Edit</button><button onclick="openTransferModalFromReg('${r.id}', '${r.name}', '${r.admNo}', '${r.grade}')" class="text-indigo-600 text-xs hover:underline">Transfer</button></td></tr>`).join('');
+        }
+
+        async function loadTransfers() {
+            let incomingSnap = await db.collection('schools').doc(currentSchool).collection('incomingTransfers').get();
+            let incoming = []; incomingSnap.forEach(d => incoming.push({ id: d.id, ...d.data() }));
+            document.getElementById('transfersTableBody').innerHTML = incoming.filter(t => t.status === 'pending').map(t => `<tr class="border-b"><td class="font-medium">${t.studentName}</td><td>${t.fromSchool}</td><td>${t.grade}</td><td>${t.upi}</td><td>${new Date(t.requestDate).toLocaleDateString()}</td><td class="text-center"><button onclick="acceptTransfer('${t.id}', '${t.studentId}')" class="bg-green-600 text-white px-2 py-0.5 rounded text-xs mr-1">Accept</button><button onclick="rejectTransfer('${t.id}')" class="bg-red-600 text-white px-2 py-0.5 rounded text-xs">Reject</button></td></tr>`).join('') || '<tr><td colspan="6" class="text-center py-4 text-gray-400">No pending incoming transfers</td></tr>';
+            
+            let outgoingSnap = await db.collection('schools').doc(currentSchool).collection('outgoingTransfers').get();
+            let outgoing = []; outgoingSnap.forEach(d => outgoing.push({ id: d.id, ...d.data() }));
+            document.getElementById('outgoingTransfersBody').innerHTML = outgoing.map(t => `<tr class="border-b"><td class="font-medium">${t.studentName}</td><td>${t.toSchool}</td><td>${t.grade}</td><td><span class="status-badge status-${t.status} text-xs">${t.status}</span></td><td>${new Date(t.requestDate).toLocaleDateString()}</td></tr>`).join('') || '<tr><td colspan="5" class="text-center py-4 text-gray-400">No outgoing transfers</td></tr>';
+        }
+
+        // ========== TRANSFER FUNCTION - REMOVES STUDENT FROM CURRENT SCHOOL ==========
+        async function submitTransfer() {
+            let targetSchoolId = document.getElementById('targetSchool').value;
+            let newSchoolName = document.getElementById('newSchoolName').value.trim();
+            let reason = document.getElementById('transferReason').value;
+            let studentData = JSON.parse(document.getElementById('transferStudentData').value);
+            let transferId = document.getElementById('transferStudentId').value;
+            
+            let targetSchoolName = '';
+            let targetSchoolIdActual = null;
+            
+            if (newSchoolName) {
+                targetSchoolName = newSchoolName;
+                targetSchoolIdActual = null;
+            } else if (targetSchoolId) {
+                let target = allSchools.find(s => s.id === targetSchoolId);
+                if (!target) { showToast('Selected school not found', true); return; }
+                targetSchoolName = target.name;
+                targetSchoolIdActual = targetSchoolId;
+            } else {
+                showToast('Select or enter a school name', true);
+                return;
+            }
+            
+            // Find the student records
+            let studentRecord = allStudents.find(s => s.admNo === studentData.admNo);
+            let knecRecord = allRegistrations.find(r => r.id === transferId);
+            
+            let transferData = {
+                studentId: transferId,
+                studentName: studentData.name,
+                admNo: studentData.admNo,
+                grade: studentData.grade,
+                upi: knecRecord?.upi || studentData.upi || 'N/A',
+                fromSchool: schoolName,
+                fromSchoolId: currentSchool,
+                toSchool: targetSchoolName,
+                toSchoolId: targetSchoolIdActual,
+                reason: reason,
+                status: 'pending',
+                requestDate: new Date().toISOString(),
+                studentDataSnapshot: studentRecord || null,
+                knecDataSnapshot: knecRecord || null
+            };
+            
+            try {
+                showToast(`Processing transfer for ${studentData.name}...`);
+                
+                // 1. Send transfer request to destination school
+                if (targetSchoolIdActual) {
+                    await db.collection('schools').doc(targetSchoolIdActual).collection('incomingTransfers').add(transferData);
+                }
+                
+                // 2. Record outgoing transfer
+                await db.collection('schools').doc(currentSchool).collection('outgoingTransfers').add(transferData);
+                
+                // 3. REMOVE STUDENT FROM CURRENT SCHOOL'S STUDENT COLLECTION (mark as transferred/deleted)
+                if (studentRecord) {
+                    await db.collection('schools').doc(currentSchool).collection('students').doc(studentRecord.id).update({ 
+                        deleted: true, 
+                        status: 'Transferred',
+                        transferredTo: targetSchoolName,
+                        transferredAt: new Date().toISOString(),
+                        transferReason: reason
+                    });
+                }
+                
+                // 4. REMOVE FROM KNEC REGISTRATIONS (mark as transferred - NOT active anymore)
+                if (knecRecord) {
+                    await db.collection('schools').doc(currentSchool).collection('knecRegistrations').doc(transferId).update({ 
+                        status: 'transferred', 
+                        transferredTo: targetSchoolName, 
+                        transferredAt: new Date().toISOString(),
+                        isActive: false
+                    });
+                }
+                
+                showToast(`✅ Student ${studentData.name} has been transferred out of ${schoolName}`);
+                closeTransferModal();
+                
+                // Refresh all data
+                await loadAllData();
+                
+            } catch (error) {
+                showToast('Error submitting transfer: ' + error.message, true);
+            }
+        }
+
+        // ========== ACCEPT TRANSFER - ADDS STUDENT TO CURRENT SCHOOL ==========
+        async function acceptTransfer(transferId, studentId) {
+            try {
+                let transfer = (await db.collection('schools').doc(currentSchool).collection('incomingTransfers').doc(transferId).get()).data();
+                if (!transfer) { showToast("Transfer not found", true); return; }
+                
+                // Add student to current school's students collection
+                await db.collection('schools').doc(currentSchool).collection('students').add({
+                    name: transfer.studentName,
+                    admNo: transfer.admNo,
+                    upi: transfer.upi,
+                    grade: transfer.grade === 'KEPSEA' ? 'Grade 6' : 'Grade 9',
+                    stream: 'Transferred',
+                    status: 'Active',
+                    transferredFrom: transfer.fromSchool,
+                    transferredAt: new Date().toISOString(),
+                    deleted: false
+                });
+                
+                // Add to KNEC registrations as pending
+                await db.collection('schools').doc(currentSchool).collection('knecRegistrations').add({
+                    name: transfer.studentName,
+                    admNo: transfer.admNo,
+                    upi: transfer.upi,
+                    grade: transfer.grade,
+                    status: 'pending',
+                    registeredAt: new Date().toISOString(),
+                    transferredFrom: transfer.fromSchool
+                });
+                
+                // Update incoming transfer status
+                await db.collection('schools').doc(currentSchool).collection('incomingTransfers').doc(transferId).update({ 
+                    status: 'accepted', 
+                    acceptedAt: new Date().toISOString() 
+                });
+                
+                // Update outgoing transfer in source school
+                let outgoingSnap = await db.collection('schools').doc(transfer.fromSchoolId).collection('outgoingTransfers').where('studentId', '==', transfer.studentId).get();
+                for (let doc of outgoingSnap.docs) {
+                    await db.collection('schools').doc(transfer.fromSchoolId).collection('outgoingTransfers').doc(doc.id).update({ status: 'accepted' });
+                }
+                
+                showToast(`✅ Student ${transfer.studentName} accepted and added to your school`);
+                await loadAllData();
+                
+            } catch (error) {
+                showToast('Error accepting transfer: ' + error.message, true);
+            }
+        }
+
+        async function rejectTransfer(transferId) {
+            try {
+                await db.collection('schools').doc(currentSchool).collection('incomingTransfers').doc(transferId).update({ status: 'rejected' });
+                showToast('Transfer request rejected');
+                await loadTransfers();
+            } catch (error) {
+                showToast('Error rejecting transfer: ' + error.message, true);
+            }
+        }
+
+        // Other functions (viewCandidate, openEditModal, saveEdit, etc.) remain the same...
+        async function viewCandidate(id) {
+            let reg = allRegistrations.find(r => r.id === id);
+            if (!reg) { showToast("Candidate not found", true); return; }
+            currentViewId = id;
+            document.getElementById('viewContent').innerHTML = `
+                <div class="grid grid-cols-2 gap-2">
+                    <div class="font-semibold">Full Name:</div><div>${reg.name}</div>
+                    <div class="font-semibold">Admission No:</div><div>${reg.admNo}</div>
+                    <div class="font-semibold">UPI/NEMIS:</div><div>${reg.upi || 'N/A'}</div>
+                    <div class="font-semibold">Birth Certificate:</div><div>${reg.birthCert || 'N/A'}</div>
+                    <div class="font-semibold">Date of Birth:</div><div>${reg.dob ? new Date(reg.dob).toLocaleDateString() : 'N/A'}</div>
+                    <div class="font-semibold">Gender:</div><div>${reg.gender || 'N/A'}</div>
+                    <div class="font-semibold">Grade:</div><div>${reg.grade}</div>
+                    <div class="font-semibold">Stream:</div><div>${reg.stream || 'N/A'}</div>
+                    <div class="font-semibold">Parent/Guardian:</div><div>${reg.parentName || 'N/A'}</div>
+                    <div class="font-semibold">Parent Phone:</div><div>${reg.parentPhone || 'N/A'}</div>
+                    <div class="font-semibold">Subjects:</div><div>${(reg.subjects || []).join(', ') || 'Not specified'}</div>
+                    <div class="font-semibold">Status:</div><div><span class="status-badge status-${reg.status}">${reg.status}</span></div>
+                    <div class="font-semibold">Registered On:</div><div>${new Date(reg.registeredAt).toLocaleString()}</div>
+                </div>
+            `;
+            document.getElementById('viewModal').classList.remove('hidden');
+        }
+
+        async function openEditModal(id) {
+            let reg = allRegistrations.find(r => r.id === id);
+            if (!reg) { showToast("Candidate not found", true); return; }
+            if (reg.status === 'transferred') { showToast("Cannot edit transferred student", true); return; }
+            currentEditId = id;
+            document.getElementById('editId').value = id;
+            document.getElementById('editName').value = reg.name || '';
+            document.getElementById('editAdmNo').value = reg.admNo || '';
+            document.getElementById('editUpi').value = reg.upi || '';
+            document.getElementById('editBirthCert').value = reg.birthCert || '';
+            document.getElementById('editDob').value = reg.dob || '';
+            document.getElementById('editGender').value = reg.gender || 'Male';
+            document.getElementById('editGrade').value = reg.grade || 'KEPSEA';
+            document.getElementById('editStream').value = reg.stream || 'North';
+            document.getElementById('editParentName').value = reg.parentName || '';
+            document.getElementById('editParentPhone').value = reg.parentPhone || '';
+            document.getElementById('editModal').classList.remove('hidden');
+        }
+
+        async function saveEdit() {
+            if (!currentEditId) { showToast("No candidate selected", true); return; }
+            try {
+                await db.collection('schools').doc(currentSchool).collection('knecRegistrations').doc(currentEditId).update({
+                    name: document.getElementById('editName').value,
+                    admNo: document.getElementById('editAdmNo').value,
+                    upi: document.getElementById('editUpi').value,
+                    birthCert: document.getElementById('editBirthCert').value,
+                    dob: document.getElementById('editDob').value,
+                    gender: document.getElementById('editGender').value,
+                    grade: document.getElementById('editGrade').value,
+                    stream: document.getElementById('editStream').value,
+                    parentName: document.getElementById('editParentName').value,
+                    parentPhone: document.getElementById('editParentPhone').value,
+                    updatedAt: new Date().toISOString()
+                });
+                showToast('Candidate updated successfully');
+                closeEditModal();
+                await loadAllData();
+            } catch (error) {
+                showToast('Error updating: ' + error.message, true);
+            }
+        }
+
+        function closeEditModal() { document.getElementById('editModal').classList.add('hidden'); currentEditId = null; }
+        
+        async function updateStatus(status) { 
+            if (!currentViewId) { showToast("No candidate selected", true); return; }
+            try {
+                await db.collection('schools').doc(currentSchool).collection('knecRegistrations').doc(currentViewId).update({ 
+                    status: status, 
+                    approvedAt: status === 'approved' ? new Date().toISOString() : null 
+                }); 
+                showToast(`Status updated to ${status}`); 
+                closeViewModal(); 
+                await loadAllData();
+            } catch (error) {
+                showToast('Error updating status: ' + error.message, true);
+            }
+        }
+
+        function closeViewModal() { document.getElementById('viewModal').classList.add('hidden'); currentViewId = null; }
+        function openTransferModalFromReg(id, name, admNo, grade) { 
+            document.getElementById('transferStudentId').value = id;
+            document.getElementById('transferStudentData').value = JSON.stringify({ name, admNo, grade, fromReg: true });
+            document.getElementById('transferModal').classList.remove('hidden');
+        }
+        function closeTransferModal() { document.getElementById('transferModal').classList.add('hidden'); }
+
+        // Registration functions
+        function fillStudentData() {
+            let select = document.getElementById('selectStudent');
+            let option = select.options[select.selectedIndex];
+            if (option.value) {
+                document.getElementById('fullName').value = option.dataset.name || '';
+                document.getElementById('admNo').value = option.dataset.adm || '';
+                document.getElementById('upi').value = option.dataset.upi || '';
+                document.getElementById('assessmentGrade').value = option.dataset.grade || '';
+                document.getElementById('stream').value = option.dataset.stream || '';
+                document.getElementById('parentName').value = option.dataset.parent || '';
+                document.getElementById('parentPhone').value = option.dataset.phone || '';
+                document.getElementById('dob').value = option.dataset.dob || '';
+                document.getElementById('gender').value = option.dataset.gender || 'Male';
+                document.getElementById('assessmentGrade').dispatchEvent(new Event('change'));
+            }
+        }
+
+        function registerStudent(studentId) {
+            let student = allStudents.find(s => s.id === studentId);
+            if (student) {
+                document.getElementById('fullName').value = student.name;
+                document.getElementById('admNo').value = student.admNo;
+                document.getElementById('upi').value = student.upi || '';
+                document.getElementById('assessmentGrade').value = student.grade === 'Grade 6' ? 'KEPSEA' : 'KJSEA';
+                document.getElementById('stream').value = student.stream || '';
+                document.getElementById('parentName').value = student.parentName || '';
+                document.getElementById('parentPhone').value = student.parentPhone || '';
+                document.getElementById('dob').value = student.dob || '';
+                document.getElementById('gender').value = student.gender || 'Male';
+                document.getElementById('assessmentGrade').dispatchEvent(new Event('change'));
+                showTab('register');
+                showToast(`Ready to register ${student.name}`);
+            }
+        }
+
+        document.getElementById('assessmentGrade').addEventListener('change', function() {
+            let grade = this.value;
+            let container = document.getElementById('subjectsContainer');
+            let subjects = grade === 'KEPSEA' ? knecSubjects.KEPSEA : knecSubjects.KJSEA;
+            container.innerHTML = subjects.map(s => `<label class="flex items-center gap-1"><input type="checkbox" value="${s}" checked class="subject-check"> <span class="text-xs">${s}</span></label>`).join('');
+        });
+        document.getElementById('assessmentGrade').dispatchEvent(new Event('change'));
+
+        function handleCertUpload(input) { if (input.files[0]) { certFileData = input.files[0]; document.getElementById('certStatus').innerHTML = `✅ ${input.files[0].name.substring(0, 15)}`; } }
+        function handlePhotoUpload(input) { if (input.files[0]) { photoFileData = input.files[0]; document.getElementById('photoStatus').innerHTML = `✅ ${input.files[0].name.substring(0, 15)}`; } }
+
+        document.getElementById('registrationForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!document.getElementById('verifyCert').checked || !document.getElementById('verifyUpi').checked || !document.getElementById('verifyPhoto').checked) { showToast('Complete all verification checkboxes', true); return; }
+            let subjects = []; document.querySelectorAll('.subject-check:checked').forEach(cb => subjects.push(cb.value));
+            let data = { 
+                name: document.getElementById('fullName').value, 
+                admNo: document.getElementById('admNo').value, 
+                upi: document.getElementById('upi').value, 
+                birthCert: document.getElementById('birthCert').value, 
+                dob: document.getElementById('dob').value, 
+                gender: document.getElementById('gender').value, 
+                grade: document.getElementById('assessmentGrade').value, 
+                stream: document.getElementById('stream').value, 
+                parentName: document.getElementById('parentName').value, 
+                parentPhone: document.getElementById('parentPhone').value, 
+                subjects: subjects, 
+                status: 'submitted', 
+                registeredAt: new Date().toISOString() 
+            };
+            await db.collection('schools').doc(currentSchool).collection('knecRegistrations').add(data);
+            showToast('Candidate registered successfully!');
+            resetForm();
+            await loadAllData();
+        });
+
+        function resetForm() {
+            document.getElementById('registrationForm').reset();
+            certFileData = null; photoFileData = null;
+            document.getElementById('certStatus').innerHTML = 'No file';
+            document.getElementById('photoStatus').innerHTML = 'No file';
+            document.getElementById('verifyCert').checked = false;
+            document.getElementById('verifyUpi').checked = false;
+            document.getElementById('verifyPhoto').checked = false;
+            document.getElementById('assessmentGrade').dispatchEvent(new Event('change'));
+            document.getElementById('selectStudent').value = '';
+        }
+
+        function handleBulkUpload(input) {
+            let file = input.files[0]; if (!file) return;
+            let reader = new FileReader(); reader.onload = function(e) {
+                let workbook = XLSX.read(e.target.result, { type: 'array' }); let sheet = workbook.Sheets[workbook.SheetNames[0]];
+                bulkData = XLSX.utils.sheet_to_json(sheet);
+                document.getElementById('bulkPreview').innerHTML = `<div class="p-2 bg-green-50 rounded"><p class="text-sm">✅ ${bulkData.length} records ready</p></div>`;
+                document.getElementById('bulkPreview').classList.remove('hidden'); 
+                document.getElementById('confirmBulkBtn').classList.remove('hidden');
+            }; reader.readAsArrayBuffer(file);
+        }
+        
+        async function confirmBulkUpload() {
+            let success = 0;
+            for (let row of bulkData) {
+                let grade = row.Grade === '6' ? 'KEPSEA' : 'KJSEA';
+                await db.collection('schools').doc(currentSchool).collection('knecRegistrations').add({ 
+                    name: row.Name, admNo: row.AdmNo, upi: row.UPI || 'N/A', 
+                    birthCert: row.BirthCert || 'Pending', dob: row.DOB || '', gender: row.Gender || 'Male', 
+                    grade: grade, stream: row.Stream || '', parentName: row.ParentName || '', 
+                    parentPhone: row.ParentPhone || '', subjects: knecSubjects[grade] || [], 
+                    status: 'pending', registeredAt: new Date().toISOString() 
+                });
+                success++;
+            }
+            showToast(`✅ ${success} candidates registered`); 
+            await loadAllData();
+        }
+        
+        function downloadBulkTemplate() {
+            let ws = XLSX.utils.json_to_sheet([{ Name: "John Doe", AdmNo: "2024/001", UPI: "1234567890", BirthCert: "BC123456", DOB: "2012-01-01", Gender: "Male", Grade: "6", Stream: "North", ParentName: "Jane Doe", ParentPhone: "0712345678" }]);
+            let wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Template"); XLSX.writeFile(wb, "knec_template.xlsx");
+        }
+        
+        function exportSubmissions() {
+            let activeRegistrations = allRegistrations.filter(r => r.status !== 'transferred');
+            let ws = XLSX.utils.json_to_sheet(activeRegistrations.map(r => ({ Name: r.name, Admission: r.admNo, UPI: r.upi, Grade: r.grade, Status: r.status })));
+            let wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Submissions"); 
+            XLSX.writeFile(wb, `knec_submissions_${new Date().toISOString().split('T')[0]}.xlsx`);
+            showToast('Exported!');
+        }
+        
+        function updateClassRanking() {
+            let activeRegistrations = allRegistrations.filter(r => r.status !== 'transferred');
+            let classStats = new Map();
+            activeRegistrations.forEach(r => {
+                let key = `${r.grade}|${r.stream}`;
+                if (!classStats.has(key)) classStats.set(key, { grade: r.grade, stream: r.stream, total: 0, registered: 0, approved: 0, pending: 0 });
+                let stats = classStats.get(key);
+                stats.total++;
+                stats.registered++;
+                if (r.status === 'approved') stats.approved++;
+                else if (r.status !== 'rejected') stats.pending++;
+            });
+            let eligibleByClass = new Map();
+            allEligibleStudents.forEach(s => {
+                let grade = s.grade === 'Grade 6' ? 'KEPSEA' : 'KJSEA';
+                let key = `${grade}|${s.stream || 'General'}`;
+                eligibleByClass.set(key, (eligibleByClass.get(key) || 0) + 1);
+            });
+            let ranking = Array.from(classStats.values()).map(c => ({ ...c, totalEligible: eligibleByClass.get(`${c.grade}|${c.stream}`) || 0, completionRate: Math.round((c.registered / (eligibleByClass.get(`${c.grade}|${c.stream}`) || 1)) * 100) })).sort((a,b) => b.completionRate - a.completionRate);
+            let tbody = document.getElementById('classRankingBody');
+            if (ranking.length === 0) { tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-gray-400">No data</td></tr>'; return; }
+            tbody.innerHTML = ranking.map((c, idx) => `<tr class="${idx === 0 ? 'rank-1' : idx === 1 ? 'rank-2' : idx === 2 ? 'rank-3' : ''}"><td class="font-bold">${idx + 1}${idx === 0 ? ' 🏆' : idx === 1 ? ' 🥈' : idx === 2 ? ' 🥉' : ''} <td>${c.grade}<td>${c.stream}<td class="text-center">${c.totalEligible}<td class="text-center text-green-600">${c.registered}<td class="text-center text-orange-600">${c.pending}<td class="text-center text-blue-600">${c.approved}<td class="text-center"><div class="inline-flex items-center"><div class="w-16 h-1.5 bg-gray-200 rounded-full overflow-hidden"><div class="h-full bg-green-500 rounded-full" style="width: ${c.completionRate}%"></div></div><span class="ml-1 text-xs">${c.completionRate}%</span></div></tr>`).join('');
+        }
+
+        function updateSubjectPerformance() {
+            let activeRegistrations = allRegistrations.filter(r => r.status !== 'transferred');
+            let subjectData = {};
+            knecSubjects.KEPSEA.forEach(s => subjectData[s] = { kepsea: 0, kjsea: 0, total: 0 });
+            knecSubjects.KJSEA.forEach(s => { if (!subjectData[s]) subjectData[s] = { kepsea: 0, kjsea: 0, total: 0 }; });
+            activeRegistrations.forEach(r => {
+                (r.subjects || []).forEach(sub => {
+                    if (subjectData[sub]) {
+                        if (r.grade === 'KEPSEA') subjectData[sub].kepsea++;
+                        else subjectData[sub].kjsea++;
+                        subjectData[sub].total++;
+                    }
+                });
+            });
+            let tbody = document.getElementById('subjectPerformanceBody');
+            tbody.innerHTML = Object.entries(subjectData).map(([sub, data]) => `<tr class="border-b"><td class="font-medium">${sub}<td class="text-center">${data.kepsea}<td class="text-center">${data.kjsea}<td class="text-center font-bold">${data.total}</tr>`).join('');
+        }
+
+        function updateCharts() {
+            let activeRegistrations = allRegistrations.filter(r => r.status !== 'transferred');
+            let registered = activeRegistrations.length;
+            let approved = activeRegistrations.filter(r => r.status === 'approved').length;
+            let pending = activeRegistrations.filter(r => r.status !== 'approved' && r.status !== 'rejected').length;
+            let ctx1 = document.getElementById('progressChart').getContext('2d');
+            if (progressChart) progressChart.destroy();
+            progressChart = new Chart(ctx1, { type: 'doughnut', data: { labels: ['Approved', 'Pending'], datasets: [{ data: [approved, pending], backgroundColor: ['#059669', '#f59e0b'], borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 8, font: { size: 9 } } } } } });
+            let kepsea = activeRegistrations.filter(r => r.grade === 'KEPSEA').length;
+            let kjsea = activeRegistrations.filter(r => r.grade === 'KJSEA').length;
+            let ctx2 = document.getElementById('gradeChart').getContext('2d');
+            if (gradeChart) gradeChart.destroy();
+            gradeChart = new Chart(ctx2, { type: 'pie', data: { labels: ['KEPSEA (Gr6)', 'KJSEA (Gr9)'], datasets: [{ data: [kepsea, kjsea], backgroundColor: ['#003f87', '#006d40'], borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 8, font: { size: 9 } } } } } });
+            let ctx3 = document.getElementById('trendChart').getContext('2d');
+            if (trendChart) trendChart.destroy();
+            trendChart = new Chart(ctx3, { type: 'line', data: { labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'], datasets: [{ label: 'Registrations', data: [Math.floor(registered * 0.2), Math.floor(registered * 0.4), Math.floor(registered * 0.7), registered], borderColor: '#003f87', backgroundColor: 'rgba(0,63,135,0.1)', fill: true, tension: 0.3 }] }, options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 8, font: { size: 9 } } } } } });
+            let streams = ['North', 'South', 'East', 'West'];
+            let streamData = streams.map(s => activeRegistrations.filter(r => r.stream === s).length);
+            let ctx4 = document.getElementById('streamChart').getContext('2d');
+            if (streamChart) streamChart.destroy();
+            streamChart = new Chart(ctx4, { type: 'bar', data: { labels: streams, datasets: [{ label: 'Registrations', data: streamData, backgroundColor: '#003f87', borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 8, font: { size: 9 } } } }, scales: { y: { beginAtZero: true } } } });
+        }
+
+        function showNotifications() { document.getElementById('notificationsPanel').classList.toggle('hidden'); }
+        function closeNotifications() { document.getElementById('notificationsPanel').classList.add('hidden'); }
+        function updateDeadline() { let deadline = new Date(2024, 9, 31); let days = Math.ceil((deadline - new Date()) / (1000*60*60*24)); document.getElementById('daysLeft').innerText = days > 0 ? days : 0; }
+
+        auth.onAuthStateChanged(async (user) => {
+            if (!user) { window.location.href = 'index.html'; return; }
+            currentSchool = sessionStorage.getItem('currentSchoolCode');
+            if (!currentSchool) { 
+                let snap = await db.collection('schools').where('adminId', '==', user.uid).get(); 
+                if (!snap.empty) { 
+                    currentSchool = snap.docs[0].id; 
+                    sessionStorage.setItem('currentSchoolCode', currentSchool); 
+                    sessionStorage.setItem('currentSchoolName', snap.docs[0].data().schoolName); 
+                } 
+            }
+            schoolName = sessionStorage.getItem('currentSchoolName') || 'School';
+            document.getElementById('schoolBadge').innerText = schoolName;
+            updateDeadline();
+            await loadAllSchools();
+            await loadAllData();
+        });
+    </script>
+</body>
+</html>

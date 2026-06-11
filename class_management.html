@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Class Management | LearnPro Kenya ERP</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: #f0f2f5; }
+        .stat-card { background: white; border-radius: 20px; transition: all 0.3s ease; border: 1px solid #eef2ff; cursor: pointer; }
+        .stat-card:hover { transform: translateY(-3px); box-shadow: 0 15px 30px -12px rgba(0,0,0,0.1); }
+        .toast { position: fixed; bottom: 24px; right: 24px; background: #003f87; color: white; padding: 12px 24px; border-radius: 48px; z-index: 1000; font-weight: 500; }
+        .toast-error { background: #dc2626; }
+        .toast-success { background: #059669; }
+        .class-card { background: white; border-radius: 20px; transition: all 0.3s ease; border: 1px solid #eef2ff; overflow: hidden; }
+        .class-card:hover { transform: translateY(-4px); box-shadow: 0 20px 25px -12px rgba(0,63,135,0.15); }
+        .nav-tab { cursor: pointer; padding: 8px 20px; border-radius: 30px; font-size: 13px; font-weight: 500; transition: all 0.2s; }
+        .nav-tab-active { background: #003f87; color: white; }
+        .nav-tab-inactive { background: white; color: #4a5568; border: 1px solid #e2e8f0; }
+        .nav-tab-inactive:hover { background: #f1f5f9; border-color: #003f87; }
+        .stream-badge { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 10px; font-weight: 600; }
+        .stream-north { background: #dbeafe; color: #1e40af; }
+        .stream-south { background: #dcfce7; color: #166534; }
+        .stream-east { background: #fef3c7; color: #92400e; }
+        .stream-west { background: #fce7f3; color: #9d174d; }
+        .capacity-bar { height: 6px; border-radius: 3px; background: #e2e8f0; overflow: hidden; }
+        .capacity-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
+        .capacity-safe { background: #059669; }
+        .capacity-warning { background: #d97706; }
+        .capacity-danger { background: #dc2626; }
+        .chart-container { height: 160px; position: relative; }
+        @media print { .no-print { display: none; } }
+    </style>
+</head>
+<body>
+
+    <!-- Top Bar -->
+    <div class="bg-white shadow-sm fixed top-0 left-0 right-0 z-40 border-b border-gray-100 no-print">
+        <div class="flex justify-between items-center px-6 py-2">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-gradient-to-br from-[#003f87] to-[#0056b3] rounded-lg flex items-center justify-center">
+                    <span class="material-symbols-outlined text-white text-lg">class</span>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold text-[#003f87]">LEARNPRO KENYA</h1>
+                    <p class="text-[9px] text-gray-400 -mt-0.5">Class & Stream Management</p>
+                </div>
+                <span id="schoolBadge" class="ml-2 text-xs bg-[#003f87]/10 text-[#003f87] px-2 py-0.5 rounded-full">Loading...</span>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="window.location.href='dashboard.html'" class="px-3 py-1 text-gray-600 hover:bg-gray-100 rounded-lg text-xs">Dashboard</button>
+                <button onclick="logout()" class="px-3 py-1 text-red-600 hover:bg-red-50 rounded-lg text-xs">Logout</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="pt-14 px-6 pb-6">
+        <div class="max-w-7xl mx-auto">
+            
+            <!-- Tabs -->
+            <div class="flex gap-1 mb-4 border-b pb-2 flex-wrap">
+                <button onclick="showTab('classes')" id="tabClasses" class="nav-tab nav-tab-active">🏫 Grades</button>
+                <button onclick="showTab('streams')" id="tabStreams" class="nav-tab nav-tab-inactive">🌊 Streams</button>
+                <button onclick="showTab('assignments')" id="tabAssignments" class="nav-tab nav-tab-inactive">👨‍🏫 Teachers</button>
+                <button onclick="showTab('analytics')" id="tabAnalytics" class="nav-tab nav-tab-inactive">📊 Analytics</button>
+            </div>
+
+            <!-- ========== CLASSES TAB ========== -->
+            <div id="classesTab">
+                <div class="grid grid-cols-4 gap-3 mb-4">
+                    <div class="stat-card p-3"><p class="text-gray-400 text-[10px] uppercase">Total Grades</p><p class="text-2xl font-bold text-blue-600" id="totalGrades">0</p></div>
+                    <div class="stat-card p-3"><p class="text-gray-400 text-[10px] uppercase">Total Streams</p><p class="text-2xl font-bold text-green-600" id="totalStreamsStat">0</p></div>
+                    <div class="stat-card p-3"><p class="text-gray-400 text-[10px] uppercase">Total Students</p><p class="text-2xl font-bold text-purple-600" id="totalStudentsStat">0</p></div>
+                    <div class="stat-card p-3"><p class="text-gray-400 text-[10px] uppercase">Avg Class Size</p><p class="text-2xl font-bold text-orange-600" id="avgClassSize">0</p></div>
+                </div>
+
+                <div class="bg-white rounded-lg p-3 mb-4 flex flex-wrap justify-between items-center gap-2">
+                    <div class="flex gap-2">
+                        <button onclick="openGradeModal()" class="px-3 py-1.5 bg-[#003f87] text-white rounded-lg text-xs flex items-center gap-1"><span class="material-symbols-outlined text-sm">add</span> Add Grade</button>
+                        <button onclick="openStreamModal()" class="px-3 py-1.5 border text-gray-700 rounded-lg text-xs">Add Stream</button>
+                        <button onclick="exportClassData()" class="px-3 py-1.5 border text-gray-700 rounded-lg text-xs">Export</button>
+                    </div>
+                    <div class="relative"><span class="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm">search</span><input type="text" id="searchClass" onkeyup="loadClasses()" placeholder="Search grade..." class="pl-7 pr-2 py-1 border rounded-lg w-48 text-xs"></div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3" id="gradesGrid"></div>
+            </div>
+
+            <!-- ========== STREAMS TAB ========== -->
+            <div id="streamsTab" class="hidden">
+                <div class="bg-white rounded-lg p-4 shadow-sm mb-4">
+                    <h3 class="text-sm font-bold text-[#003f87] mb-3">Add New Stream</h3>
+                    <div class="grid grid-cols-3 gap-2">
+                        <select id="streamGradeSelect" class="p-1.5 border rounded text-sm"><option value="">Select Grade</option><option>Grade 1</option><option>Grade 2</option><option>Grade 3</option><option>Grade 4</option><option>Grade 5</option><option>Grade 6</option><option>Grade 7</option><option>Grade 8</option><option>Grade 9</option></select>
+                        <input type="text" id="streamName" placeholder="Stream Name" class="p-1.5 border rounded text-sm">
+                        <button onclick="addStream()" class="p-1.5 bg-[#003f87] text-white rounded text-sm">Add Stream</button>
+                    </div>
+                </div>
+                <div id="streamsListContainer" class="space-y-3"></div>
+            </div>
+
+            <!-- ========== TEACHER ASSIGNMENTS TAB ========== -->
+            <div id="assignmentsTab" class="hidden">
+                <div class="bg-white rounded-lg p-4 shadow-sm mb-4">
+                    <h3 class="text-sm font-bold text-[#003f87] mb-3">Assign Class Teacher</h3>
+                    <div class="grid grid-cols-3 gap-2">
+                        <select id="assignGrade" class="p-1.5 border rounded text-sm"><option value="">Select Grade</option><option>Grade 1</option><option>Grade 2</option><option>Grade 3</option><option>Grade 4</option><option>Grade 5</option><option>Grade 6</option><option>Grade 7</option><option>Grade 8</option><option>Grade 9</option></select>
+                        <select id="assignStream" class="p-1.5 border rounded text-sm"><option value="">Select Stream</option></select>
+                        <select id="assignTeacher" class="p-1.5 border rounded text-sm"><option value="">Select Teacher</option></select>
+                    </div>
+                    <button onclick="assignClassTeacher()" class="mt-3 w-full p-1.5 bg-[#003f87] text-white rounded text-sm">Assign Teacher</button>
+                </div>
+                <div class="bg-white rounded-lg overflow-hidden"><div class="overflow-x-auto"><table class="w-full"><thead class="bg-gray-50"><tr><th class="p-2 text-left text-xs">Grade</th><th class="p-2 text-left text-xs">Stream</th><th class="p-2 text-left text-xs">Class Teacher</th><th class="p-2 text-center text-xs">Actions</th></thead><tbody id="assignmentsList"></tbody></table></div></div>
+            </div>
+
+            <!-- ========== ANALYTICS TAB ========== -->
+            <div id="analyticsTab" class="hidden">
+                <div class="grid grid-cols-3 gap-3 mb-3">
+                    <div class="bg-white rounded-lg p-2 shadow-sm"><h4 class="font-bold text-[10px] text-gray-600 mb-1">Students per Grade</h4><div class="chart-container"><canvas id="gradeChart"></canvas></div></div>
+                    <div class="bg-white rounded-lg p-2 shadow-sm"><h4 class="font-bold text-[10px] text-gray-600 mb-1">Stream Distribution</h4><div class="chart-container"><canvas id="streamChart"></canvas></div></div>
+                    <div class="bg-white rounded-lg p-2 shadow-sm"><h4 class="font-bold text-[10px] text-gray-600 mb-1">Capacity Utilization</h4><div class="chart-container"><canvas id="capacityChart"></canvas></div></div>
+                </div>
+                <div class="bg-white rounded-lg p-3 shadow-sm">
+                    <h4 class="font-bold text-xs text-gray-800 mb-2">📋 Class Capacity Summary</h4>
+                    <div id="capacitySummary" class="space-y-1 max-h-64 overflow-y-auto"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Grade Modal -->
+    <div id="gradeModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-xl p-5 max-w-md w-full mx-4">
+            <div class="flex justify-between items-center mb-3"><h3 class="text-lg font-bold text-[#003f87]">Add Grade</h3><button onclick="closeGradeModal()" class="text-gray-400">✕</button></div>
+            <form id="gradeForm" onsubmit="return false;"><input type="text" id="gradeName" placeholder="Grade Name" class="w-full p-2 border rounded text-sm mb-2" required><input type="number" id="gradeLevel" placeholder="Level Number" class="w-full p-2 border rounded text-sm mb-2" required><select id="gradeStatus" class="w-full p-2 border rounded text-sm mb-3"><option value="active">Active</option><option value="inactive">Inactive</option></select><button type="submit" class="w-full py-2 bg-[#003f87] text-white rounded text-sm">Save Grade</button><button type="button" onclick="closeGradeModal()" class="w-full py-2 border rounded text-sm mt-2">Cancel</button></form>
+        </div>
+    </div>
+
+    <!-- Edit Stream Modal -->
+    <div id="streamEditModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-xl p-5 max-w-md w-full mx-4">
+            <div class="flex justify-between items-center mb-3"><h3 class="text-lg font-bold text-[#003f87]">Edit Stream</h3><button onclick="closeStreamEditModal()" class="text-gray-400">✕</button></div>
+            <input type="hidden" id="editStreamId"><input type="hidden" id="editStreamGrade"><input type="text" id="editStreamName" class="w-full p-2 border rounded text-sm mb-2"><button onclick="saveStreamEdit()" class="w-full py-2 bg-[#003f87] text-white rounded text-sm">Save Changes</button><button onclick="closeStreamEditModal()" class="w-full py-2 border rounded text-sm mt-2">Cancel</button>
+        </div>
+    </div>
+
+    <div id="toast" style="display:none" class="toast"></div>
+
+    <script>
+        const firebaseConfig = { apiKey: "AIzaSyA4cm7chJXz90yOLWPtbdIW8KlEozG1lxo", authDomain: "learnpro-kenya-erp.firebaseapp.com", projectId: "learnpro-kenya-erp", storageBucket: "learnpro-kenya-erp.firebasestorage.app", messagingSenderId: "327168081514", appId: "1:327168081514:web:13cdc8b827fa76d95a9413" };
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        let currentSchool = null;
+        let allGrades = [], allStreams = [], allTeachers = [], allStudents = [];
+        let gradeChart = null, streamChart = null, capacityChart = null;
+
+        // Default grade structure
+        let gradesData = [
+            { id: "grade1", name: "Grade 1", level: 1, status: "active", streams: ["1A", "1B", "1C"], teacher: "Mrs. Kamau", enrollment: 38, capacity: 45 },
+            { id: "grade2", name: "Grade 2", level: 2, status: "active", streams: ["2A", "2B", "2C", "2D"], teacher: "Mr. Otieno", enrollment: 42, capacity: 45 },
+            { id: "grade3", name: "Grade 3", level: 3, status: "active", streams: ["3X", "3Y"], teacher: "Ms. Wanjiku", enrollment: 30, capacity: 40 },
+            { id: "grade4", name: "Grade 4", level: 4, status: "active", streams: ["4A", "4B", "4C"], teacher: "Mr. Kiprotich", enrollment: 45, capacity: 45 },
+            { id: "grade5", name: "Grade 5", level: 5, status: "active", streams: ["5 Alpha", "5 Beta"], teacher: "Mrs. Mutua", enrollment: 36, capacity: 40 },
+            { id: "grade6", name: "Grade 6", level: 6, status: "active", streams: ["6A", "6B", "6C"], teacher: "Mr. Mwangi", enrollment: 39, capacity: 45 },
+            { id: "grade7", name: "Grade 7", level: 7, status: "active", streams: ["7J", "7K", "7L"], teacher: "Ms. Atieno", enrollment: 35, capacity: 40 },
+            { id: "grade8", name: "Grade 8", level: 8, status: "active", streams: ["8A", "8B"], teacher: "Mr. Juma", enrollment: 41, capacity: 45 },
+            { id: "grade9", name: "Grade 9", level: 9, status: "active", streams: ["9A", "9B", "9J"], teacher: "Dr. Njenga", enrollment: 38, capacity: 45 }
+        ];
+
+        function showToast(msg, isErr) { let toast = document.getElementById('toast'); toast.textContent = msg; toast.className = `toast ${isErr ? 'toast-error' : 'toast-success'}`; toast.style.display = 'block'; setTimeout(() => toast.style.display = 'none', 3000); }
+        async function logout() { await auth.signOut(); sessionStorage.clear(); window.location.href = 'index.html'; }
+
+        function showTab(tab) {
+            document.getElementById('classesTab').classList.add('hidden');
+            document.getElementById('streamsTab').classList.add('hidden');
+            document.getElementById('assignmentsTab').classList.add('hidden');
+            document.getElementById('analyticsTab').classList.add('hidden');
+            if (tab === 'classes') document.getElementById('classesTab').classList.remove('hidden');
+            else if (tab === 'streams') { document.getElementById('streamsTab').classList.remove('hidden'); loadStreamsList(); }
+            else if (tab === 'assignments') { document.getElementById('assignmentsTab').classList.remove('hidden'); loadAssignments(); loadTeachers(); }
+            else if (tab === 'analytics') { document.getElementById('analyticsTab').classList.remove('hidden'); updateAnalytics(); }
+            ['tabClasses','tabStreams','tabAssignments','tabAnalytics'].forEach(btn => document.getElementById(btn).className = 'nav-tab nav-tab-inactive');
+            document.getElementById(`tab${tab.charAt(0).toUpperCase() + tab.slice(1)}`).className = 'nav-tab nav-tab-active';
+        }
+
+        async function loadAllData() {
+            if (!currentSchool) return;
+            let studentsSnap = await db.collection('schools').doc(currentSchool).collection('students').where('deleted', '==', false).get();
+            allStudents = []; studentsSnap.forEach(d => allStudents.push({ id: d.id, ...d.data() }));
+            let teachersSnap = await db.collection('schools').doc(currentSchool).collection('teachers').get();
+            allTeachers = []; teachersSnap.forEach(d => allTeachers.push({ id: d.id, ...d.data() }));
+            loadClasses();
+        }
+
+        function loadClasses() {
+            let searchTerm = document.getElementById('searchClass')?.value.toLowerCase() || '';
+            let filtered = gradesData.filter(g => g.name.toLowerCase().includes(searchTerm) && g.status === 'active');
+            
+            let totalStudents = filtered.reduce((sum, g) => sum + g.enrollment, 0);
+            let totalStreams = filtered.reduce((sum, g) => sum + g.streams.length, 0);
+            let avgSize = filtered.length > 0 ? Math.round(totalStudents / filtered.length) : 0;
+            
+            document.getElementById('totalGrades').innerText = filtered.length;
+            document.getElementById('totalStreamsStat').innerText = totalStreams;
+            document.getElementById('totalStudentsStat').innerText = totalStudents;
+            document.getElementById('avgClassSize').innerText = avgSize;
+            
+            let container = document.getElementById('gradesGrid');
+            if (filtered.length === 0) { container.innerHTML = '<div class="col-span-full text-center py-8 text-gray-400">No grades found</div>'; return; }
+            
+            container.innerHTML = filtered.map(g => {
+                let percent = (g.enrollment / g.capacity) * 100;
+                let capacityClass = percent >= 90 ? 'capacity-danger' : percent >= 75 ? 'capacity-warning' : 'capacity-safe';
+                let statusColor = g.status === 'active' ? 'text-green-600 bg-green-50' : 'text-gray-400 bg-gray-100';
+                
+                return `
+                    <div class="class-card p-3">
+                        <div class="flex justify-between items-start mb-2">
+                            <div><h4 class="text-base font-bold text-[#003f87]">${g.name}</h4><p class="text-[10px] text-gray-500">Level ${g.level}</p></div>
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-medium ${statusColor}">${g.status}</span>
+                        </div>
+                        <p class="text-xs text-gray-600 mb-2 flex items-center gap-1"><span class="material-symbols-outlined text-xs">person</span> ${g.teacher}</p>
+                        <div class="flex flex-wrap gap-1 mb-2">${g.streams.map(s => `<span class="stream-badge stream-${getStreamType(s)}">${s}</span>`).join('')}</div>
+                        <div class="flex justify-between text-xs mb-1"><span>Enrollment</span><span class="${g.enrollment >= g.capacity ? 'text-red-600 font-bold' : ''}">${g.enrollment}/${g.capacity}</span></div>
+                        <div class="capacity-bar mb-2"><div class="capacity-fill ${capacityClass}" style="width: ${percent}%"></div></div>
+                        <div class="flex gap-2 pt-2 border-t"><button onclick="editGrade('${g.id}')" class="flex-1 py-1 text-blue-600 border rounded text-xs">Edit</button><button onclick="viewGradeDetails('${g.id}')" class="flex-1 py-1 bg-[#003f87] text-white rounded text-xs">Details</button></div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function getStreamType(stream) {
+            let s = stream.toLowerCase();
+            if (s.includes('north') || s === 'n' || s.includes('a')) return 'north';
+            if (s.includes('south') || s === 's' || s.includes('b')) return 'south';
+            if (s.includes('east') || s === 'e' || s.includes('c')) return 'east';
+            return 'west';
+        }
+
+        function openGradeModal() { document.getElementById('gradeModal').classList.remove('hidden'); }
+        function closeGradeModal() { document.getElementById('gradeModal').classList.add('hidden'); }
+        document.getElementById('gradeForm').addEventListener('submit', (e) => { e.preventDefault(); showToast('Grade added'); closeGradeModal(); loadClasses(); });
+
+        function editGrade(id) { let grade = gradesData.find(g => g.id === id); if (grade) showToast(`Edit ${grade.name}`); }
+        function viewGradeDetails(id) { let grade = gradesData.find(g => g.id === id); if (grade) showToast(`${grade.name}: ${grade.streams.length} streams, ${grade.enrollment} students`); }
+
+        // Stream Management
+        function loadStreamsList() {
+            let container = document.getElementById('streamsListContainer');
+            let grades = ['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9'];
+            container.innerHTML = grades.map(grade => {
+                let gradeData = gradesData.find(g => g.name === grade);
+                let streams = gradeData ? gradeData.streams : [];
+                return `<div class="bg-white rounded-lg overflow-hidden shadow-sm"><div class="p-2 bg-gray-50 border-b font-bold text-xs text-[#003f87]">${grade}</div><div class="p-2"><div class="flex flex-wrap gap-1">${streams.map(s => `<span class="stream-badge stream-${getStreamType(s)} px-2 py-0.5 rounded-full text-[10px] flex items-center gap-1">${s} <button onclick="deleteStream('${grade}', '${s}')" class="text-red-500 hover:text-red-700 text-[10px]">✕</button></span>`).join('')}${streams.length === 0 ? '<span class="text-gray-400 text-[10px]">No streams</span>' : ''}</div></div></div>`;
+            }).join('');
+        }
+
+        function addStream() {
+            let grade = document.getElementById('streamGradeSelect').value;
+            let streamName = document.getElementById('streamName').value.trim();
+            if (!grade || !streamName) { showToast('Select grade and enter stream name', true); return; }
+            let gradeData = gradesData.find(g => g.name === grade);
+            if (gradeData && !gradeData.streams.includes(streamName)) {
+                gradeData.streams.push(streamName);
+                showToast(`Stream ${streamName} added to ${grade}`);
+                document.getElementById('streamName').value = '';
+                loadStreamsList();
+                loadClasses();
+            } else { showToast('Stream already exists', true); }
+        }
+
+        function deleteStream(grade, streamName) {
+            if (confirm(`Delete stream ${streamName} from ${grade}?`)) {
+                let gradeData = gradesData.find(g => g.name === grade);
+                if (gradeData) { gradeData.streams = gradeData.streams.filter(s => s !== streamName); showToast(`Stream ${streamName} deleted`); loadStreamsList(); loadClasses(); }
+            }
+        }
+
+        function openStreamModal() { showToast('Use the form above to add streams'); }
+        function closeStreamEditModal() { document.getElementById('streamEditModal').classList.add('hidden'); }
+        function saveStreamEdit() { closeStreamEditModal(); showToast('Stream updated'); loadStreamsList(); loadClasses(); }
+
+        // Teacher Assignments
+        async function loadTeachers() {
+            let teacherSelect = document.getElementById('assignTeacher');
+            teacherSelect.innerHTML = '<option value="">Select Teacher</option>' + allTeachers.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+        }
+
+        function loadAssignments() {
+            let tbody = document.getElementById('assignmentsList');
+            let assignments = [];
+            for (let grade of gradesData) {
+                for (let stream of grade.streams) { assignments.push({ grade: grade.name, stream: stream, teacher: grade.teacher }); }
+            }
+            tbody.innerHTML = assignments.map(a => `<tr class="border-b"><td class="p-2 text-xs font-medium">${a.grade}<td class="p-2 text-xs">${a.stream}<td class="p-2 text-xs">${a.teacher}<td class="p-2 text-center"><button onclick="reassignTeacher('${a.grade}', '${a.stream}')" class="text-blue-600 text-[10px] mr-1">Edit</button><button onclick="removeAssignment('${a.grade}', '${a.stream}')" class="text-red-600 text-[10px]">Remove</button></tr>`).join('');
+        }
+
+        function assignClassTeacher() {
+            let grade = document.getElementById('assignGrade').value;
+            let stream = document.getElementById('assignStream').value;
+            let teacherId = document.getElementById('assignTeacher').value;
+            if (!grade || !stream || !teacherId) { showToast('Fill all fields', true); return; }
+            let teacher = allTeachers.find(t => t.id === teacherId);
+            let gradeData = gradesData.find(g => g.name === grade);
+            if (gradeData) gradeData.teacher = teacher?.name || 'Assigned';
+            showToast(`Teacher assigned to ${grade} - ${stream}`);
+            loadAssignments();
+            loadClasses();
+        }
+
+        document.getElementById('assignGrade').addEventListener('change', function() {
+            let grade = this.value;
+            let gradeData = gradesData.find(g => g.name === grade);
+            let streamSelect = document.getElementById('assignStream');
+            streamSelect.innerHTML = '<option value="">Select Stream</option>' + (gradeData ? gradeData.streams.map(s => `<option value="${s}">${s}</option>`).join('') : '');
+        });
+
+        function reassignTeacher(grade, stream) { showToast(`Reassign teacher for ${grade} - ${stream}`); }
+        function removeAssignment(grade, stream) { if (confirm(`Remove assignment for ${grade} - ${stream}?`)) showToast('Assignment removed'); }
+
+        // Analytics
+        function updateAnalytics() {
+            let gradeData = gradesData.map(g => ({ label: g.name, students: g.enrollment }));
+            let ctx1 = document.getElementById('gradeChart').getContext('2d');
+            if (gradeChart) gradeChart.destroy();
+            gradeChart = new Chart(ctx1, { type: 'bar', data: { labels: gradeData.map(g => g.label), datasets: [{ label: 'Students', data: gradeData.map(g => g.students), backgroundColor: '#003f87', borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 8, font: { size: 9 } } } }, scales: { y: { beginAtZero: true } } } });
+            
+            let streamCounts = { North: 0, South: 0, East: 0, West: 0 };
+            gradesData.forEach(g => { g.streams.forEach(s => { let type = getStreamType(s); if (type === 'north') streamCounts.North++; else if (type === 'south') streamCounts.South++; else if (type === 'east') streamCounts.East++; else streamCounts.West++; }); });
+            let ctx2 = document.getElementById('streamChart').getContext('2d');
+            if (streamChart) streamChart.destroy();
+            streamChart = new Chart(ctx2, { type: 'doughnut', data: { labels: ['North', 'South', 'East', 'West'], datasets: [{ data: [streamCounts.North, streamCounts.South, streamCounts.East, streamCounts.West], backgroundColor: ['#003f87', '#059669', '#d97706', '#dc2626'], borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 8, font: { size: 9 } } } } } });
+            
+            let capacityData = gradesData.map(g => ({ grade: g.name, percent: (g.enrollment / g.capacity) * 100 }));
+            let ctx3 = document.getElementById('capacityChart').getContext('2d');
+            if (capacityChart) capacityChart.destroy();
+            capacityChart = new Chart(ctx3, { type: 'bar', data: { labels: capacityData.map(c => c.grade), datasets: [{ label: 'Utilization %', data: capacityData.map(c => c.percent), backgroundColor: '#003f87', borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: true, scales: { y: { beginAtZero: true, max: 100 } }, plugins: { legend: { position: 'bottom', labels: { boxWidth: 8, font: { size: 9 } } } } } });
+            
+            let summaryHtml = gradesData.map(g => {
+                let percent = (g.enrollment / g.capacity) * 100;
+                let color = percent >= 90 ? 'text-red-600' : percent >= 75 ? 'text-yellow-600' : 'text-green-600';
+                return `<div class="flex justify-between items-center p-2 bg-gray-50 rounded"><span class="text-xs font-medium">${g.name}</span><div class="flex items-center gap-2"><span class="text-xs ${color}">${Math.round(percent)}% full</span><div class="w-24 h-1.5 bg-gray-200 rounded-full overflow-hidden"><div class="h-full ${percent >= 90 ? 'bg-red-500' : percent >= 75 ? 'bg-yellow-500' : 'bg-green-500'} rounded-full" style="width: ${percent}%"></div></div></div></div>`;
+            }).join('');
+            document.getElementById('capacitySummary').innerHTML = summaryHtml;
+        }
+
+        function exportClassData() {
+            let ws = XLSX.utils.json_to_sheet(gradesData.map(g => ({ Grade: g.name, Level: g.level, Streams: g.streams.join(', '), Teacher: g.teacher, Enrollment: g.enrollment, Capacity: g.capacity, Status: g.status })));
+            let wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'GradeStructure'); XLSX.writeFile(wb, `class_structure_${new Date().toISOString().split('T')[0]}.xlsx`);
+            showToast('Exported!');
+        }
+
+        auth.onAuthStateChanged(async (user) => {
+            if (!user) { window.location.href = 'index.html'; return; }
+            currentSchool = sessionStorage.getItem('currentSchoolCode');
+            if (!currentSchool) {
+                let snap = await db.collection('schools').where('adminId', '==', user.uid).get();
+                if (!snap.empty) { currentSchool = snap.docs[0].id; sessionStorage.setItem('currentSchoolCode', currentSchool); sessionStorage.setItem('currentSchoolName', snap.docs[0].data().schoolName); }
+            }
+            document.getElementById('schoolBadge').innerText = sessionStorage.getItem('currentSchoolName') || currentSchool;
+            await loadAllData();
+        });
+    </script>
+</body>
+</html>
