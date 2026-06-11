@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KNEC Portal | LearnPro Kenya</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: #f0f2f5; }
+        .glass-card { background: rgba(255,255,255,0.7); backdrop-filter: blur(20px); border-radius: 24px; border: 1px solid rgba(255,255,255,0.3); }
+        .stat-card { background: white; border-radius: 20px; transition: all 0.3s ease; border: 1px solid #eef2ff; cursor: pointer; }
+        .stat-card:hover { transform: translateY(-5px); box-shadow: 0 20px 25px -12px rgba(0,63,135,0.15); }
+        .toast { position: fixed; bottom: 24px; right: 24px; background: #003f87; color: white; padding: 12px 24px; border-radius: 48px; z-index: 1000; font-weight: 600; }
+        .toast-error { background: #dc2626; }
+        .toast-success { background: #059669; }
+        .nav-item { transition: all 0.2s ease; cursor: pointer; }
+        .nav-item:hover { background: rgba(0,63,135,0.1); transform: translateX(5px); }
+        .nav-active { background: #003f87; color: white; border-radius: 12px; }
+        .nav-active:hover { background: #003f87; transform: none; }
+    </style>
+</head>
+<body>
+
+    <!-- Top Bar -->
+    <div class="bg-white shadow-sm fixed top-0 left-0 right-0 z-30">
+        <div class="flex justify-between items-center px-6 py-4 max-w-full mx-auto">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-gradient-to-br from-[#003f87] to-[#0056b3] rounded-xl flex items-center justify-center shadow-md">
+                    <span class="material-symbols-outlined text-white">school</span>
+                </div>
+                <div>
+                    <h1 class="text-xl font-black text-[#003f87] tracking-tight">LEARNPRO KENYA</h1>
+                    <p class="text-[10px] text-gray-500 -mt-1">KNEC Examination Portal</p>
+                </div>
+                <span id="schoolBadge" class="ml-4 text-xs bg-green-100 text-green-700 px-3 py-1.5 rounded-full font-medium">Loading...</span>
+            </div>
+            <div class="flex items-center gap-4">
+                <button onclick="goToDashboard()" class="flex items-center gap-2 px-4 py-2 text-[#003f87] hover:bg-[#003f87]/10 rounded-xl transition">
+                    <span class="material-symbols-outlined text-sm">dashboard</span>
+                    <span class="text-sm font-medium hidden md:block">Dashboard</span>
+                </button>
+                <button onclick="logout()" class="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-xl transition">
+                    <span class="material-symbols-outlined text-sm">logout</span>
+                    <span class="text-sm font-medium hidden md:block">Logout</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar + Main Content -->
+    <div class="flex pt-[72px] min-h-screen">
+        <!-- Sidebar -->
+        <div class="w-64 fixed left-0 top-[72px] bottom-0 bg-white border-r border-gray-200 overflow-y-auto">
+            <div class="p-4">
+                <nav class="space-y-1">
+                    <div onclick="showSection('dashboard')" id="navDashboard" class="nav-item nav-active flex items-center gap-3 px-4 py-3 rounded-xl">
+                        <span class="material-symbols-outlined">dashboard</span>
+                        <span class="font-medium">Overview</span>
+                    </div>
+                    <div onclick="showSection('registration')" id="navRegistration" class="nav-item flex items-center gap-3 px-4 py-3 rounded-xl text-gray-700">
+                        <span class="material-symbols-outlined">how_to_reg</span>
+                        <span class="font-medium">Register Candidate</span>
+                    </div>
+                    <div onclick="showSection('submissions')" id="navSubmissions" class="nav-item flex items-center gap-3 px-4 py-3 rounded-xl text-gray-700">
+                        <span class="material-symbols-outlined">list_alt</span>
+                        <span class="font-medium">Submissions</span>
+                    </div>
+                    <div onclick="showSection('reports')" id="navReports" class="nav-item flex items-center gap-3 px-4 py-3 rounded-xl text-gray-700">
+                        <span class="material-symbols-outlined">assessment</span>
+                        <span class="font-medium">KNEC Reports</span>
+                    </div>
+                </nav>
+            </div>
+            <div class="absolute bottom-4 left-4 right-4">
+                <div class="bg-gray-100 rounded-xl p-3 text-center">
+                    <p class="text-xs text-gray-500">KNEC Compliant</p>
+                    <p class="text-[10px] font-bold text-[#003f87] mt-1">KEPSEA/KJSEA Ready</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="ml-64 flex-1 p-6">
+            <!-- Overview Section -->
+            <div id="overviewSection">
+                <div class="mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800">KNEC Exam Portal</h2>
+                    <p class="text-gray-500">Manage KEPSEA & KJSEA candidate registrations</p>
+                </div>
+
+                <!-- Deadline Alert -->
+                <div class="bg-red-50 border-l-4 border-red-500 rounded-xl p-6 mb-8">
+                    <div class="flex items-center gap-3 mb-2">
+                        <span class="material-symbols-outlined text-red-500">timer</span>
+                        <h3 class="font-bold text-red-700">Submission Deadline</h3>
+                    </div>
+                    <p class="text-gray-600 mb-4">Final submission window closes in:</p>
+                    <div class="flex gap-6">
+                        <div class="text-center"><span class="block text-3xl font-bold text-[#003f87]" id="daysLeft">12</span><span class="text-xs text-gray-500">DAYS</span></div>
+                        <div class="text-center"><span class="block text-3xl font-bold text-[#003f87]" id="hoursLeft">08</span><span class="text-xs text-gray-500">HRS</span></div>
+                        <div class="text-center"><span class="block text-3xl font-bold text-[#003f87]" id="minsLeft">45</span><span class="text-xs text-gray-500">MIN</span></div>
+                    </div>
+                </div>
+
+                <!-- Stats Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                    <div class="glass-card p-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="font-bold text-gray-800">Overall School Completion</h3>
+                            <span class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full" id="completionPercent">84% Verified</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-3 mb-4">
+                            <div class="bg-[#003f87] h-3 rounded-full transition-all duration-1000" id="completionBar" style="width: 84%"></div>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <span id="registeredCount">420 Registered</span>
+                            <span id="expectedCount">500 Total Expected</span>
+                        </div>
+                    </div>
+
+                    <div class="glass-card p-6">
+                        <h3 class="font-bold text-gray-800 mb-4">Quick Actions</h3>
+                        <div class="grid grid-cols-3 gap-3">
+                            <button onclick="showSection('registration')" class="flex flex-col items-center gap-2 p-3 bg-[#003f87] text-white rounded-xl">
+                                <span class="material-symbols-outlined">person_add</span>
+                                <span class="text-xs">Register</span>
+                            </button>
+                            <button class="flex flex-col items-center gap-2 p-3 border border-[#003f87] text-[#003f87] rounded-xl">
+                                <span class="material-symbols-outlined">upload_file</span>
+                                <span class="text-xs">Bulk Upload</span>
+                            </button>
+                            <button class="flex flex-col items-center gap-2 p-3 border border-[#003f87] text-[#003f87] rounded-xl">
+                                <span class="material-symbols-outlined">download</span>
+                                <span class="text-xs">Summary</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Assessment Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                    <div class="bg-white rounded-2xl overflow-hidden shadow-sm">
+                        <div class="h-32 bg-gradient-to-r from-[#003f87] to-[#0056b3] p-6 flex flex-col justify-end">
+                            <span class="text-white/80 text-xs uppercase tracking-wider">Grade 6</span>
+                            <h3 class="text-2xl font-bold text-white">KEPSEA</h3>
+                        </div>
+                        <div class="p-6">
+                            <div class="grid grid-cols-3 gap-4 text-center mb-4">
+                                <div><span class="text-2xl font-bold text-[#003f87]" id="kepseaTotal">245</span><p class="text-xs text-gray-500">Total</p></div>
+                                <div class="border-x border-gray-200"><span class="text-2xl font-bold text-green-600" id="kepseaCompleted">230</span><p class="text-xs text-gray-500">Completed</p></div>
+                                <div><span class="text-2xl font-bold text-red-500" id="kepseaPending">15</span><p class="text-xs text-gray-500">Pending</p></div>
+                            </div>
+                            <button onclick="showSection('registration')" class="w-full py-2 bg-gray-100 text-[#003f87] font-semibold rounded-xl">Manage Grade 6</button>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-2xl overflow-hidden shadow-sm">
+                        <div class="h-32 bg-gradient-to-r from-[#006d40] to-[#008751] p-6 flex flex-col justify-end">
+                            <span class="text-white/80 text-xs uppercase tracking-wider">Grade 9</span>
+                            <h3 class="text-2xl font-bold text-white">KJSEA</h3>
+                        </div>
+                        <div class="p-6">
+                            <div class="grid grid-cols-3 gap-4 text-center mb-4">
+                                <div><span class="text-2xl font-bold text-[#003f87]" id="kjseaTotal">175</span><p class="text-xs text-gray-500">Total</p></div>
+                                <div class="border-x border-gray-200"><span class="text-2xl font-bold text-green-600" id="kjseaCompleted">155</span><p class="text-xs text-gray-500">Completed</p></div>
+                                <div><span class="text-2xl font-bold text-red-500" id="kjseaPending">20</span><p class="text-xs text-gray-500">Pending</p></div>
+                            </div>
+                            <button onclick="showSection('registration')" class="w-full py-2 bg-gray-100 text-[#003f87] font-semibold rounded-xl">Manage Grade 9</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Activity -->
+                <div class="bg-white rounded-2xl p-6 shadow-sm">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-bold text-gray-800">Recent Activity</h3>
+                        <button class="text-[#003f87] text-sm">View All →</button>
+                    </div>
+                    <div id="recentActivity" class="space-y-3"></div>
+                </div>
+            </div>
+
+            <!-- Registration Section -->
+            <div id="registrationSection" class="hidden">
+                <div class="mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800">Candidate Registration</h2>
+                    <p class="text-gray-500">Register a new student for the upcoming KEPSEA assessment period. Ensure all legal documents are at hand.</p>
+                </div>
+
+                <form id="regForm" class="space-y-8">
+                    <!-- Personal Details -->
+                    <div class="bg-white rounded-2xl p-6 shadow-sm">
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="p-2 bg-[#003f87]/10 rounded-lg"><span class="material-symbols-outlined text-[#003f87]">person</span></div>
+                            <h3 class="text-xl font-bold text-[#003f87]">Personal Details</h3>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div><label class="block text-sm font-medium text-gray-700 mb-1">Full Student Name *</label><input id="fullName" type="text" class="w-full p-3 border rounded-xl focus:border-[#003f87] focus:ring-2 focus:ring-[#003f87]/20" placeholder="As it appears on birth certificate" required></div>
+                            <div><label class="block text-sm font-medium text-gray-700 mb-1">Admission Number *</label><input id="admNo" type="text" class="w-full p-3 border rounded-xl focus:border-[#003f87] focus:ring-2 focus:ring-[#003f87]/20" placeholder="e.g., 2024/001" required></div>
+                            <div><label class="block text-sm font-medium text-gray-700 mb-1">Unique Pupil Identifier (UPI) *</label><input id="upi" type="text" class="w-full p-3 border rounded-xl focus:border-[#003f87] focus:ring-2 focus:ring-[#003f87]/20" placeholder="Format: XXXX-XXXX" required><p class="text-xs text-gray-400 mt-1">10-character alphanumeric Nemis code</p></div>
+                            <div><label class="block text-sm font-medium text-gray-700 mb-1">Birth Certificate Number *</label><input id="birthCert" type="text" class="w-full p-3 border rounded-xl focus:border-[#003f87] focus:ring-2 focus:ring-[#003f87]/20" placeholder="Enter Serial No." required></div>
+                            <div><label class="block text-sm font-medium text-gray-700 mb-1">Date of Birth *</label><input id="dob" type="date" class="w-full p-3 border rounded-xl focus:border-[#003f87] focus:ring-2 focus:ring-[#003f87]/20" required></div>
+                            <div><label class="block text-sm font-medium text-gray-700 mb-1">Gender *</label><select id="gender" class="w-full p-3 border rounded-xl focus:border-[#003f87] focus:ring-2 focus:ring-[#003f87]/20" required><option value="">Select Gender</option><option>Male</option><option>Female</option></select></div>
+                            <div><label class="block text-sm font-medium text-gray-700 mb-1">Disability Status</label><select id="disability" class="w-full p-3 border rounded-xl focus:border-[#003f87] focus:ring-2 focus:ring-[#003f87]/20"><option value="None">None</option><option>Visual Impairment</option><option>Hearing Impairment</option><option>Physical Disability</option></select></div>
+                            <div><label class="block text-sm font-medium text-gray-700 mb-1">Assessment Grade *</label><select id="grade" class="w-full p-3 border rounded-xl focus:border-[#003f87] focus:ring-2 focus:ring-[#003f87]/20" required><option value="">Select Grade</option><option value="KEPSEA">Grade 6 (KEPSEA)</option><option value="KJSEA">Grade 9 (KJSEA)</option></select></div>
+                        </div>
+                    </div>
+
+                    <!-- Subject Selection -->
+                    <div class="bg-white rounded-2xl p-6 shadow-sm">
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="p-2 bg-[#003f87]/10 rounded-lg"><span class="material-symbols-outlined text-[#003f87]">menu_book</span></div>
+                            <h3 class="text-xl font-bold text-[#003f87]">Subject Selection (KEPSEA/KJSEA)</h3>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <label class="flex items-center gap-3 p-3 border rounded-xl cursor-pointer hover:bg-gray-50"><input type="checkbox" value="Mathematics" checked class="w-5 h-5 text-[#003f87]"><span>Mathematics</span><span class="ml-auto text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">Compulsory</span></label>
+                            <label class="flex items-center gap-3 p-3 border rounded-xl cursor-pointer hover:bg-gray-50"><input type="checkbox" value="English" checked class="w-5 h-5 text-[#003f87]"><span>English Language</span><span class="ml-auto text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">Compulsory</span></label>
+                            <label class="flex items-center gap-3 p-3 border rounded-xl cursor-pointer hover:bg-gray-50"><input type="checkbox" value="Integrated Science" class="w-5 h-5 text-[#003f87]"><span>Integrated Science</span></label>
+                            <label class="flex items-center gap-3 p-3 border rounded-xl cursor-pointer hover:bg-gray-50"><input type="checkbox" value="Kiswahili" class="w-5 h-5 text-[#003f87]"><span>Kiswahili / KSL</span></label>
+                            <label class="flex items-center gap-3 p-3 border rounded-xl cursor-pointer hover:bg-gray-50"><input type="checkbox" value="Creative Arts" class="w-5 h-5 text-[#003f87]"><span>Creative Arts & Philanthropism</span></label>
+                            <label class="flex items-center gap-3 p-3 border rounded-xl cursor-pointer hover:bg-gray-50"><input type="checkbox" value="Social Studies" class="w-5 h-5 text-[#003f87]"><span>Social Studies</span></label>
+                        </div>
+                    </div>
+
+                    <!-- Document Upload -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="bg-white rounded-2xl p-6 shadow-sm">
+                            <div class="flex items-center gap-3 mb-4"><div class="p-2 bg-[#003f87]/10 rounded-lg"><span class="material-symbols-outlined text-[#003f87]">upload_file</span></div><h3 class="text-lg font-bold text-[#003f87]">Birth Certificate</h3></div>
+                            <div class="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-[#003f87] transition">
+                                <span class="material-symbols-outlined text-4xl text-gray-400 mb-2">cloud_upload</span>
+                                <p class="text-sm font-medium">Upload Photo or PDF</p>
+                                <p class="text-xs text-gray-400">Max size 2MB (JPEG, PNG, PDF)</p>
+                                <input type="file" id="certFile" accept="image/*,application/pdf" class="hidden" onchange="handleCertUpload(this)">
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-2xl p-6 shadow-sm">
+                            <div class="flex items-center gap-3 mb-4"><div class="p-2 bg-[#003f87]/10 rounded-lg"><span class="material-symbols-outlined text-[#003f87]">account_circle</span></div><h3 class="text-lg font-bold text-[#003f87]">Passport Photo</h3></div>
+                            <div class="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-[#003f87] transition">
+                                <span class="material-symbols-outlined text-4xl text-gray-400 mb-2">photo_camera</span>
+                                <p class="text-sm font-medium">Upload Passport Photo</p>
+                                <p class="text-xs text-gray-400">White background preferred</p>
+                                <input type="file" id="photoFile" accept="image/*" class="hidden" onchange="handlePhotoUpload(this)">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Verification Checklist -->
+                    <div class="bg-white rounded-2xl p-6 shadow-sm border-l-4 border-[#ffba20]">
+                        <div class="flex items-center gap-3 mb-4"><div class="p-2 bg-[#ffba20]/10 rounded-lg"><span class="material-symbols-outlined text-[#583d00]">fact_check</span></div><h3 class="text-lg font-bold text-[#003f87]">Admin Verification Checklist</h3></div>
+                        <div class="space-y-3">
+                            <label class="flex items-start gap-3 p-3 bg-gray-50 rounded-xl cursor-pointer"><input type="checkbox" id="verifyCert" class="mt-1 w-5 h-5 text-[#003f87]"><div><p class="font-medium">Original Birth Certificate Reviewed</p><p class="text-sm text-gray-500">I have physically inspected the original document and confirmed the serial number matches.</p></div></label>
+                            <label class="flex items-start gap-3 p-3 bg-gray-50 rounded-xl cursor-pointer"><input type="checkbox" id="verifyUpi" class="mt-1 w-5 h-5 text-[#003f87]"><div><p class="font-medium">UPI / NEMIS Information Verified</p><p class="text-sm text-gray-500">Student's details match the current Ministry of Education records in the NEMIS portal.</p></div></label>
+                            <label class="flex items-start gap-3 p-3 bg-gray-50 rounded-xl cursor-pointer"><input type="checkbox" id="verifyPhoto" class="mt-1 w-5 h-5 text-[#003f87]"><div><p class="font-medium">Photograph Accuracy</p><p class="text-sm text-gray-500">The uploaded photo is a recent and accurate representation of the student.</p></div></label>
+                        </div>
+                    </div>
+
+                    <!-- Form Actions -->
+                    <div class="flex gap-4 justify-end">
+                        <button type="button" onclick="saveDraft()" class="px-8 py-3 border border-[#003f87] text-[#003f87] font-semibold rounded-xl hover:bg-[#003f87]/5 transition">Save Draft</button>
+                        <button type="submit" class="px-8 py-3 bg-gradient-to-r from-[#003f87] to-[#0056b3] text-white font-semibold rounded-xl hover:shadow-lg transition flex items-center gap-2">Submit to KNEC <span class="material-symbols-outlined text-sm">send</span></button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Submissions Section -->
+            <div id="submissionsSection" class="hidden">
+                <div class="mb-6"><h2 class="text-2xl font-bold text-gray-800">Submitted Registrations</h2><p class="text-gray-500">View all candidate submissions to KNEC</p></div>
+                <div class="bg-white rounded-2xl overflow-hidden shadow-sm">
+                    <div class="overflow-x-auto"><table class="w-full"><thead class="bg-gray-50"><tr><th class="px-6 py-4 text-left text-sm font-semibold text-gray-600">Name</th><th class="px-6 py-4 text-left text-sm font-semibold text-gray-600">Adm No</th><th class="px-6 py-4 text-left text-sm font-semibold text-gray-600">UPI</th><th class="px-6 py-4 text-left text-sm font-semibold text-gray-600">Grade</th><th class="px-6 py-4 text-left text-sm font-semibold text-gray-600">Status</th><th class="px-6 py-4 text-left text-sm font-semibold text-gray-600">Submitted</th></tr></thead><tbody id="submissionsList"></tbody></table></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" style="display:none" class="toast"></div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyA4cm7chJXz90yOLWPtbdIW8KlEozG1lxo",
+            authDomain: "learnpro-kenya-erp.firebaseapp.com",
+            projectId: "learnpro-kenya-erp",
+            storageBucket: "learnpro-kenya-erp.firebasestorage.app",
+            messagingSenderId: "327168081514",
+            appId: "1:327168081514:web:13cdc8b827fa76d95a9413"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        const storage = firebase.storage();
+        let currentSchoolCode = null;
+
+        function showToast(msg, isError = false) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.className = `toast ${isError ? 'toast-error' : 'toast-success'}`;
+            toast.style.display = 'block';
+            setTimeout(() => toast.style.display = 'none', 3000);
+        }
+
+        function goToDashboard() { window.location.href = 'dashboard.html'; }
+        async function logout() { await auth.signOut(); sessionStorage.clear(); window.location.href = 'index.html'; }
+
+        function showSection(section) {
+            document.getElementById('overviewSection').classList.add('hidden');
+            document.getElementById('registrationSection').classList.add('hidden');
+            document.getElementById('submissionsSection').classList.add('hidden');
+            if (section === 'dashboard') document.getElementById('overviewSection').classList.remove('hidden');
+            else if (section === 'registration') document.getElementById('registrationSection').classList.remove('hidden');
+            else if (section === 'submissions') document.getElementById('submissionsSection').classList.remove('hidden');
+            
+            ['navDashboard', 'navRegistration', 'navSubmissions', 'navReports'].forEach(id => {
+                document.getElementById(id).classList.remove('nav-active');
+                document.getElementById(id).classList.add('text-gray-700');
+            });
+            const activeNav = section === 'dashboard' ? 'navDashboard' : section === 'registration' ? 'navRegistration' : 'navSubmissions';
+            document.getElementById(activeNav).classList.add('nav-active');
+            document.getElementById(activeNav).classList.remove('text-gray-700');
+            
+            if (section === 'submissions') loadSubmissions();
+        }
+
+        let certUrl = '', photoUrl = '';
+
+        function handleCertUpload(input) { if (input.files[0]) showToast('Certificate ready for upload'); }
+        function handlePhotoUpload(input) { if (input.files[0]) showToast('Photo ready for upload'); }
+
+        async function saveDraft() { showToast('Draft saved locally', false); }
+
+        document.getElementById('regForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!document.getElementById('verifyCert').checked || !document.getElementById('verifyUpi').checked || !document.getElementById('verifyPhoto').checked) {
+                showToast('Please complete all verification checkboxes', true); return;
+            }
+            const subjects = []; document.querySelectorAll('#regForm input[type="checkbox"]:checked').forEach(cb => { if (cb.id !== 'verifyCert' && cb.id !== 'verifyUpi' && cb.id !== 'verifyPhoto') subjects.push(cb.value); });
+            const data = {
+                name: document.getElementById('fullName').value, admNo: document.getElementById('admNo').value, upi: document.getElementById('upi').value,
+                birthCert: document.getElementById('birthCert').value, dob: document.getElementById('dob').value, gender: document.getElementById('gender').value,
+                disability: document.getElementById('disability').value, grade: document.getElementById('grade').value, subjects: subjects,
+                status: 'pending', registeredAt: new Date().toISOString()
+            };
+            await db.collection('schools').doc(currentSchoolCode).collection('registrations').add(data);
+            showToast('Registration submitted to KNEC successfully!');
+            document.getElementById('regForm').reset();
+            showSection('dashboard');
+            loadDashboardData();
+        });
+
+        async function loadDashboardData() {
+            if (!currentSchoolCode) return;
+            const registrations = await db.collection('schools').doc(currentSchoolCode).collection('registrations').get();
+            const total = registrations.size, pending = registrations.docs.filter(d => d.data().status === 'pending').length, completed = total - pending;
+            document.getElementById('registeredCount').innerText = `${total} Registered`;
+            document.getElementById('completionPercent').innerText = `${Math.round((total/500)*100)}% Verified`;
+            document.getElementById('completionBar').style.width = `${Math.round((total/500)*100)}%`;
+            document.getElementById('kepseaTotal').innerText = total; document.getElementById('kepseaCompleted').innerText = completed; document.getElementById('kepseaPending').innerText = pending;
+            
+            let activityHtml = ''; registrations.forEach((doc, i) => { if (i < 3) activityHtml += `<div class="flex items-start gap-3 p-3 bg-gray-50 rounded-xl"><div class="w-2 h-2 mt-2 rounded-full bg-green-500"></div><div><p class="font-semibold">Candidate ${doc.data().admNo} ${doc.data().status === 'pending' ? 'Pending' : 'Verified'}</p><p class="text-sm text-gray-500">${doc.data().name} • ${new Date(doc.data().registeredAt).toLocaleDateString()}</p></div></div>`; });
+            document.getElementById('recentActivity').innerHTML = activityHtml || '<div class="text-center text-gray-400 py-8">No submissions yet</div>';
+            
+            const deadline = new Date(); deadline.setDate(deadline.getDate() + 12);
+            document.getElementById('daysLeft').innerText = Math.floor((deadline - new Date()) / (1000*60*60*24));
+        }
+
+        async function loadSubmissions() {
+            if (!currentSchoolCode) return;
+            const registrations = await db.collection('schools').doc(currentSchoolCode).collection('registrations').get();
+            let html = ''; registrations.forEach(doc => { const r = doc.data(); html += `<tr class="border-b"><td class="px-6 py-4">${r.name}</td><td class="px-6 py-4">${r.admNo}</td><td class="px-6 py-4">${r.upi}</td><td class="px-6 py-4">${r.grade}</td><td class="px-6 py-4"><span class="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs">${r.status}</span></td><td class="px-6 py-4">${new Date(r.registeredAt).toLocaleDateString()}</td></tr>`; });
+            document.getElementById('submissionsList').innerHTML = html || '<tr><td colspan="6" class="text-center py-8 text-gray-400">No submissions</td></tr>';
+        }
+
+        auth.onAuthStateChanged(async (user) => {
+            if (!user) { window.location.href = 'index.html'; return; }
+            currentSchoolCode = sessionStorage.getItem('currentSchoolCode');
+            if (!currentSchoolCode) {
+                const schoolsSnap = await db.collection('schools').where('adminId', '==', user.uid).get();
+                if (!schoolsSnap.empty) { currentSchoolCode = schoolsSnap.docs[0].id; sessionStorage.setItem('currentSchoolCode', currentSchoolCode); sessionStorage.setItem('currentSchoolName', schoolsSnap.docs[0].data().schoolName); }
+            }
+            document.getElementById('schoolBadge').innerText = sessionStorage.getItem('currentSchoolName') || currentSchoolCode;
+            await loadDashboardData();
+        });
+    </script>
+</body>
+</html>
