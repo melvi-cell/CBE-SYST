@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Academic Timetable | LearnPro Kenya</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: #f0f2f5; }
+        .timetable-card { background: white; border-radius: 20px; transition: all 0.3s ease; border: 1px solid #eef2ff; cursor: pointer; }
+        .timetable-card:hover { transform: translateY(-2px); box-shadow: 0 10px 20px -12px rgba(0,63,135,0.15); }
+        .conflict-card { background: #fef2f2; border-left: 4px solid #dc2626; }
+        .toast { position: fixed; bottom: 24px; right: 24px; background: #003f87; color: white; padding: 12px 24px; border-radius: 48px; z-index: 1000; font-weight: 600; }
+        .toast-error { background: #dc2626; }
+        .toast-success { background: #059669; }
+        .nav-item { transition: all 0.2s ease; cursor: pointer; }
+        .nav-item:hover { background: rgba(0,63,135,0.1); transform: translateX(5px); }
+        .nav-active { background: #003f87; color: white; border-radius: 12px; }
+        .day-tab { transition: all 0.2s ease; cursor: pointer; }
+        .day-active { background: #003f87; color: white; }
+        .timeline-slot { border-left: 2px solid #e2e8f0; }
+    </style>
+</head>
+<body>
+
+    <!-- Top Bar -->
+    <div class="bg-white shadow-sm fixed top-0 left-0 right-0 z-30">
+        <div class="flex justify-between items-center px-6 py-4 max-w-full mx-auto">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-gradient-to-br from-[#003f87] to-[#0056b3] rounded-xl flex items-center justify-center shadow-md">
+                    <span class="material-symbols-outlined text-white">calendar_month</span>
+                </div>
+                <div>
+                    <h1 class="text-xl font-black text-[#003f87] tracking-tight">LEARNPRO KENYA</h1>
+                    <p class="text-[10px] text-gray-500 -mt-1">Academic Timetable</p>
+                </div>
+                <span id="schoolBadge" class="ml-4 text-xs bg-green-100 text-green-700 px-3 py-1.5 rounded-full font-medium">Loading...</span>
+            </div>
+            <div class="flex items-center gap-4">
+                <button onclick="goToDashboard()" class="flex items-center gap-2 px-4 py-2 text-[#003f87] hover:bg-[#003f87]/10 rounded-xl transition">
+                    <span class="material-symbols-outlined text-sm">dashboard</span>
+                    <span class="text-sm font-medium hidden md:block">Dashboard</span>
+                </button>
+                <button onclick="logout()" class="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-xl transition">
+                    <span class="material-symbols-outlined text-sm">logout</span>
+                    <span class="text-sm font-medium hidden md:block">Logout</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar + Main Content -->
+    <div class="flex pt-[72px] min-h-screen">
+        <!-- Sidebar -->
+        <div class="w-64 fixed left-0 top-[72px] bottom-0 bg-white border-r border-gray-200 overflow-y-auto">
+            <div class="p-4">
+                <nav class="space-y-1">
+                    <div onclick="showSection('timetable')" id="navTimetable" class="nav-item nav-active flex items-center gap-3 px-4 py-3 rounded-xl">
+                        <span class="material-symbols-outlined">calendar_view_week</span>
+                        <span class="font-medium">Timetable</span>
+                    </div>
+                    <div onclick="showSection('schedule')" id="navSchedule" class="nav-item flex items-center gap-3 px-4 py-3 rounded-xl text-gray-700">
+                        <span class="material-symbols-outlined">edit_calendar</span>
+                        <span class="font-medium">Schedule Lesson</span>
+                    </div>
+                    <div onclick="showSection('conflicts')" id="navConflicts" class="nav-item flex items-center gap-3 px-4 py-3 rounded-xl text-gray-700">
+                        <span class="material-symbols-outlined">warning</span>
+                        <span class="font-medium">Conflicts</span>
+                    </div>
+                    <div onclick="showSection('analytics')" id="navAnalytics" class="nav-item flex items-center gap-3 px-4 py-3 rounded-xl text-gray-700">
+                        <span class="material-symbols-outlined">analytics</span>
+                        <span class="font-medium">Analytics</span>
+                    </div>
+                </nav>
+            </div>
+            <div class="absolute bottom-4 left-4 right-4">
+                <div class="bg-gray-100 rounded-xl p-3 text-center">
+                    <p class="text-xs text-gray-500">Current Week</p>
+                    <p class="text-[10px] font-bold text-[#003f87] mt-1">Term 2, 2024</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="ml-64 flex-1 p-6">
+            <!-- Timetable Section -->
+            <div id="timetableSection">
+                <div class="mb-6 flex justify-between items-center flex-wrap gap-4">
+                    <div><h2 class="text-2xl font-bold text-gray-800">Academic Timetable</h2><p class="text-gray-500">Manage class schedules and teacher assignments</p></div>
+                    <div class="flex gap-3"><select id="gradeSelect" onchange="loadTimetable()" class="px-4 py-2 border rounded-xl bg-white"><option>Grade 9</option><option>Grade 8</option><option>Grade 7</option><option>Grade 6</option><option>Grade 5</option><option>Grade 4</option></select><select id="streamSelect" onchange="loadTimetable()" class="px-4 py-2 border rounded-xl bg-white"><option>9J</option><option>9K</option><option>9L</option></select><button class="px-4 py-2 border border-[#003f87] text-[#003f87] rounded-xl">More Filters</button><button class="px-4 py-2 bg-[#003f87] text-white rounded-xl">Export to PDF</button><button onclick="showSection('schedule')" class="px-4 py-2 bg-[#003f87] text-white rounded-xl">Edit Schedule</button></div>
+                </div>
+
+                <!-- Conflict Alert Banner -->
+                <div id="conflictBanner" class="bg-red-50 border-l-4 border-red-500 rounded-xl p-4 mb-6 flex items-start gap-3">
+                    <span class="material-symbols-outlined text-red-500">warning</span>
+                    <div><p class="font-bold text-red-700">Scheduling Conflict Detected</p><p class="text-sm text-red-600" id="conflictMessage">Jane Akinyi is assigned to 9J (Science Lab) and 8L (Room 101) at 10:00 AM. Please resolve this to finalize the schedule.</p></div>
+                    <button onclick="showSection('conflicts')" class="ml-auto text-red-600 text-sm font-medium">Resolve</button>
+                </div>
+
+                <!-- Day Switcher -->
+                <div class="flex gap-2 mb-6 overflow-x-auto pb-2">
+                    <button onclick="setDay('monday')" id="dayMon" class="day-tab day-active px-6 py-2 rounded-full font-medium">Monday</button>
+                    <button onclick="setDay('tuesday')" id="dayTue" class="day-tab px-6 py-2 rounded-full font-medium bg-gray-100 text-gray-700">Tuesday</button>
+                    <button onclick="setDay('wednesday')" id="dayWed" class="day-tab px-6 py-2 rounded-full font-medium bg-gray-100 text-gray-700">Wednesday</button>
+                    <button onclick="setDay('thursday')" id="dayThu" class="day-tab px-6 py-2 rounded-full font-medium bg-gray-100 text-gray-700">Thursday</button>
+                    <button onclick="setDay('friday')" id="dayFri" class="day-tab px-6 py-2 rounded-full font-medium bg-gray-100 text-gray-700">Friday</button>
+                </div>
+
+                <!-- Timetable Grid -->
+                <div class="space-y-4" id="timetableGrid">
+                    <!-- 8:00 AM -->
+                    <div class="flex gap-4"><div class="w-24 pt-2"><span class="text-sm font-medium text-gray-500">08:00 AM</span></div><div class="flex-1 timetable-card p-4" onclick="editLesson('math')"><div class="flex justify-between items-center"><div><h4 class="font-bold text-[#003f87]">Mathematics</h4><div class="flex gap-3 text-sm text-gray-500 mt-1"><span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">person</span> Jane Akinyi</span><span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">meeting_room</span> Room 101</span></div></div><div class="flex gap-2"><span class="px-3 py-1 bg-green-100 text-green-700 text-xs rounded-full">Core Subject</span><span class="px-3 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">40 Min</span></div></div></div></div>
+                    <!-- 08:40 AM -->
+                    <div class="flex gap-4"><div class="w-24 pt-2"><span class="text-sm font-medium text-gray-500">08:40 AM</span></div><div class="flex-1 timetable-card p-4" onclick="editLesson('english')"><div class="flex justify-between items-center"><div><h4 class="font-bold text-[#003f87]">English Literature</h4><div class="flex gap-3 text-sm text-gray-500 mt-1"><span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">person</span> David Otieno</span><span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">meeting_room</span> Room 104</span></div></div><div class="flex gap-2"><span class="px-3 py-1 bg-green-100 text-green-700 text-xs rounded-full">Core Subject</span><span class="px-3 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">40 Min</span></div></div></div></div>
+                    <!-- Break -->
+                    <div class="flex gap-4"><div class="w-24 pt-2"><span class="text-sm font-medium text-gray-500">09:20 AM</span></div><div class="flex-1 text-center py-3"><div class="relative"><div class="absolute inset-0 flex items-center"><div class="w-full border-t border-gray-200"></div></div><div class="relative flex justify-center"><span class="bg-white px-4 text-xs text-gray-400 uppercase tracking-wider">Short Break</span></div></div></div></div>
+                    <!-- 09:40 AM - Conflict Lesson -->
+                    <div class="flex gap-4"><div class="w-24 pt-2"><span class="text-sm font-medium text-gray-500">09:40 AM</span></div><div class="flex-1 bg-red-50 border border-red-200 rounded-xl p-4 relative"><div class="absolute top-2 right-2"><span class="material-symbols-outlined text-red-500 text-sm">error</span></div><div class="flex justify-between items-center"><div><h4 class="font-bold text-[#003f87]">Integrated Science</h4><div class="flex gap-3 text-sm text-red-600 mt-1"><span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">person</span> Jane Akinyi</span><span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">science</span> Science Lab</span></div></div><div class="flex gap-2"><span class="px-3 py-1 bg-yellow-100 text-yellow-700 text-xs rounded-full">Lab Session</span><span class="px-3 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">80 Min</span></div></div><p class="text-xs text-red-500 mt-2 flex items-center gap-1"><span class="material-symbols-outlined text-xs">warning</span> Conflict: Teacher also assigned to 8L at this time</p></div></div>
+                    <!-- 11:00 AM Break -->
+                    <div class="flex gap-4"><div class="w-24 pt-2"><span class="text-sm font-medium text-gray-500">11:00 AM</span></div><div class="flex-1 text-center py-3"><div class="relative"><div class="absolute inset-0 flex items-center"><div class="w-full border-t border-gray-200"></div></div><div class="relative flex justify-center"><span class="bg-white px-4 text-xs text-gray-400 uppercase tracking-wider">Long Break</span></div></div></div></div>
+                    <!-- 11:30 AM -->
+                    <div class="flex gap-4"><div class="w-24 pt-2"><span class="text-sm font-medium text-gray-500">11:30 AM</span></div><div class="flex-1 timetable-card p-4" onclick="editLesson('kiswahili')"><div class="flex justify-between items-center"><div><h4 class="font-bold text-[#003f87]">Kiswahili</h4><div class="flex gap-3 text-sm text-gray-500 mt-1"><span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">person</span> Mwalimu Juma</span><span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">meeting_room</span> Room 101</span></div></div><div class="flex gap-2"><span class="px-3 py-1 bg-green-100 text-green-700 text-xs rounded-full">Core Subject</span></div></div></div></div>
+                </div>
+
+                <!-- Stats Section -->
+                <div class="grid md:grid-cols-3 gap-6 mt-8">
+                    <div class="bg-white rounded-2xl p-6"><div class="flex items-center gap-3 mb-2"><div class="w-10 h-10 bg-[#003f87]/10 rounded-xl flex items-center justify-center"><span class="material-symbols-outlined text-[#003f87]">schedule</span></div><h4 class="font-bold">Total Hours</h4></div><p class="text-3xl font-bold text-[#003f87]">32.5</p><p class="text-sm text-gray-500">Per week for Grade 9J</p></div>
+                    <div class="bg-white rounded-2xl p-6"><div class="flex items-center gap-3 mb-2"><div class="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center"><span class="material-symbols-outlined text-green-700">fact_check</span></div><h4 class="font-bold">Syllabus Coverage</h4></div><div class="w-full bg-gray-200 rounded-full h-2 mt-2"><div class="bg-green-600 h-2 rounded-full" style="width: 65%"></div></div><p class="text-sm font-bold text-right mt-1">65% Overall</p></div>
+                    <div class="bg-white rounded-2xl p-6 border-l-4 border-red-500"><div class="flex items-center gap-3 mb-2"><div class="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center"><span class="material-symbols-outlined text-red-600">bolt</span></div><h4 class="font-bold">Current Bottlenecks</h4></div><p class="text-3xl font-bold text-red-600">03</p><p class="text-sm text-gray-500">Pending conflicts to resolve</p></div>
+                </div>
+            </div>
+
+            <!-- Schedule Lesson Section -->
+            <div id="scheduleSection" class="hidden">
+                <div class="mb-6"><h2 class="text-2xl font-bold text-gray-800">Schedule New Lesson</h2><p class="text-gray-500">Add lessons to the academic timetable</p></div>
+                <div class="bg-white rounded-2xl p-6 shadow-sm max-w-2xl">
+                    <form id="lessonForm" class="space-y-5"><div class="grid md:grid-cols-2 gap-4"><select id="lessonGrade" class="p-3 border rounded-xl" required><option>Select Grade</option><option>Grade 4</option><option>Grade 5</option><option>Grade 6</option><option>Grade 7</option><option>Grade 8</option><option>Grade 9</option></select><select id="lessonStream" class="p-3 border rounded-xl" required><option>Select Stream</option><option>East</option><option>West</option><option>North</option><option>South</option></select><input id="lessonSubject" type="text" placeholder="Subject Name" class="p-3 border rounded-xl" required><input id="lessonTeacher" type="text" placeholder="Teacher Name" class="p-3 border rounded-xl" required><input id="lessonRoom" type="text" placeholder="Room Number" class="p-3 border rounded-xl" required><select id="lessonDay" class="p-3 border rounded-xl" required><option>Monday</option><option>Tuesday</option><option>Wednesday</option><option>Thursday</option><option>Friday</option></select><input id="lessonStartTime" type="time" class="p-3 border rounded-xl" required><input id="lessonEndTime" type="time" class="p-3 border rounded-xl" required><select id="lessonType" class="p-3 border rounded-xl"><option>Core Subject</option><option>Elective</option><option>Lab Session</option><option>Sports</option></select></div><button type="submit" class="w-full py-3 bg-[#003f87] text-white rounded-xl">Schedule Lesson</button></form>
+                </div>
+            </div>
+
+            <!-- Conflicts Section -->
+            <div id="conflictsSection" class="hidden">
+                <div class="mb-6"><h2 class="text-2xl font-bold text-gray-800">Schedule Conflicts</h2><p class="text-gray-500">Resolve teacher and room allocation conflicts</p></div>
+                <div id="conflictsList" class="space-y-4"><div class="bg-white rounded-2xl p-5 border-l-4 border-red-500"><div class="flex justify-between items-start"><div><h4 class="font-bold text-gray-800">Teacher Time Conflict</h4><p class="text-sm text-gray-600 mt-1">Jane Akinyi is assigned to teach Integrated Science in Science Lab and Mathematics in Room 101 at 10:00 AM</p></div><button class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm">Resolve</button></div></div><div class="bg-white rounded-2xl p-5 border-l-4 border-yellow-500"><div class="flex justify-between items-start"><div><h4 class="font-bold text-gray-800">Room Double Booking</h4><p class="text-sm text-gray-600 mt-1">Science Lab booked for Integrated Science (9J) and Chemistry (9K) at 09:40 AM</p></div><button class="px-4 py-2 bg-yellow-600 text-white rounded-lg text-sm">Resolve</button></div></div></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" style="display:none" class="toast"></div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyA4cm7chJXz90yOLWPtbdIW8KlEozG1lxo",
+            authDomain: "learnpro-kenya-erp.firebaseapp.com",
+            projectId: "learnpro-kenya-erp",
+            storageBucket: "learnpro-kenya-erp.firebasestorage.app",
+            messagingSenderId: "327168081514",
+            appId: "1:327168081514:web:13cdc8b827fa76d95a9413"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        let currentSchoolCode = null;
+
+        function showToast(msg, isError = false) { const toast = document.getElementById('toast'); toast.textContent = msg; toast.className = `toast ${isError ? 'toast-error' : 'toast-success'}`; toast.style.display = 'block'; setTimeout(() => toast.style.display = 'none', 3000); }
+        function goToDashboard() { window.location.href = 'dashboard.html'; }
+        async function logout() { await auth.signOut(); sessionStorage.clear(); window.location.href = 'index.html'; }
+
+        function showSection(section) {
+            document.getElementById('timetableSection').classList.add('hidden');
+            document.getElementById('scheduleSection').classList.add('hidden');
+            document.getElementById('conflictsSection').classList.add('hidden');
+            if (section === 'timetable') document.getElementById('timetableSection').classList.remove('hidden');
+            else if (section === 'schedule') document.getElementById('scheduleSection').classList.remove('hidden');
+            else if (section === 'conflicts') document.getElementById('conflictsSection').classList.remove('hidden');
+            ['navTimetable', 'navSchedule', 'navConflicts', 'navAnalytics'].forEach(id => { document.getElementById(id).classList.remove('nav-active'); document.getElementById(id).classList.add('text-gray-700'); });
+            const activeNav = section === 'timetable' ? 'navTimetable' : section === 'schedule' ? 'navSchedule' : 'navConflicts';
+            document.getElementById(activeNav).classList.add('nav-active');
+            document.getElementById(activeNav).classList.remove('text-gray-700');
+        }
+
+        let currentDay = 'monday';
+        function setDay(day) {
+            currentDay = day;
+            ['mon', 'tue', 'wed', 'thu', 'fri'].forEach(d => { document.getElementById(`day${d.charAt(0).toUpperCase() + d.slice(1)}`).classList.remove('day-active'); document.getElementById(`day${d.charAt(0).toUpperCase() + d.slice(1)}`).classList.add('bg-gray-100', 'text-gray-700'); });
+            document.getElementById(`day${day.charAt(0).toUpperCase() + day.slice(1)}`).classList.add('day-active');
+            document.getElementById(`day${day.charAt(0).toUpperCase() + day.slice(1)}`).classList.remove('bg-gray-100', 'text-gray-700');
+            loadTimetable();
+        }
+
+        function loadTimetable() { showToast('Timetable loaded'); }
+        function editLesson(lesson) { showToast(`Edit ${lesson} lesson`); }
+
+        document.getElementById('lessonForm')?.addEventListener('submit', (e) => { e.preventDefault(); showToast('Lesson scheduled successfully!'); showSection('timetable'); });
+
+        auth.onAuthStateChanged(async (user) => {
+            if (!user) { window.location.href = 'index.html'; return; }
+            currentSchoolCode = sessionStorage.getItem('currentSchoolCode');
+            if (!currentSchoolCode) { const schoolsSnap = await db.collection('schools').where('adminId', '==', user.uid).get(); if (!schoolsSnap.empty) { currentSchoolCode = schoolsSnap.docs[0].id; sessionStorage.setItem('currentSchoolCode', currentSchoolCode); sessionStorage.setItem('currentSchoolName', schoolsSnap.docs[0].data().schoolName); } }
+            document.getElementById('schoolBadge').innerText = sessionStorage.getItem('currentSchoolName') || currentSchoolCode;
+        });
+    </script>
+</body>
+</html>
