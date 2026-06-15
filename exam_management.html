@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KNEC Exam Management | LearnPro Kenya ERP</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: #f0f2f5; }
+        .stat-card { background: white; border-radius: 20px; transition: all 0.3s ease; border: 1px solid #eef2ff; }
+        .stat-card:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,63,135,0.1); }
+        .toast { position: fixed; bottom: 24px; right: 24px; background: #003f87; color: white; padding: 12px 24px; border-radius: 48px; z-index: 1000; font-weight: 500; }
+        .toast-error { background: #dc2626; }
+        .toast-success { background: #059669; }
+        .grade-badge { display: inline-flex; align-items: center; padding: 4px 12px; border-radius: 30px; font-size: 11px; font-weight: 600; }
+        .grade-EE { background: #003f87; color: white; }
+        .grade-ME { background: #059669; color: white; }
+        .grade-AE { background: #d97706; color: white; }
+        .grade-BE { background: #dc2626; color: white; }
+        .nav-tab { cursor: pointer; padding: 8px 24px; border-radius: 30px; font-size: 14px; font-weight: 500; transition: all 0.2s; }
+        .nav-tab-active { background: #003f87; color: white; }
+        .nav-tab-inactive { background: white; color: #4a5568; border: 1px solid #e2e8f0; }
+        .nav-tab-inactive:hover { background: #f1f5f9; border-color: #003f87; }
+        .student-card { background: white; border-radius: 20px; margin-bottom: 12px; transition: all 0.2s; border: 1px solid #eef2ff; overflow: hidden; }
+        .student-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        .student-header { padding: 16px 20px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: white; }
+        .student-details { padding: 0 20px 20px 20px; border-top: 1px solid #eef2ff; background: #fafbfc; }
+        .expand-icon { transition: transform 0.2s; }
+        .expanded .expand-icon { transform: rotate(180deg); }
+        .subject-row { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid #eef2ff; }
+        .subject-row:last-child { border-bottom: none; }
+        .rank-1 { background: linear-gradient(135deg, #ffd70020, #ffd70008); border-left: 4px solid #ffd700; }
+        .rank-2 { background: linear-gradient(135deg, #c0c0c020, #c0c0c008); border-left: 4px solid #c0c0c0; }
+        .rank-3 { background: linear-gradient(135deg, #cd7f3220, #cd7f3208); border-left: 4px solid #cd7f32; }
+        @media print { .no-print { display: none !important; } body { background: white; } .student-card { break-inside: avoid; } }
+    </style>
+</head>
+<body>
+
+    <!-- Top Bar -->
+    <div class="bg-white shadow-sm fixed top-0 left-0 right-0 z-40 border-b border-gray-100 no-print">
+        <div class="flex justify-between items-center px-8 py-3">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-gradient-to-br from-[#003f87] to-[#0056b3] rounded-xl flex items-center justify-center shadow-md">
+                    <span class="material-symbols-outlined text-white text-xl">assignment_turned_in</span>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold text-[#003f87] tracking-tight">LEARNPRO KENYA</h1>
+                    <p class="text-[10px] text-gray-400 -mt-0.5">KNEC Exam & Assessment Management | CBC Compliant</p>
+                </div>
+                <span id="schoolBadge" class="ml-3 text-xs bg-[#003f87]/10 text-[#003f87] px-3 py-1 rounded-full font-medium">Loading...</span>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="window.location.href='dashboard.html'" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg text-sm">Dashboard</button>
+                <button onclick="logout()" class="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg text-sm">Logout</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="pt-20 px-8 pb-10">
+        <div class="max-w-7xl mx-auto">
+            
+            <!-- Tabs -->
+            <div class="flex gap-2 mb-6 border-b pb-3">
+                <button onclick="showTab('assessments')" id="tabAssessments" class="nav-tab nav-tab-active">Student Assessments</button>
+                <button onclick="showTab('reports')" id="tabReports" class="nav-tab nav-tab-inactive">📄 Report Cards</button>
+                <button onclick="showTab('analytics')" id="tabAnalytics" class="nav-tab nav-tab-inactive">📊 Analytics & Class Ranking</button>
+                <button onclick="showTab('trash')" id="tabTrash" class="nav-tab nav-tab-inactive">🗑️ Trash (<span id="trashCount">0</span>)</button>
+            </div>
+
+            <!-- ========== ASSESSMENTS TAB ========== -->
+            <div id="assessmentsTab">
+                <!-- Stats -->
+                <div class="grid grid-cols-4 gap-5 mb-6">
+                    <div class="stat-card p-5"><p class="text-gray-400 text-xs uppercase tracking-wide">Total Students</p><p class="text-3xl font-bold text-blue-600 mt-1" id="totalStudents">0</p></div>
+                    <div class="stat-card p-5"><p class="text-gray-400 text-xs uppercase tracking-wide">Total Assessments</p><p class="text-3xl font-bold text-green-600 mt-1" id="totalAssessments">0</p></div>
+                    <div class="stat-card p-5"><p class="text-gray-400 text-xs uppercase tracking-wide">Exceeding (EE)</p><p class="text-3xl font-bold text-[#003f87] mt-1" id="totalEE">0</p></div>
+                    <div class="stat-card p-5"><p class="text-gray-400 text-xs uppercase tracking-wide">School Pass Rate</p><p class="text-3xl font-bold text-purple-600 mt-1" id="passRateValue">0%</p></div>
+                </div>
+
+                <!-- Filters -->
+                <div class="bg-white rounded-xl p-4 mb-4 flex flex-wrap gap-3 items-center shadow-sm">
+                    <select id="filterGrade" class="p-2 border rounded-lg text-sm bg-white">
+                        <option value="all">All Grades</option>
+                        <option>Grade 1</option><option>Grade 2</option><option>Grade 3</option><option>Grade 4</option>
+                        <option>Grade 5</option><option>Grade 6</option><option>Grade 7</option><option>Grade 8</option><option>Grade 9</option>
+                    </select>
+                    <select id="filterStream" class="p-2 border rounded-lg text-sm bg-white">
+                        <option value="all">All Streams</option>
+                        <option>North</option><option>South</option><option>East</option><option>West</option>
+                    </select>
+                    <select id="filterTerm" class="p-2 border rounded-lg text-sm bg-white">
+                        <option>Term 1, 2024</option><option selected>Term 2, 2024</option><option>Term 3, 2024</option>
+                    </select>
+                    <input type="text" id="searchInput" placeholder="Search student..." class="p-2 border rounded-lg text-sm flex-1">
+                    <button onclick="loadGroupedAssessments()" class="px-4 py-2 bg-[#003f87] text-white rounded-lg text-sm">Search</button>
+                    <button onclick="syncStudents()" class="px-4 py-2 border rounded-lg text-sm">Sync Students</button>
+                    <button onclick="exportToExcel()" class="px-4 py-2 border rounded-lg text-sm">Export to Excel</button>
+                </div>
+
+                <!-- Grouped Student Cards -->
+                <div id="studentsContainer" class="space-y-3"></div>
+                
+                <!-- Pagination -->
+                <div class="flex justify-between items-center mt-4">
+                    <span id="pageInfo" class="text-sm text-gray-500"></span>
+                    <div id="pagination" class="flex gap-2"></div>
+                </div>
+            </div>
+
+            <!-- ========== REPORT CARDS TAB ========== -->
+            <div id="reportsTab" class="hidden">
+                <div class="bg-white rounded-xl p-6 mb-4 shadow-sm">
+                    <div class="grid md:grid-cols-3 gap-4">
+                        <select id="reportGradeSelect" class="p-2 border rounded-lg"><option value="">Select Grade</option><option>Grade 1</option><option>Grade 2</option><option>Grade 3</option><option>Grade 4</option><option>Grade 5</option><option>Grade 6</option><option>Grade 7</option><option>Grade 8</option><option>Grade 9</option></select>
+                        <select id="reportStreamSelect" class="p-2 border rounded-lg"><option value="all">All Streams</option><option>North</option><option>South</option><option>East</option><option>West</option></select>
+                        <select id="reportTermSelect" class="p-2 border rounded-lg"><option>Term 1, 2024</option><option>Term 2, 2024</option><option>Term 3, 2024</option></select>
+                    </div>
+                    <div class="flex gap-3 mt-4">
+                        <button onclick="loadReportStudents()" class="px-4 py-2 bg-[#003f87] text-white rounded-lg">Load Students</button>
+                        <button onclick="generateBulkReports()" class="px-4 py-2 bg-green-600 text-white rounded-lg">Generate All Class Reports</button>
+                    </div>
+                </div>
+                <div id="reportStudentsList" class="space-y-2"></div>
+                <div id="bulkReportsContainer" class="space-y-8"></div>
+            </div>
+
+            <!-- ========== ANALYTICS TAB ========== -->
+            <div id="analyticsTab" class="hidden">
+                <!-- Small Charts Row -->
+                <div class="grid grid-cols-3 gap-5 mb-6">
+                    <div class="bg-white rounded-xl p-4 shadow-sm">
+                        <h3 class="font-bold text-sm text-gray-600 mb-2">Competency Distribution</h3>
+                        <canvas id="gradeChart" height="150" style="max-height: 150px;"></canvas>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 shadow-sm">
+                        <h3 class="font-bold text-sm text-gray-600 mb-2">Subject Performance</h3>
+                        <canvas id="subjectChart" height="150" style="max-height: 150px;"></canvas>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 shadow-sm">
+                        <h3 class="font-bold text-sm text-gray-600 mb-2">Pass Rate by Grade</h3>
+                        <canvas id="gradePerformanceChart" height="150" style="max-height: 150px;"></canvas>
+                    </div>
+                </div>
+
+                <!-- Class Ranking Table -->
+                <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+                    <div class="p-4 border-b bg-gradient-to-r from-[#003f87]/5 to-transparent">
+                        <h3 class="font-bold text-gray-800">🏆 Class Performance Ranking (Best to Least)</h3>
+                        <p class="text-xs text-gray-500 mt-1">Based on overall pass rate across all subjects</p>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-gray-50">
+                                <tr><th class="p-3 text-left">Rank</th><th class="p-3 text-left">Grade</th><th class="p-3 text-left">Stream</th><th class="p-3 text-center">Students</th><th class="p-3 text-center">EE</th><th class="p-3 text-center">ME</th><th class="p-3 text-center">AE</th><th class="p-3 text-center">BE</th><th class="p-3 text-center">Pass Rate</th><th class="p-3 text-center">Overall Grade</th></tr>
+                            </thead>
+                            <tbody id="classRankingBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========== TRASH TAB ========== -->
+            <div id="trashTab" class="hidden">
+                <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+                    <div class="p-4 border-b flex justify-between"><h3 class="font-bold">Deleted Records</h3><button onclick="emptyTrash()" class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm">Empty Trash</button></div>
+                    <div class="overflow-x-auto"><table class="w-full"><thead><tr class="bg-gray-50"><th class="p-3 text-left">Student</th><th class="p-3 text-left">Subject</th><th class="p-3 text-left">Grade</th><th class="p-3 text-left">Competency</th><th class="p-3 text-left">Deleted On</th><th class="p-3 text-center">Actions</th></tr></thead><tbody id="trashTableBody"></tbody></table></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Grade Modal -->
+    <div id="editModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-2xl p-6 max-w-md w-full">
+            <h3 class="text-xl font-bold mb-4">Edit Assessment</h3>
+            <input type="hidden" id="editId">
+            <p id="editStudentName" class="mb-3 font-medium"></p>
+            <p id="editSubject" class="mb-3 text-gray-600"></p>
+            <select id="editCompetency" class="w-full p-2 border rounded-lg mb-4">
+                <option value="EE">EE - Exceeding Expectations (85-100%)</option>
+                <option value="ME">ME - Meeting Expectations (65-84%)</option>
+                <option value="AE">AE - Approaching Expectations (45-64%)</option>
+                <option value="BE">BE - Below Expectations (0-44%)</option>
+            </select>
+            <input id="editTeacher" placeholder="Teacher Name" class="w-full p-2 border rounded-lg mb-4">
+            <div class="flex gap-3"><button onclick="saveEdit()" class="flex-1 py-2 bg-[#003f87] text-white rounded-lg">Save</button><button onclick="closeEditModal()" class="flex-1 py-2 border rounded-lg">Cancel</button></div>
+        </div>
+    </div>
+
+    <!-- Report Modal -->
+    <div id="reportModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-2xl p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between mb-4 sticky top-0 bg-white pb-2"><h3 class="text-xl font-bold text-[#003f87]">KNEC CBC Report Card</h3><button onclick="closeReportModal()" class="text-gray-400">✕</button></div>
+            <div id="reportContent"></div>
+            <div class="flex gap-3 mt-4"><button onclick="printReportCard()" class="flex-1 py-2 bg-[#003f87] text-white rounded-lg">Print Report Card</button></div>
+        </div>
+    </div>
+
+    <div id="toast" style="display:none" class="toast"></div>
+
+    <script>
+        const firebaseConfig = { apiKey: "AIzaSyA4cm7chJXz90yOLWPtbdIW8KlEozG1lxo", authDomain: "learnpro-kenya-erp.firebaseapp.com", projectId: "learnpro-kenya-erp", storageBucket: "learnpro-kenya-erp.firebasestorage.app", messagingSenderId: "327168081514", appId: "1:327168081514:web:13cdc8b827fa76d95a9413" };
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        let currentSchool = null, schoolName = '';
+        let allAssessments = [], allStudents = [], deletedItems = [];
+        let groupedData = [];
+        let currentPage = 1, itemsPerPage = 8;
+        let gradeChart = null, subjectChart = null, gradePerfChart = null;
+
+        function showToast(msg, isErr) {
+            let toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.className = `toast ${isErr ? 'toast-error' : 'toast-success'}`;
+            toast.style.display = 'block';
+            setTimeout(() => toast.style.display = 'none', 3000);
+        }
+
+        async function logout() { await auth.signOut(); sessionStorage.clear(); window.location.href = 'index.html'; }
+
+        function showTab(tab) {
+            document.querySelectorAll('[id$="Tab"]').forEach(el => el.classList.add('hidden'));
+            document.getElementById(tab + 'Tab').classList.remove('hidden');
+            document.querySelectorAll('.nav-tab').forEach(btn => btn.classList.remove('nav-tab-active', 'nav-tab-inactive'));
+            let btnMap = { assessments: 'tabAssessments', reports: 'tabReports', analytics: 'tabAnalytics', trash: 'tabTrash' };
+            document.getElementById(btnMap[tab]).classList.add('nav-tab-active');
+            if (tab === 'assessments') loadGroupedAssessments();
+            if (tab === 'analytics') { updateCharts(); updateClassRanking(); }
+            if (tab === 'trash') loadTrash();
+        }
+
+        async function loadAllData() {
+            if (!currentSchool) return;
+            let sSnap = await db.collection('schools').doc(currentSchool).collection('students').where('deleted', '==', false).get();
+            allStudents = []; sSnap.forEach(d => allStudents.push({ id: d.id, ...d.data() }));
+            let aSnap = await db.collection('schools').doc(currentSchool).collection('assessments').get();
+            allAssessments = []; aSnap.forEach(d => allAssessments.push({ id: d.id, ...d.data() }));
+            schoolName = sessionStorage.getItem('currentSchoolName') || 'LearnPro School';
+            loadGroupedAssessments();
+        }
+
+        async function syncStudents() {
+            if (!currentSchool) return;
+            let subjects = ['Mathematics', 'English', 'Kiswahili', 'Integrated Science', 'Social Studies', 'Creative Arts', 'Physical Education'];
+            let term = document.getElementById('filterTerm').value;
+            let created = 0;
+            for (let student of allStudents) {
+                for (let subject of subjects) {
+                    let exists = allAssessments.find(a => a.studentId === student.id && a.subject === subject && a.term === term && !a.deleted);
+                    if (!exists) {
+                        await db.collection('schools').doc(currentSchool).collection('assessments').add({
+                            studentId: student.id, studentName: student.name, admNo: student.admNo,
+                            grade: student.grade, stream: student.stream || '', subject: subject,
+                            competency: 'ME', teacher: 'Staff', term: term,
+                            deleted: false, createdAt: new Date().toISOString()
+                        });
+                        created++;
+                    }
+                }
+            }
+            showToast(`Synced ${created} new assessments`);
+            loadAllData();
+        }
+
+        function getOverallCompetency(subjects) {
+            let counts = { EE: 0, ME: 0, AE: 0, BE: 0 };
+            subjects.forEach(s => { if (s.competency) counts[s.competency]++; });
+            let maxCount = Math.max(counts.EE, counts.ME, counts.AE, counts.BE);
+            if (counts.EE === maxCount) return 'EE';
+            if (counts.ME === maxCount) return 'ME';
+            if (counts.AE === maxCount) return 'AE';
+            return 'BE';
+        }
+
+        function loadGroupedAssessments() {
+            let grade = document.getElementById('filterGrade').value;
+            let stream = document.getElementById('filterStream').value;
+            let term = document.getElementById('filterTerm').value;
+            let search = document.getElementById('searchInput').value.toLowerCase();
+
+            let filtered = allAssessments.filter(a => !a.deleted && a.term === term);
+            
+            let studentMap = new Map();
+            filtered.forEach(a => {
+                if (!studentMap.has(a.studentId)) {
+                    let student = allStudents.find(s => s.id === a.studentId);
+                    if (!student) return;
+                    if (grade !== 'all' && student.grade !== grade) return;
+                    if (stream !== 'all' && student.stream !== stream) return;
+                    if (search && !student.name.toLowerCase().includes(search)) return;
+                    studentMap.set(a.studentId, { student, subjects: [] });
+                }
+                if (studentMap.has(a.studentId)) {
+                    studentMap.get(a.studentId).subjects.push(a);
+                }
+            });
+            
+            groupedData = Array.from(studentMap.values());
+            
+            let totalStudents = groupedData.length;
+            let totalAssessments = filtered.length;
+            let eeCount = filtered.filter(a => a.competency === 'EE').length;
+            let passCount = filtered.filter(a => a.competency === 'EE' || a.competency === 'ME').length;
+            let passRate = totalAssessments > 0 ? Math.round((passCount / totalAssessments) * 100) : 0;
+            
+            document.getElementById('totalStudents').innerText = totalStudents;
+            document.getElementById('totalAssessments').innerText = totalAssessments;
+            document.getElementById('totalEE').innerText = eeCount;
+            document.getElementById('passRateValue').innerText = passRate + '%';
+            
+            renderGroupedCards();
+        }
+
+        function renderGroupedCards() {
+            let start = (currentPage - 1) * itemsPerPage;
+            let pageItems = groupedData.slice(start, start + itemsPerPage);
+            let container = document.getElementById('studentsContainer');
+            
+            if (pageItems.length === 0) {
+                container.innerHTML = '<div class="text-center py-12 text-gray-400 bg-white rounded-xl">No students found. Click "Sync Students" to get started.</div>';
+                return;
+            }
+            
+            const subjectOrder = ['Mathematics', 'English', 'Kiswahili', 'Integrated Science', 'Social Studies', 'Creative Arts', 'Physical Education'];
+            
+            container.innerHTML = pageItems.map(group => {
+                let student = group.student;
+                let subjects = group.subjects;
+                subjects.sort((a,b) => subjectOrder.indexOf(a.subject) - subjectOrder.indexOf(b.subject));
+                
+                let ee = subjects.filter(s => s.competency === 'EE').length;
+                let me = subjects.filter(s => s.competency === 'ME').length;
+                let ae = subjects.filter(s => s.competency === 'AE').length;
+                let be = subjects.filter(s => s.competency === 'BE').length;
+                let total = ee + me + ae + be;
+                let passRate = total > 0 ? Math.round(((ee + me) / total) * 100) : 0;
+                let overallComp = getOverallCompetency(subjects);
+                let passColor = passRate >= 80 ? 'text-green-600' : passRate >= 50 ? 'text-yellow-600' : 'text-red-600';
+                
+                let subjectsHtml = subjects.map(sub => `
+                    <div class="subject-row">
+                        <div class="font-medium">${sub.subject}</div>
+                        <div class="flex items-center gap-3">
+                            <span class="grade-badge grade-${sub.competency}">${sub.competency}</span>
+                            <span class="text-sm text-gray-500">${sub.teacher || 'Staff'}</span>
+                            <button onclick="event.stopPropagation(); openEditModal('${sub.id}', '${student.name}', '${sub.subject}', '${sub.competency}', '${sub.teacher || ''}')" class="text-blue-600 text-sm hover:underline">Edit</button>
+                        </div>
+                    </div>
+                `).join('');
+                
+                return `
+                    <div class="student-card">
+                        <div class="student-header" onclick="toggleCard(this)">
+                            <div class="flex items-center gap-4">
+                                <div class="w-12 h-12 rounded-full bg-[#003f87]/10 flex items-center justify-center">
+                                    <span class="text-lg font-bold text-[#003f87]">${student.name.charAt(0)}</span>
+                                </div>
+                                <div>
+                                    <h3 class="font-bold text-gray-800">${student.name}</h3>
+                                    <p class="text-sm text-gray-500">Adm: ${student.admNo} | ${student.grade} ${student.stream || ''}</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-6">
+                                <div class="text-right">
+                                    <div class="flex gap-3 text-sm">
+                                        <span><span class="text-[#003f87] font-bold">EE:</span> ${ee}</span>
+                                        <span><span class="text-green-600 font-bold">ME:</span> ${me}</span>
+                                        <span><span class="text-yellow-600 font-bold">AE:</span> ${ae}</span>
+                                        <span><span class="text-red-600 font-bold">BE:</span> ${be}</span>
+                                    </div>
+                                    <p class="text-sm">Pass Rate: <span class="font-bold ${passColor}">${passRate}%</span> | Overall: <span class="grade-badge grade-${overallComp}">${overallComp}</span></p>
+                                </div>
+                                <button onclick="event.stopPropagation(); viewReport('${student.id}')" class="px-3 py-1.5 bg-green-600 text-white rounded-lg text-sm">View Report</button>
+                                <span class="material-symbols-outlined expand-icon text-gray-400">expand_more</span>
+                            </div>
+                        </div>
+                        <div class="student-details hidden">
+                            <h4 class="font-bold mb-3 pt-2">Subjects & Competencies (CBC Curriculum Order)</h4>
+                            ${subjectsHtml}
+                            <div class="mt-3 flex gap-2 justify-end">
+                                <button onclick="event.stopPropagation(); deleteAllForStudent('${student.id}', '${student.name}')" class="px-3 py-1 text-red-600 text-sm border rounded-lg hover:bg-red-50">Delete All Records</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            let totalPages = Math.ceil(groupedData.length / itemsPerPage);
+            document.getElementById('pageInfo').innerText = `Showing ${start+1}-${Math.min(start+itemsPerPage, groupedData.length)} of ${groupedData.length} students`;
+            let pages = '';
+            for (let i = 1; i <= Math.min(totalPages, 5); i++) {
+                pages += `<button onclick="changePage(${i})" class="px-3 py-1 rounded-lg ${currentPage === i ? 'bg-[#003f87] text-white' : 'border hover:bg-gray-50'}">${i}</button>`;
+            }
+            document.getElementById('pagination').innerHTML = pages;
+        }
+
+        function toggleCard(el) {
+            let card = el.closest('.student-card');
+            let details = card.querySelector('.student-details');
+            details.classList.toggle('hidden');
+            card.classList.toggle('expanded');
+        }
+
+        function changePage(p) { currentPage = p; renderGroupedCards(); }
+
+        function openEditModal(id, studentName, subject, competency, teacher) {
+            document.getElementById('editId').value = id;
+            document.getElementById('editStudentName').innerHTML = `<strong>Student:</strong> ${studentName}`;
+            document.getElementById('editSubject').innerHTML = `<strong>Subject:</strong> ${subject}`;
+            document.getElementById('editCompetency').value = competency;
+            document.getElementById('editTeacher').value = teacher;
+            document.getElementById('editModal').classList.remove('hidden');
+        }
+        
+        function closeEditModal() { document.getElementById('editModal').classList.add('hidden'); }
+        
+        async function saveEdit() {
+            let id = document.getElementById('editId').value;
+            let competency = document.getElementById('editCompetency').value;
+            let teacher = document.getElementById('editTeacher').value;
+            await db.collection('schools').doc(currentSchool).collection('assessments').doc(id).update({ competency, teacher });
+            showToast('Assessment updated');
+            closeEditModal();
+            loadAllData();
+        }
+
+        async function deleteAllForStudent(studentId, studentName) {
+            if (confirm(`Delete ALL assessments for ${studentName}? This will move them to trash.`)) {
+                let assessments = allAssessments.filter(a => a.studentId === studentId && !a.deleted);
+                for (let a of assessments) {
+                    await db.collection('schools').doc(currentSchool).collection('assessments').doc(a.id).update({ deleted: true, deletedAt: new Date().toISOString() });
+                }
+                showToast(`Moved ${assessments.length} records to trash`);
+                loadAllData();
+                loadTrash();
+            }
+        }
+
+        // TRASH FUNCTIONS
+        async function loadTrash() {
+            let snap = await db.collection('schools').doc(currentSchool).collection('assessments').where('deleted', '==', true).get();
+            deletedItems = []; snap.forEach(d => deletedItems.push({ id: d.id, ...d.data() }));
+            document.getElementById('trashCount').innerText = deletedItems.length;
+            let tbody = document.getElementById('trashTableBody');
+            if (deletedItems.length === 0) { tbody.innerHTML = '<td><td colspan="6" class="text-center py-8 text-gray-400">Trash empty</td></table>'; return; }
+            tbody.innerHTML = deletedItems.map(a => `
+                <tr class="border-b">
+                    <td class="p-3">${a.studentName}</td><td class="p-3">${a.subject}</td><td class="p-3">${a.grade}</td>
+                    <td class="p-3"><span class="grade-badge grade-${a.competency}">${a.competency}</span></td>
+                    <td class="p-3">${a.deletedAt ? new Date(a.deletedAt).toLocaleDateString() : '-'}</td>
+                    <td class="p-3 text-center"><button onclick="restoreItem('${a.id}')" class="text-green-600 mr-2 hover:underline">Restore</button><button onclick="permanentDeleteItem('${a.id}', '${a.studentName}')" class="text-red-600 hover:underline">Delete</button></td>
+                </tr>
+            `).join('');
+        }
+
+        async function restoreItem(id) { await db.collection('schools').doc(currentSchool).collection('assessments').doc(id).update({ deleted: false, deletedAt: null }); showToast('Restored'); loadAllData(); loadTrash(); }
+        async function permanentDeleteItem(id, name) { if (confirm(`Permanently delete ${name}'s record? Cannot undo.`)) { await db.collection('schools').doc(currentSchool).collection('assessments').doc(id).delete(); showToast('Deleted forever'); loadAllData(); loadTrash(); } }
+        async function emptyTrash() { if (confirm('Delete ALL records permanently?')) { for (let a of deletedItems) await db.collection('schools').doc(currentSchool).collection('assessments').doc(a.id).delete(); showToast('Trash emptied'); loadAllData(); loadTrash(); } }
+
+        // REPORT FUNCTIONS
+        async function loadReportStudents() {
+            let grade = document.getElementById('reportGradeSelect').value;
+            let stream = document.getElementById('reportStreamSelect').value;
+            let term = document.getElementById('reportTermSelect').value;
+            
+            if (!grade) { showToast('Select grade', true); return; }
+            
+            let students = allStudents.filter(s => s.grade === grade);
+            if (stream !== 'all') students = students.filter(s => s.stream === stream);
+            
+            if (students.length === 0) {
+                document.getElementById('reportStudentsList').innerHTML = '<p class="text-center py-8 text-gray-400">No students found in this class</p>';
+                return;
+            }
+            
+            let html = '<div class="space-y-2">';
+            for (let student of students) {
+                let studentAssessments = allAssessments.filter(a => a.studentId === student.id && a.term === term && !a.deleted);
+                
+                let ee = studentAssessments.filter(a => a.competency === 'EE').length;
+                let me = studentAssessments.filter(a => a.competency === 'ME').length;
+                let ae = studentAssessments.filter(a => a.competency === 'AE').length;
+                let be = studentAssessments.filter(a => a.competency === 'BE').length;
+                let total = ee + me + ae + be;
+                let passRate = total > 0 ? Math.round(((ee + me) / total) * 100) : 0;
+                let overallComp = passRate >= 80 ? 'EE' : passRate >= 65 ? 'ME' : passRate >= 45 ? 'AE' : 'BE';
+                
+                html += `
+                    <div class="flex justify-between items-center p-4 bg-white rounded-xl border shadow-sm hover:shadow-md transition">
+                        <div>
+                            <p class="font-medium text-gray-800">${student.name}</p>
+                            <p class="text-sm text-gray-500">${student.admNo} | ${student.grade} ${student.stream || ''}</p>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <div class="text-right">
+                                <div class="flex gap-2 text-xs">
+                                    <span class="text-[#003f87]">EE:${ee}</span>
+                                    <span class="text-green-600">ME:${me}</span>
+                                    <span class="text-yellow-600">AE:${ae}</span>
+                                    <span class="text-red-600">BE:${be}</span>
+                                </div>
+                                <span class="grade-badge grade-${overallComp} text-xs">${overallComp} ${passRate}%</span>
+                            </div>
+                            <button onclick="viewReport('${student.id}')" class="px-4 py-2 bg-[#003f87] text-white rounded-lg text-sm">View Report</button>
+                        </div>
+                    </div>
+                `;
+            }
+            html += '</div>';
+            document.getElementById('reportStudentsList').innerHTML = html;
+        }
+
+        async function viewReport(studentId) {
+            let student = allStudents.find(s => s.id === studentId);
+            let term = document.getElementById('reportTermSelect').value;
+            let assessments = allAssessments.filter(a => a.studentId === studentId && a.term === term && !a.deleted);
+            
+            const subjectOrder = ['Mathematics', 'English', 'Kiswahili', 'Integrated Science', 'Social Studies', 'Creative Arts', 'Physical Education'];
+            let assessmentMap = new Map();
+            assessments.forEach(a => assessmentMap.set(a.subject, a));
+            
+            let rows = '';
+            let ee = 0, me = 0, ae = 0, be = 0;
+            
+            for (let sub of subjectOrder) {
+                let assessment = assessmentMap.get(sub);
+                let competency = assessment?.competency || 'N/A';
+                let teacher = assessment?.teacher || 'Not assigned';
+                
+                if (competency === 'EE') ee++;
+                else if (competency === 'ME') me++;
+                else if (competency === 'AE') ae++;
+                else if (competency === 'BE') be++;
+                
+                rows += `
+                    <tr class="border-b">
+                        <td class="p-3 font-medium">${sub}</td>
+                        <td class="p-3 text-center">
+                            ${competency !== 'N/A' ? `<span class="grade-badge grade-${competency}">${competency}</span>` : '<span class="text-gray-400">Not Assessed</span>'}
+                        </td>
+                        <td class="p-3 text-gray-600">${teacher}</td>
+                    </tr>
+                `;
+            }
+            
+            let total = ee + me + ae + be;
+            let passRate = total > 0 ? Math.round(((ee + me) / total) * 100) : 0;
+            
+            let compCounts = { EE: ee, ME: me, AE: ae, BE: be };
+            let maxCount = Math.max(ee, me, ae, be);
+            let overallComp = 'N/A';
+            if (maxCount === ee) overallComp = 'EE';
+            else if (maxCount === me) overallComp = 'ME';
+            else if (maxCount === ae) overallComp = 'AE';
+            else if (maxCount === be) overallComp = 'BE';
+            
+            let comment = passRate >= 80 ? "Excellent performance! The student has demonstrated outstanding understanding of all concepts. Keep up the great work!" : 
+                          passRate >= 65 ? "Good performance. The student meets expectations in most subjects. Keep improving!" : 
+                          passRate >= 45 ? "Satisfactory performance. The student is approaching expectations. More effort needed." : 
+                          "Needs significant improvement. Please see the class teacher for intervention strategies.";
+            
+            let html = `
+                <div class="p-6 bg-white rounded-xl" style="font-family: 'Inter', sans-serif;">
+                    <div class="text-center border-b-2 border-[#003f87] pb-4 mb-4">
+                        <h2 class="text-2xl font-bold text-[#003f87]">${schoolName}</h2>
+                        <p class="text-gray-500 mt-1">Competency Based Curriculum (CBC) Report Card</p>
+                        <p class="text-sm text-gray-400">${term} Academic Report | KNEC Compliant</p>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3 bg-gray-50 p-4 rounded-lg mb-4">
+                        <div><strong>Student Name:</strong> ${student.name}</div>
+                        <div><strong>Admission No:</strong> ${student.admNo}</div>
+                        <div><strong>Grade/Class:</strong> ${student.grade} ${student.stream || ''}</div>
+                        <div><strong>UPI/NEMIS:</strong> ${student.upi || 'N/A'}</div>
+                        <div><strong>Gender:</strong> ${student.gender || 'N/A'}</div>
+                        <div><strong>Term:</strong> ${term}</div>
+                    </div>
+                    <h4 class="font-bold mb-3">Academic Performance (CBC Subjects)</h4>
+                    <table class="w-full border mb-4">
+                        <thead>
+                            <tr class="bg-gray-100">
+                                <th class="p-3 text-left">Subject</th>
+                                <th class="p-3 text-center">Competency Level</th>
+                                <th class="p-3 text-left">Teacher</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                    <div class="bg-blue-50 p-4 rounded-lg mb-4">
+                        <div class="grid grid-cols-4 text-center mb-3">
+                            <div><div class="text-2xl font-bold text-[#003f87]">${ee}</div><div class="text-xs">Exceeding (EE)</div></div>
+                            <div><div class="text-2xl font-bold text-green-600">${me}</div><div class="text-xs">Meeting (ME)</div></div>
+                            <div><div class="text-2xl font-bold text-yellow-600">${ae}</div><div class="text-xs">Approaching (AE)</div></div>
+                            <div><div class="text-2xl font-bold text-red-600">${be}</div><div class="text-xs">Below (BE)</div></div>
+                        </div>
+                        <div class="flex justify-between items-center mt-3 p-3 bg-white rounded-lg">
+                            <span><strong>Overall Competency:</strong></span>
+                            <span class="grade-badge grade-${overallComp}">${overallComp}</span>
+                            <span><strong>Pass Rate:</strong></span>
+                            <span class="font-bold ${passRate >= 80 ? 'text-green-600' : passRate >= 50 ? 'text-yellow-600' : 'text-red-600'}">${passRate}%</span>
+                        </div>
+                    </div>
+                    <div class="bg-yellow-50 p-4 rounded-lg mb-4">
+                        <p class="font-bold mb-2">📝 Teacher's Comment</p>
+                        <p>${comment}</p>
+                        <p class="text-right text-sm mt-2">Class Teacher: ${assessments[0]?.teacher || 'Class Teacher'}</p>
+                    </div>
+                    <div class="flex justify-between mt-6 pt-4 border-t">
+                        <div><strong>Parent's Signature:</strong> _________________</div>
+                        <div><strong>Date:</strong> ${new Date().toLocaleDateString()}</div>
+                    </div>
+                    <div class="text-center text-xs text-gray-400 mt-4">Generated by LearnPro Kenya ERP System | CBC Compliant | KNEC Standards</div>
+                </div>
+            `;
+            
+            document.getElementById('reportContent').innerHTML = html;
+            document.getElementById('reportModal').classList.remove('hidden');
+        }
+
+        function closeReportModal() { document.getElementById('reportModal').classList.add('hidden'); }
+        function printReportCard() { window.print(); }
+
+        async function generateBulkReports() {
+            let grade = document.getElementById('reportGradeSelect').value;
+            let stream = document.getElementById('reportStreamSelect').value;
+            let term = document.getElementById('reportTermSelect').value;
+            if (!grade) { showToast('Select grade', true); return; }
+            
+            let students = allStudents.filter(s => s.grade === grade);
+            if (stream !== 'all') students = students.filter(s => s.stream === stream);
+            
+            if (students.length === 0) {
+                showToast('No students found in this class', true);
+                return;
+            }
+            
+            showToast(`Generating ${students.length} report cards...`);
+            let html = '';
+            const subjectOrder = ['Mathematics', 'English', 'Kiswahili', 'Integrated Science', 'Social Studies', 'Creative Arts', 'Physical Education'];
+            
+            for (let student of students) {
+                let assessments = allAssessments.filter(a => a.studentId === student.id && a.term === term && !a.deleted);
+                let assessmentMap = new Map();
+                assessments.forEach(a => assessmentMap.set(a.subject, a));
+                
+                let rows = '';
+                let ee = 0, me = 0, ae = 0, be = 0;
+                
+                for (let sub of subjectOrder) {
+                    let assessment = assessmentMap.get(sub);
+                    let competency = assessment?.competency || 'N/A';
+                    
+                    if (competency === 'EE') ee++;
+                    else if (competency === 'ME') me++;
+                    else if (competency === 'AE') ae++;
+                    else if (competency === 'BE') be++;
+                    
+                    rows += `<tr class="border-b"><td class="p-2 border">${sub}</td><td class="p-2 border text-center">${competency !== 'N/A' ? `<span class="grade-badge grade-${competency}">${competency}</span>` : '-'}</td></tr>`;
+                }
+                
+                let total = ee + me + ae + be;
+                let passRate = total > 0 ? Math.round(((ee + me) / total) * 100) : 0;
+                let maxCount = Math.max(ee, me, ae, be);
+                let overallComp = 'N/A';
+                if (maxCount === ee) overallComp = 'EE';
+                else if (maxCount === me) overallComp = 'ME';
+                else if (maxCount === ae) overallComp = 'AE';
+                else if (maxCount === be) overallComp = 'BE';
+                
+                html += `
+                    <div style="page-break-after: always; margin-bottom: 40px;" class="p-6 bg-white rounded-xl shadow-sm">
+                        <div class="text-center border-b pb-4 mb-4">
+                            <h2 class="text-xl font-bold text-[#003f87]">${schoolName}</h2>
+                            <p class="text-sm text-gray-500">${term} Report Card</p>
+                        </div>
+                        <div class="p-3 mb-3">
+                            <p><strong>${student.name}</strong> | Adm: ${student.admNo} | ${student.grade} ${student.stream || ''}</p>
+                        </div>
+                        <table class="w-full border mb-4">
+                            <thead><tr class="bg-gray-100"><th class="p-2 border text-left">Subject</th><th class="p-2 border text-center">Grade</th></tr></thead>
+                            <tbody>${rows}</tbody>
+                        </table>
+                        <div class="mt-3 text-center">
+                            <span class="grade-badge grade-${overallComp}">Overall: ${overallComp} (${passRate}%)</span>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            document.getElementById('bulkReportsContainer').innerHTML = html;
+            showToast(`${students.length} reports generated successfully!`);
+        }
+
+        // ANALYTICS FUNCTIONS
+        function updateCharts() {
+            let ctx1 = document.getElementById('gradeChart').getContext('2d');
+            let counts = { EE:0, ME:0, AE:0, BE:0 };
+            allAssessments.forEach(a => { if (a.competency && !a.deleted) counts[a.competency]++; });
+            if (gradeChart) gradeChart.destroy();
+            gradeChart = new Chart(ctx1, { type: 'doughnut', data: { labels: ['EE', 'ME', 'AE', 'BE'], datasets: [{ data: [counts.EE, counts.ME, counts.AE, counts.BE], backgroundColor: ['#003f87', '#059669', '#d97706', '#dc2626'], borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } } } });
+            
+            let ctx2 = document.getElementById('subjectChart').getContext('2d');
+            let subData = {};
+            allAssessments.forEach(a => { if (!a.deleted && a.competency && a.subject) { if (!subData[a.subject]) subData[a.subject] = { EE:0, ME:0 }; if (a.competency === 'EE') subData[a.subject].EE++; else if (a.competency === 'ME') subData[a.subject].ME++; } });
+            if (subjectChart) subjectChart.destroy();
+            let subjects = Object.keys(subData).slice(0, 6);
+            subjectChart = new Chart(ctx2, { type: 'bar', data: { labels: subjects, datasets: [{ label: 'EE', data: subjects.map(s => subData[s]?.EE || 0), backgroundColor: '#003f87', borderRadius: 4 }, { label: 'ME', data: subjects.map(s => subData[s]?.ME || 0), backgroundColor: '#059669', borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } }, scales: { y: { beginAtZero: true } } } });
+            
+            let ctx3 = document.getElementById('gradePerformanceChart').getContext('2d');
+            let gradeData = {};
+            allAssessments.forEach(a => { if (!a.deleted && a.grade) { if (!gradeData[a.grade]) gradeData[a.grade] = { total: 0, pass: 0 }; gradeData[a.grade].total++; if (a.competency === 'EE' || a.competency === 'ME') gradeData[a.grade].pass++; } });
+            let grades = ['Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9'];
+            let passRates = grades.map(g => gradeData[g] ? Math.round((gradeData[g].pass / gradeData[g].total) * 100) : 0);
+            if (gradePerfChart) gradePerfChart.destroy();
+            gradePerfChart = new Chart(ctx3, { type: 'bar', data: { labels: grades, datasets: [{ label: 'Pass Rate %', data: passRates, backgroundColor: '#003f87', borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } }, scales: { y: { beginAtZero: true, max: 100 } } } });
+        }
+
+        function updateClassRanking() {
+            let term = document.getElementById('filterTerm').value;
+            let classStats = new Map();
+            
+            allAssessments.forEach(a => {
+                if (!a.deleted && a.term === term) {
+                    let key = `${a.grade}|${a.stream || 'General'}`;
+                    if (!classStats.has(key)) classStats.set(key, { grade: a.grade, stream: a.stream || 'General', total: 0, pass: 0, ee: 0, me: 0, ae: 0, be: 0 });
+                    let stats = classStats.get(key);
+                    stats.total++;
+                    if (a.competency === 'EE') { stats.pass++; stats.ee++; }
+                    else if (a.competency === 'ME') { stats.pass++; stats.me++; }
+                    else if (a.competency === 'AE') stats.ae++;
+                    else if (a.competency === 'BE') stats.be++;
+                }
+            });
+            
+            let ranking = Array.from(classStats.values()).map(c => ({
+                ...c, passRate: c.total > 0 ? Math.round((c.pass / c.total) * 100) : 0
+            })).sort((a,b) => b.passRate - a.passRate);
+            
+            let tbody = document.getElementById('classRankingBody');
+            if (ranking.length === 0) { tbody.innerHTML = '<tr><td colspan="8" class="text-center py-8 text-gray-400">No data available</td></tr>'; return; }
+            
+            tbody.innerHTML = ranking.map((c, idx) => {
+                let rankClass = idx === 0 ? 'rank-1' : idx === 1 ? 'rank-2' : idx === 2 ? 'rank-3' : '';
+                let overallComp = c.passRate >= 80 ? 'EE' : c.passRate >= 65 ? 'ME' : c.passRate >= 45 ? 'AE' : 'BE';
+                return `<tr class="${rankClass} border-b">
+                    <td class="p-3 font-bold">${idx + 1}${idx === 0 ? ' 🏆' : idx === 1 ? ' 🥈' : idx === 2 ? ' 🥉' : ''}</td>
+                    <td class="p-3 font-medium">${c.grade}</td>
+                    <td class="p-3">${c.stream}</td>
+                    <td class="p-3 text-center">${c.total}</td>
+                    <td class="p-3 text-center text-[#003f87] font-bold">${c.ee}</td>
+                    <td class="p-3 text-center text-green-600 font-bold">${c.me}</td>
+                    <td class="p-3 text-center text-yellow-600">${c.ae}</td>
+                    <td class="p-3 text-center text-red-600">${c.be}</td>
+                    <td class="p-3 text-center"><span class="font-bold ${c.passRate >= 80 ? 'text-green-600' : c.passRate >= 50 ? 'text-yellow-600' : 'text-red-600'}">${c.passRate}%</span></td>
+                    <td class="p-3 text-center"><span class="grade-badge grade-${overallComp}">${overallComp}</span></td>
+                </tr>`;
+            }).join('');
+        }
+
+        function exportToExcel() {
+            let exportData = [];
+            for (let group of groupedData) {
+                for (let sub of group.subjects) {
+                    exportData.push({
+                        Student: group.student.name, Admission: group.student.admNo,
+                        Grade: group.student.grade, Stream: group.student.stream || '',
+                        Subject: sub.subject, Competency: sub.competency, Teacher: sub.teacher, Term: sub.term
+                    });
+                }
+            }
+            let ws = XLSX.utils.json_to_sheet(exportData);
+            let wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Assessments');
+            XLSX.writeFile(wb, `assessments_${new Date().toISOString().split('T')[0]}.xlsx`);
+            showToast('Exported to Excel!');
+        }
+
+        auth.onAuthStateChanged(async (user) => {
+            if (!user) { window.location.href = 'index.html'; return; }
+            currentSchool = sessionStorage.getItem('currentSchoolCode');
+            if (!currentSchool) {
+                let snap = await db.collection('schools').where('adminId', '==', user.uid).get();
+                if (!snap.empty) { currentSchool = snap.docs[0].id; sessionStorage.setItem('currentSchoolCode', currentSchool); sessionStorage.setItem('currentSchoolName', snap.docs[0].data().schoolName); }
+            }
+            schoolName = sessionStorage.getItem('currentSchoolName') || 'LearnPro School';
+            document.getElementById('schoolBadge').innerText = schoolName;
+            await loadAllData();
+        });
+    </script>
+</body>
+</html>

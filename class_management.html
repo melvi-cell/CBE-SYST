@@ -1,0 +1,1107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Class Management | LearnPro Kenya ERP</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: #f0f2f5; }
+        .stat-card { background: white; border-radius: 20px; transition: all 0.3s ease; border: 1px solid #eef2ff; cursor: pointer; }
+        .stat-card:hover { transform: translateY(-3px); box-shadow: 0 15px 30px -12px rgba(0,0,0,0.1); }
+        .toast { position: fixed; bottom: 24px; right: 24px; background: #003f87; color: white; padding: 12px 24px; border-radius: 48px; z-index: 1000; font-weight: 500; }
+        .toast-error { background: #dc2626; }
+        .toast-success { background: #059669; }
+        .class-card { background: white; border-radius: 20px; transition: all 0.3s ease; border: 1px solid #eef2ff; overflow: hidden; }
+        .class-card:hover { transform: translateY(-4px); box-shadow: 0 20px 25px -12px rgba(0,63,135,0.15); }
+        .nav-tab { cursor: pointer; padding: 8px 20px; border-radius: 30px; font-size: 13px; font-weight: 500; transition: all 0.2s; }
+        .nav-tab-active { background: #003f87; color: white; }
+        .nav-tab-inactive { background: white; color: #4a5568; border: 1px solid #e2e8f0; }
+        .nav-tab-inactive:hover { background: #f1f5f9; border-color: #003f87; }
+        .stream-badge { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 10px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+        .stream-badge:hover { transform: scale(1.05); opacity: 0.8; }
+        .stream-north { background: #dbeafe; color: #1e40af; }
+        .stream-south { background: #dcfce7; color: #166534; }
+        .stream-east { background: #fef3c7; color: #92400e; }
+        .stream-west { background: #fce7f3; color: #9d174d; }
+        .capacity-bar { height: 6px; border-radius: 3px; background: #e2e8f0; overflow: hidden; }
+        .capacity-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
+        .capacity-safe { background: #059669; }
+        .capacity-warning { background: #d97706; }
+        .capacity-danger { background: #dc2626; }
+        .chart-container { height: 160px; position: relative; }
+        .student-list-modal { max-height: 400px; overflow-y: auto; }
+        @media print { .no-print { display: none; } }
+        .modal { z-index: 1000; }
+    </style>
+</head>
+<body>
+
+    <!-- Top Bar -->
+    <div class="bg-white shadow-sm fixed top-0 left-0 right-0 z-40 border-b border-gray-100 no-print">
+        <div class="flex justify-between items-center px-6 py-2">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-gradient-to-br from-[#003f87] to-[#0056b3] rounded-lg flex items-center justify-center">
+                    <span class="material-symbols-outlined text-white text-lg">class</span>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold text-[#003f87]">LEARNPRO KENYA</h1>
+                    <p class="text-[9px] text-gray-400 -mt-0.5">Class & Stream Management</p>
+                </div>
+                <span id="schoolBadge" class="ml-2 text-xs bg-[#003f87]/10 text-[#003f87] px-2 py-0.5 rounded-full">Loading...</span>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="window.location.href='dashboard.html'" class="px-3 py-1 text-gray-600 hover:bg-gray-100 rounded-lg text-xs">Dashboard</button>
+                <button onclick="logout()" class="px-3 py-1 text-red-600 hover:bg-red-50 rounded-lg text-xs">Logout</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="pt-14 px-6 pb-6">
+        <div class="max-w-7xl mx-auto">
+            
+            <!-- Tabs -->
+            <div class="flex gap-1 mb-4 border-b pb-2 flex-wrap">
+                <button onclick="showTab('classes')" id="tabClasses" class="nav-tab nav-tab-active">🏫 Grades</button>
+                <button onclick="showTab('streams')" id="tabStreams" class="nav-tab nav-tab-inactive">🌊 Streams</button>
+                <button onclick="showTab('assignments')" id="tabAssignments" class="nav-tab nav-tab-inactive">👨‍🏫 Teachers</button>
+                <button onclick="showTab('promotion')" id="tabPromotion" class="nav-tab nav-tab-inactive">⬆️ Grade Promotion</button>
+                <button onclick="showTab('analytics')" id="tabAnalytics" class="nav-tab nav-tab-inactive">📊 Analytics</button>
+                <button onclick="showTab('trash')" id="tabTrash" class="nav-tab nav-tab-inactive">🗑️ Trash (<span id="trashCount">0</span>)</button>
+            </div>
+
+            <!-- CLASSES TAB -->
+            <div id="classesTab">
+                <div class="grid grid-cols-4 gap-3 mb-4">
+                    <div class="stat-card p-3"><p class="text-gray-400 text-[10px] uppercase">Total Grades</p><p class="text-2xl font-bold text-blue-600" id="totalGrades">0</p></div>
+                    <div class="stat-card p-3"><p class="text-gray-400 text-[10px] uppercase">Total Streams</p><p class="text-2xl font-bold text-green-600" id="totalStreamsStat">0</p></div>
+                    <div class="stat-card p-3"><p class="text-gray-400 text-[10px] uppercase">Total Students</p><p class="text-2xl font-bold text-purple-600" id="totalStudentsStat">0</p></div>
+                    <div class="stat-card p-3"><p class="text-gray-400 text-[10px] uppercase">Avg Class Size</p><p class="text-2xl font-bold text-orange-600" id="avgClassSize">0</p></div>
+                </div>
+                <div class="bg-white rounded-lg p-3 mb-4 flex flex-wrap justify-between items-center gap-2">
+                    <div class="flex gap-2"><button onclick="openGradeModal()" class="px-3 py-1.5 bg-[#003f87] text-white rounded-lg text-xs">+ Add Grade</button><button onclick="exportClassData()" class="px-3 py-1.5 border text-gray-700 rounded-lg text-xs">Export</button></div>
+                    <div class="relative"><span class="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm">search</span><input type="text" id="searchClass" onkeyup="loadGrades()" placeholder="Search grade..." class="pl-7 pr-2 py-1 border rounded-lg w-48 text-xs"></div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3" id="gradesGrid"></div>
+            </div>
+
+            <!-- STREAMS TAB -->
+            <div id="streamsTab" class="hidden">
+                <div class="bg-white rounded-lg p-4 shadow-sm mb-4">
+                    <h3 class="text-sm font-bold text-[#003f87] mb-3">Manage Streams</h3>
+                    <div class="grid grid-cols-3 gap-2 mb-4"><select id="streamGradeSelect" class="p-1.5 border rounded text-sm"><option value="">Select Grade</option></select><input type="text" id="newStreamName" placeholder="New Stream Name" class="p-1.5 border rounded text-sm"><button onclick="addStreamToGrade()" class="p-1.5 bg-[#003f87] text-white rounded text-sm">Add Stream</button></div>
+                    <div id="streamsListForGrade" class="mt-3"></div>
+                </div>
+            </div>
+
+            <!-- TEACHER ASSIGNMENTS TAB -->
+            <div id="assignmentsTab" class="hidden">
+                <div class="bg-white rounded-lg p-4 shadow-sm mb-4">
+                    <h3 class="text-sm font-bold text-[#003f87] mb-3">Assign Class Teacher</h3>
+                    <div class="grid grid-cols-3 gap-2"><select id="assignGrade" class="p-1.5 border rounded text-sm"><option value="">Select Grade</option></select><select id="assignStream" class="p-1.5 border rounded text-sm"><option value="">Select Stream</option></select><select id="assignTeacher" class="p-1.5 border rounded text-sm"><option value="">Select Teacher</option></select></div>
+                    <button onclick="saveTeacherAssignment()" class="mt-3 w-full p-1.5 bg-[#003f87] text-white rounded text-sm">Assign Teacher</button>
+                </div>
+                <div class="bg-white rounded-lg overflow-hidden"><div class="overflow-x-auto"><table class="w-full"><thead class="bg-gray-50"><tr><th class="p-2 text-left text-xs">Grade</th><th class="p-2 text-left text-xs">Stream</th><th class="p-2 text-left text-xs">Class Teacher</th><th class="p-2 text-center text-xs">Actions</th></thead><tbody id="assignmentsList"></tbody></table></div></div>
+            </div>
+
+            <!-- PROMOTION TAB -->
+            <div id="promotionTab" class="hidden">
+                <div class="bg-gradient-to-r from-[#003f87] to-[#0056b3] rounded-xl p-6 mb-6 text-white">
+                    <h3 class="text-xl font-bold mb-2">🎓 End of Year Grade Promotion</h3>
+                    <p class="text-white/80 text-sm mb-4">Move students to the next grade level at the end of the academic year</p>
+                    <div class="grid md:grid-cols-3 gap-4">
+                        <div><label class="block text-sm font-medium mb-1">Current Year</label><select id="currentYear" class="w-full p-2 rounded-lg text-gray-800"><option>2024</option><option>2025</option><option>2026</option></select></div>
+                        <div><label class="block text-sm font-medium mb-1">Promotion Type</label><select id="promotionType" class="w-full p-2 rounded-lg text-gray-800" onchange="togglePromotionOptions()"><option value="all">Promote All</option><option value="selective">Selective</option><option value="conditional">Conditional</option></select></div>
+                        <div><label class="block text-sm font-medium mb-1">New Year</label><select id="newYear" class="w-full p-2 rounded-lg text-gray-800"><option>2025</option><option>2026</option><option>2027</option></select></div>
+                    </div>
+                    <div id="selectiveGradesContainer" class="mt-4 hidden">
+                        <label class="block text-sm font-medium mb-2">Select Grades to Promote:</label>
+                        <div id="gradeCheckboxes" class="flex flex-wrap gap-3"></div>
+                    </div>
+                    <div id="conditionalContainer" class="mt-4 hidden">
+                        <label class="block text-sm font-medium mb-2">Minimum Pass Rate Required:</label>
+                        <div class="flex items-center gap-3"><input type="number" id="minPassRate" value="50" class="w-24 p-2 rounded-lg text-gray-800"> <span class="text-sm">%</span><p class="text-sm ml-4">Students below this will repeat the grade</p></div>
+                    </div>
+                    <div class="flex gap-3 mt-6"><button onclick="previewPromotion()" class="px-6 py-2 bg-white text-[#003f87] rounded-lg font-medium">Preview</button><button onclick="executePromotion()" class="px-6 py-2 bg-yellow-400 text-[#003f87] rounded-lg font-medium">Execute</button><button onclick="viewPromotionHistory()" class="px-6 py-2 bg-white/20 rounded-lg">History</button></div>
+                </div>
+                <div id="promotionPreview" class="hidden"><div class="bg-white rounded-xl p-5 shadow-sm"><h3 class="font-bold mb-3">📋 Promotion Preview</h3><div id="previewContent"></div></div></div>
+                <div id="promotionHistory" class="hidden"><div class="bg-white rounded-xl p-5 shadow-sm"><div class="flex justify-between mb-3"><h3 class="font-bold">📜 Promotion History</h3><button onclick="clearAllHistory()" class="px-3 py-1 bg-red-600 text-white rounded text-xs">Clear All</button></div><div id="historyList" class="space-y-2 max-h-96 overflow-y-auto"></div></div></div>
+            </div>
+
+            <!-- ANALYTICS TAB -->
+            <div id="analyticsTab" class="hidden">
+                <div class="grid grid-cols-3 gap-3 mb-3">
+                    <div class="bg-white rounded-lg p-2 shadow-sm"><h4 class="font-bold text-[10px] text-gray-600 mb-1">Students per Grade</h4><div class="chart-container"><canvas id="gradeChart"></canvas></div></div>
+                    <div class="bg-white rounded-lg p-2 shadow-sm"><h4 class="font-bold text-[10px] text-gray-600 mb-1">Stream Distribution</h4><div class="chart-container"><canvas id="streamChart"></canvas></div></div>
+                    <div class="bg-white rounded-lg p-2 shadow-sm"><h4 class="font-bold text-[10px] text-gray-600 mb-1">Capacity Utilization</h4><div class="chart-container"><canvas id="capacityChart"></canvas></div></div>
+                </div>
+                <div class="bg-white rounded-lg p-3 shadow-sm"><h4 class="font-bold text-xs text-gray-800 mb-2">📋 Class Capacity Summary</h4><div id="capacitySummary" class="space-y-1 max-h-64 overflow-y-auto"></div></div>
+            </div>
+
+            <!-- TRASH TAB -->
+            <div id="trashTab" class="hidden"><div class="bg-white rounded-lg shadow-sm overflow-hidden"><div class="p-3 border-b bg-gray-50 flex justify-between items-center"><h3 class="font-bold text-sm">🗑️ Deleted Items</h3><button onclick="emptyTrash()" class="px-3 py-1 bg-red-600 text-white rounded-lg text-xs">Empty Trash</button></div><div class="divide-y divide-gray-100" id="trashContainer"></div></div></div>
+        </div>
+    </div>
+
+    <!-- GRADE MODAL -->
+    <div id="gradeModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-xl p-5 max-w-md w-full mx-4">
+            <div class="flex justify-between items-center mb-3"><h3 class="text-lg font-bold text-[#003f87]" id="gradeModalTitle">Add New Grade</h3><button onclick="closeGradeModal()" class="text-gray-400 hover:text-gray-600">✕</button></div>
+            <input type="hidden" id="editGradeId">
+            <input type="text" id="gradeName" placeholder="Grade Name (e.g., Grade 10)" class="w-full p-2 border rounded text-sm mb-2" required>
+            <input type="number" id="gradeLevel" placeholder="Level Number" class="w-full p-2 border rounded text-sm mb-2" required>
+            <input type="number" id="gradeCapacity" placeholder="Max Capacity" class="w-full p-2 border rounded text-sm mb-2" required>
+            <select id="gradeStatus" class="w-full p-2 border rounded text-sm mb-3"><option value="active">Active</option><option value="inactive">Inactive</option></select>
+            <div class="flex gap-2"><button onclick="saveGrade()" class="flex-1 py-2 bg-[#003f87] text-white rounded text-sm">Save Grade</button><button onclick="closeGradeModal()" class="flex-1 py-2 border rounded text-sm">Cancel</button></div>
+        </div>
+    </div>
+
+    <!-- GRADE DETAILS MODAL -->
+    <div id="gradeDetailsModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-xl p-5 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-3"><h3 class="text-lg font-bold text-[#003f87]" id="detailsGradeName"></h3><button onclick="closeGradeDetailsModal()" class="text-gray-400">✕</button></div>
+            <div id="gradeDetailsContent"></div>
+        </div>
+    </div>
+
+    <!-- STREAM STUDENTS MODAL -->
+    <div id="streamStudentsModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-xl p-5 max-w-md w-full mx-4">
+            <div class="flex justify-between items-center mb-3"><h3 class="text-lg font-bold text-[#003f87]" id="streamModalTitle"></h3><button onclick="closeStreamStudentsModal()" class="text-gray-400">✕</button></div>
+            <div id="streamStudentsList" class="space-y-2 max-h-96 overflow-y-auto"></div>
+        </div>
+    </div>
+
+    <!-- STREAM EDIT MODAL -->
+    <div id="streamEditModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden"><div class="bg-white rounded-xl p-5 max-w-md w-full mx-4"><h3 class="text-lg font-bold text-[#003f87] mb-3">Edit Stream</h3><input type="hidden" id="editStreamId"><input type="text" id="editStreamName" class="w-full p-2 border rounded text-sm mb-3"><button onclick="saveStreamEdit()" class="w-full py-2 bg-[#003f87] text-white rounded text-sm">Save</button><button onclick="closeStreamEditModal()" class="w-full py-2 border rounded text-sm mt-2">Cancel</button></div></div>
+
+    <!-- DELETE MODAL -->
+    <div id="deleteModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden"><div class="bg-white rounded-xl p-5 max-w-md w-full mx-4 text-center"><h3 class="text-lg font-bold mb-2">Move to Trash?</h3><p class="text-gray-500 text-sm mb-4" id="deleteMessage"></p><div class="flex gap-3"><button id="confirmDeleteBtn" class="flex-1 py-2 bg-red-600 text-white rounded text-sm">Move to Trash</button><button onclick="closeDeleteModal()" class="flex-1 py-2 border rounded text-sm">Cancel</button></div></div></div>
+
+    <div id="toast" style="display:none" class="toast"></div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyA4cm7chJXz90yOLWPtbdIW8KlEozG1lxo",
+            authDomain: "learnpro-kenya-erp.firebaseapp.com",
+            projectId: "learnpro-kenya-erp",
+            storageBucket: "learnpro-kenya-erp.firebasestorage.app",
+            messagingSenderId: "327168081514",
+            appId: "1:327168081514:web:13cdc8b827fa76d95a9413"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        let currentSchool = null;
+        let allGrades = [], allStreams = [], allTeachers = [], allStudents = [], classAssignments = [];
+        let gradeChart = null, streamChart = null, capacityChart = null;
+        let pendingDeleteId = null, pendingDeleteType = null;
+
+        // Grade order for promotion mapping
+        const gradeOrder = ['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9'];
+
+        function showToast(msg, isErr) {
+            let toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.className = `toast ${isErr ? 'toast-error' : 'toast-success'}`;
+            toast.style.display = 'block';
+            setTimeout(() => toast.style.display = 'none', 3000);
+        }
+
+        async function logout() {
+            await auth.signOut();
+            sessionStorage.clear();
+            window.location.href = 'index.html';
+        }
+
+        function showTab(tab) {
+            document.getElementById('classesTab').classList.add('hidden');
+            document.getElementById('streamsTab').classList.add('hidden');
+            document.getElementById('assignmentsTab').classList.add('hidden');
+            document.getElementById('promotionTab').classList.add('hidden');
+            document.getElementById('analyticsTab').classList.add('hidden');
+            document.getElementById('trashTab').classList.add('hidden');
+            
+            document.getElementById(tab + 'Tab').classList.remove('hidden');
+            
+            document.querySelectorAll('.nav-tab').forEach(btn => {
+                btn.classList.remove('nav-tab-active');
+                btn.classList.add('nav-tab-inactive');
+            });
+            document.getElementById(`tab${tab.charAt(0).toUpperCase() + tab.slice(1)}`).classList.add('nav-tab-active');
+            document.getElementById(`tab${tab.charAt(0).toUpperCase() + tab.slice(1)}`).classList.remove('nav-tab-inactive');
+            
+            if (tab === 'classes') loadGrades();
+            if (tab === 'analytics') updateAnalytics();
+            if (tab === 'streams') { loadGradesForStreamSelect(); loadStreamsForGrade(); }
+            if (tab === 'assignments') { loadGradesForAssignSelect(); loadTeachersForSelect(); loadTeacherAssignments(); }
+            if (tab === 'promotion') { loadGradeCheckboxes(); togglePromotionOptions(); loadPromotionHistory(); }
+            if (tab === 'trash') loadTrash();
+        }
+
+        async function loadAllData() {
+            if (!currentSchool) return;
+            
+            const [gradesSnap, streamsSnap, teachersSnap, studentsSnap, assignmentsSnap] = await Promise.all([
+                db.collection('schools').doc(currentSchool).collection('grades').where('deleted', '==', false).get(),
+                db.collection('schools').doc(currentSchool).collection('streams').where('deleted', '==', false).get(),
+                db.collection('schools').doc(currentSchool).collection('teachers').get(),
+                db.collection('schools').doc(currentSchool).collection('students').where('deleted', '==', false).get(),
+                db.collection('schools').doc(currentSchool).collection('classAssignments').where('deleted', '==', false).get()
+            ]);
+            
+            allGrades = []; gradesSnap.forEach(doc => allGrades.push({ id: doc.id, ...doc.data() }));
+            allStreams = []; streamsSnap.forEach(doc => allStreams.push({ id: doc.id, ...doc.data() }));
+            allTeachers = []; teachersSnap.forEach(doc => allTeachers.push({ id: doc.id, name: doc.data().name, subject: doc.data().subject }));
+            allStudents = []; studentsSnap.forEach(doc => allStudents.push({ id: doc.id, ...doc.data() }));
+            classAssignments = []; assignmentsSnap.forEach(doc => classAssignments.push({ id: doc.id, ...doc.data() }));
+            
+            if (allGrades.length === 0) {
+                await initializeDefaultGrades();
+            }
+            
+            loadGrades();
+        }
+
+        async function initializeDefaultGrades() {
+            const defaultGrades = [
+                { name: "Grade 1", level: 1, capacity: 45, status: "active" },
+                { name: "Grade 2", level: 2, capacity: 45, status: "active" },
+                { name: "Grade 3", level: 3, capacity: 40, status: "active" },
+                { name: "Grade 4", level: 4, capacity: 45, status: "active" },
+                { name: "Grade 5", level: 5, capacity: 40, status: "active" },
+                { name: "Grade 6", level: 6, capacity: 45, status: "active" },
+                { name: "Grade 7", level: 7, capacity: 40, status: "active" },
+                { name: "Grade 8", level: 8, capacity: 45, status: "active" },
+                { name: "Grade 9", level: 9, capacity: 45, status: "active" }
+            ];
+            
+            for (let grade of defaultGrades) {
+                await db.collection('schools').doc(currentSchool).collection('grades').add({
+                    ...grade, deleted: false, createdAt: new Date().toISOString()
+                });
+            }
+            showToast('Default grades initialized');
+            await loadAllData();
+        }
+
+        function getEnrollmentCount(gradeName) {
+            return allStudents.filter(s => s.grade === gradeName).length;
+        }
+
+        function getStreamClass(streamName) {
+            let s = streamName.toLowerCase();
+            if (s.includes('north') || s === 'n' || s.includes('a')) return 'stream-north';
+            if (s.includes('south') || s === 's' || s.includes('b')) return 'stream-south';
+            if (s.includes('east') || s === 'e' || s.includes('c')) return 'stream-east';
+            return 'stream-west';
+        }
+
+        // ========== VIEW STUDENTS IN STREAM ==========
+        function viewStreamStudents(gradeName, streamName) {
+            const studentsInStream = allStudents.filter(s => s.grade === gradeName && s.stream === streamName);
+            
+            document.getElementById('streamModalTitle').innerHTML = `👨‍🎓 ${gradeName} - ${streamName} (${studentsInStream.length} students)`;
+            
+            if (studentsInStream.length === 0) {
+                document.getElementById('streamStudentsList').innerHTML = '<p class="text-center text-gray-400 py-4">No students enrolled in this stream</p>';
+            } else {
+                document.getElementById('streamStudentsList').innerHTML = studentsInStream.map(s => `
+                    <div class="flex justify-between items-center p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
+                        <div>
+                            <p class="font-medium text-sm">${s.name}</p>
+                            <p class="text-xs text-gray-500">Adm: ${s.admNo} | UPI: ${s.upi || 'N/A'}</p>
+                        </div>
+                        <span class="text-xs text-gray-400">${s.status || 'Active'}</span>
+                    </div>
+                `).join('');
+            }
+            document.getElementById('streamStudentsModal').classList.remove('hidden');
+        }
+
+        function closeStreamStudentsModal() {
+            document.getElementById('streamStudentsModal').classList.add('hidden');
+        }
+
+        async function loadGrades() {
+            let searchTerm = document.getElementById('searchClass')?.value.toLowerCase() || '';
+            let filtered = allGrades.filter(g => g.name.toLowerCase().includes(searchTerm) && g.status === 'active' && !g.deleted);
+            
+            let totalStudents = filtered.reduce((sum, g) => sum + getEnrollmentCount(g.name), 0);
+            let totalStreamsCount = allStreams.filter(s => filtered.some(g => g.id === s.gradeId)).length;
+            
+            document.getElementById('totalGrades').innerText = filtered.length;
+            document.getElementById('totalStreamsStat').innerText = totalStreamsCount;
+            document.getElementById('totalStudentsStat').innerText = totalStudents;
+            document.getElementById('avgClassSize').innerText = filtered.length > 0 ? Math.round(totalStudents / filtered.length) : 0;
+            
+            let container = document.getElementById('gradesGrid');
+            if (filtered.length === 0) {
+                container.innerHTML = '<div class="col-span-full text-center py-8 text-gray-400">No grades found. Click "Add Grade" to get started.</div>';
+                return;
+            }
+            
+            container.innerHTML = filtered.map(g => {
+                let enrollment = getEnrollmentCount(g.name);
+                let percent = (enrollment / g.capacity) * 100;
+                let capacityClass = percent >= 90 ? 'capacity-danger' : percent >= 75 ? 'capacity-warning' : 'capacity-safe';
+                let streamsForGrade = allStreams.filter(s => s.gradeId === g.id);
+                let assignment = classAssignments.find(a => a.gradeId === g.id);
+                let teacherName = assignment ? (allTeachers.find(t => t.id === assignment.teacherId)?.name || 'Not Assigned') : 'Not Assigned';
+                
+                return `<div class="class-card p-3">
+                    <div class="flex justify-between items-start mb-2">
+                        <div><h4 class="text-base font-bold text-[#003f87]">${g.name}</h4><p class="text-[10px] text-gray-500">Level ${g.level}</p></div>
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-50 text-green-600">${g.status}</span>
+                    </div>
+                    <p class="text-xs text-gray-600 mb-2"><span class="material-symbols-outlined text-xs">person</span> ${teacherName}</p>
+                    <div class="flex flex-wrap gap-1 mb-2">
+                        ${streamsForGrade.map(s => `<span class="stream-badge ${getStreamClass(s.name)}" onclick="viewStreamStudents('${g.name}', '${s.name}')">${s.name} <button onclick="event.stopPropagation(); deleteStream('${s.id}', '${s.name}')" class="ml-1 text-red-500 text-[10px]">✕</button></span>`).join('')}
+                    </div>
+                    <div class="flex justify-between text-xs mb-1"><span>Enrollment</span><span class="${enrollment >= g.capacity ? 'text-red-600 font-bold' : ''}">${enrollment}/${g.capacity}</span></div>
+                    <div class="capacity-bar mb-2"><div class="capacity-fill ${capacityClass}" style="width: ${Math.min(percent, 100)}%"></div></div>
+                    <div class="flex gap-2 pt-2 border-t">
+                        <button onclick="openEditGradeModal('${g.id}')" class="flex-1 py-1 text-blue-600 border rounded text-xs">Edit</button>
+                        <button onclick="viewGradeDetails('${g.id}')" class="flex-1 py-1 bg-[#003f87] text-white rounded text-xs">Details</button>
+                        <button onclick="deleteGrade('${g.id}', '${g.name}')" class="flex-1 py-1 text-red-600 border rounded text-xs">Delete</button>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        // ========== GRADE CRUD FUNCTIONS ==========
+        function openGradeModal() {
+            document.getElementById('gradeModalTitle').innerText = 'Add New Grade';
+            document.getElementById('editGradeId').value = '';
+            document.getElementById('gradeName').value = '';
+            document.getElementById('gradeLevel').value = '';
+            document.getElementById('gradeCapacity').value = '';
+            document.getElementById('gradeStatus').value = 'active';
+            document.getElementById('gradeModal').classList.remove('hidden');
+        }
+
+        function closeGradeModal() {
+            document.getElementById('gradeModal').classList.add('hidden');
+        }
+
+        async function saveGrade() {
+            const id = document.getElementById('editGradeId').value;
+            const name = document.getElementById('gradeName').value.trim();
+            const level = parseInt(document.getElementById('gradeLevel').value);
+            const capacity = parseInt(document.getElementById('gradeCapacity').value);
+            const status = document.getElementById('gradeStatus').value;
+            
+            if (!name || !level || !capacity) {
+                showToast('Please fill all fields', true);
+                return;
+            }
+            
+            try {
+                if (id) {
+                    await db.collection('schools').doc(currentSchool).collection('grades').doc(id).update({
+                        name, level, capacity, status, updatedAt: new Date().toISOString()
+                    });
+                    showToast('Grade updated successfully');
+                } else {
+                    await db.collection('schools').doc(currentSchool).collection('grades').add({
+                        name, level, capacity, status, deleted: false, createdAt: new Date().toISOString()
+                    });
+                    showToast('Grade added successfully');
+                }
+                closeGradeModal();
+                await loadAllData();
+            } catch (error) {
+                showToast('Error: ' + error.message, true);
+            }
+        }
+
+        async function openEditGradeModal(id) {
+            const grade = allGrades.find(g => g.id === id);
+            if (grade) {
+                document.getElementById('gradeModalTitle').innerText = 'Edit Grade';
+                document.getElementById('editGradeId').value = id;
+                document.getElementById('gradeName').value = grade.name;
+                document.getElementById('gradeLevel').value = grade.level;
+                document.getElementById('gradeCapacity').value = grade.capacity;
+                document.getElementById('gradeStatus').value = grade.status;
+                document.getElementById('gradeModal').classList.remove('hidden');
+            }
+        }
+
+        async function viewGradeDetails(id) {
+            const grade = allGrades.find(g => g.id === id);
+            if (!grade) return;
+            
+            const streamsForGrade = allStreams.filter(s => s.gradeId === id);
+            const enrollment = getEnrollmentCount(grade.name);
+            const assignment = classAssignments.find(a => a.gradeId === id);
+            const teacherName = assignment ? (allTeachers.find(t => t.id === assignment.teacherId)?.name || 'Not Assigned') : 'Not Assigned';
+            const studentsInGrade = allStudents.filter(s => s.grade === grade.name);
+            
+            document.getElementById('detailsGradeName').innerText = grade.name;
+            document.getElementById('gradeDetailsContent').innerHTML = `
+                <div class="space-y-3">
+                    <div class="grid grid-cols-2 gap-2 p-3 bg-gray-50 rounded-lg">
+                        <div><strong>Level:</strong> ${grade.level}</div>
+                        <div><strong>Status:</strong> <span class="px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-xs">${grade.status}</span></div>
+                        <div><strong>Capacity:</strong> ${grade.capacity}</div>
+                        <div><strong>Enrollment:</strong> ${enrollment}</div>
+                        <div><strong>Teacher:</strong> ${teacherName}</div>
+                        <div><strong>Utilization:</strong> ${Math.round((enrollment/grade.capacity)*100)}%</div>
+                    </div>
+                    <div><h4 class="font-bold text-sm mb-2">📚 Streams (${streamsForGrade.length})</h4><div class="flex flex-wrap gap-2">${streamsForGrade.map(s => `<span class="stream-badge ${getStreamClass(s.name)}" onclick="viewStreamStudents('${grade.name}', '${s.name}')">${s.name}</span>`).join('')}</div></div>
+                    <div><h4 class="font-bold text-sm mb-2">👨‍🎓 Students (${studentsInGrade.length})</h4><div class="max-h-48 overflow-y-auto space-y-1">${studentsInGrade.map(s => `<div class="flex justify-between p-2 bg-gray-50 rounded"><span>${s.name}</span><span class="text-xs text-gray-500">${s.admNo}</span></div>`).join('') || '<p class="text-gray-400">No students enrolled</p>'}</div></div>
+                </div>
+            `;
+            document.getElementById('gradeDetailsModal').classList.remove('hidden');
+        }
+
+        function closeGradeDetailsModal() {
+            document.getElementById('gradeDetailsModal').classList.add('hidden');
+        }
+
+        function deleteGrade(id, name) {
+            pendingDeleteId = id;
+            pendingDeleteType = 'grade';
+            document.getElementById('deleteMessage').innerHTML = `Move grade <strong>${name}</strong> to trash? All associated streams will also be moved.`;
+            document.getElementById('deleteModal').classList.remove('hidden');
+        }
+
+        // ========== DELETE CONFIRM ==========
+        async function confirmDelete() {
+            if (pendingDeleteId) {
+                try {
+                    if (pendingDeleteType === 'grade') {
+                        await db.collection('schools').doc(currentSchool).collection('grades').doc(pendingDeleteId).update({ 
+                            deleted: true, deletedAt: new Date().toISOString() 
+                        });
+                        const streamsToDelete = allStreams.filter(s => s.gradeId === pendingDeleteId);
+                        for (let stream of streamsToDelete) {
+                            await db.collection('schools').doc(currentSchool).collection('streams').doc(stream.id).update({ 
+                                deleted: true, deletedAt: new Date().toISOString() 
+                            });
+                        }
+                        showToast(`Grade and ${streamsToDelete.length} streams moved to trash`);
+                    } else if (pendingDeleteType === 'stream') {
+                        await db.collection('schools').doc(currentSchool).collection('streams').doc(pendingDeleteId).update({ 
+                            deleted: true, deletedAt: new Date().toISOString() 
+                        });
+                        showToast('Stream moved to trash');
+                    } else if (pendingDeleteType === 'assignment') {
+                        await db.collection('schools').doc(currentSchool).collection('classAssignments').doc(pendingDeleteId).update({ 
+                            deleted: true, deletedAt: new Date().toISOString() 
+                        });
+                        showToast('Assignment moved to trash');
+                    }
+                    await loadAllData();
+                    if (!document.getElementById('trashTab').classList.contains('hidden')) loadTrash();
+                } catch (error) {
+                    showToast('Error: ' + error.message, true);
+                }
+            }
+            closeDeleteModal();
+        }
+
+        function closeDeleteModal() {
+            document.getElementById('deleteModal').classList.add('hidden');
+            pendingDeleteId = null;
+            pendingDeleteType = null;
+        }
+
+        // ========== STREAM FUNCTIONS ==========
+        async function loadGradesForStreamSelect() {
+            const select = document.getElementById('streamGradeSelect');
+            select.innerHTML = '<option value="">Select Grade</option>' + allGrades.filter(g => g.status === 'active' && !g.deleted).map(g => `<option value="${g.id}">${g.name}</option>`).join('');
+        }
+
+        async function loadStreamsForGrade() {
+            const gradeId = document.getElementById('streamGradeSelect').value;
+            if (!gradeId) {
+                document.getElementById('streamsListForGrade').innerHTML = '';
+                return;
+            }
+            const streams = allStreams.filter(s => s.gradeId === gradeId && !s.deleted);
+            const grade = allGrades.find(g => g.id === gradeId);
+            document.getElementById('streamsListForGrade').innerHTML = `
+                <h4 class="text-sm font-medium mb-2">Streams in ${grade?.name}</h4>
+                <div class="flex flex-wrap gap-2">
+                    ${streams.map(s => `<span class="stream-badge ${getStreamClass(s.name)} px-3 py-1 rounded-full text-sm flex items-center gap-2">${s.name} <button onclick="deleteStream('${s.id}', '${s.name}')" class="text-red-500 text-xs">✕</button></span>`).join('')}
+                    ${streams.length === 0 ? '<p class="text-gray-400 text-sm">No streams configured</p>' : ''}
+                </div>
+            `;
+        }
+
+        async function addStreamToGrade() {
+            const gradeId = document.getElementById('streamGradeSelect').value;
+            const streamName = document.getElementById('newStreamName').value.trim();
+            if (!gradeId || !streamName) {
+                showToast('Select grade and enter stream name', true);
+                return;
+            }
+            const grade = allGrades.find(g => g.id === gradeId);
+            if (allStreams.some(s => s.gradeId === gradeId && s.name === streamName && !s.deleted)) {
+                showToast('Stream already exists', true);
+                return;
+            }
+            
+            await db.collection('schools').doc(currentSchool).collection('streams').add({
+                gradeId, gradeName: grade.name, name: streamName, deleted: false, createdAt: new Date().toISOString()
+            });
+            showToast(`Stream ${streamName} added`);
+            document.getElementById('newStreamName').value = '';
+            await loadAllData();
+            loadStreamsForGrade();
+        }
+
+        function deleteStream(id, name) {
+            pendingDeleteId = id;
+            pendingDeleteType = 'stream';
+            document.getElementById('deleteMessage').innerHTML = `Move stream <strong>${name}</strong> to trash?`;
+            document.getElementById('deleteModal').classList.remove('hidden');
+        }
+
+        function editStream(id, name) {
+            document.getElementById('editStreamId').value = id;
+            document.getElementById('editStreamName').value = name;
+            document.getElementById('streamEditModal').classList.remove('hidden');
+        }
+
+        async function saveStreamEdit() {
+            const id = document.getElementById('editStreamId').value;
+            const newName = document.getElementById('editStreamName').value.trim();
+            if (!newName) {
+                showToast('Enter stream name', true);
+                return;
+            }
+            await db.collection('schools').doc(currentSchool).collection('streams').doc(id).update({ name: newName });
+            showToast('Stream updated');
+            closeStreamEditModal();
+            await loadAllData();
+        }
+
+        function closeStreamEditModal() {
+            document.getElementById('streamEditModal').classList.add('hidden');
+        }
+
+        // ========== TEACHER ASSIGNMENT FUNCTIONS ==========
+        async function loadGradesForAssignSelect() {
+            const select = document.getElementById('assignGrade');
+            select.innerHTML = '<option value="">Select Grade</option>' + allGrades.filter(g => g.status === 'active' && !g.deleted).map(g => `<option value="${g.id}">${g.name}</option>`).join('');
+        }
+
+        async function loadTeachersForSelect() {
+            const teacherSelect = document.getElementById('assignTeacher');
+            teacherSelect.innerHTML = '<option value="">Select Teacher</option>' + allTeachers.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+        }
+
+        async function saveTeacherAssignment() {
+            const gradeId = document.getElementById('assignGrade').value;
+            const streamId = document.getElementById('assignStream').value;
+            const teacherId = document.getElementById('assignTeacher').value;
+            if (!gradeId || !streamId || !teacherId) {
+                showToast('Fill all fields', true);
+                return;
+            }
+            
+            const existing = classAssignments.find(a => a.gradeId === gradeId && a.streamId === streamId);
+            if (existing) {
+                await db.collection('schools').doc(currentSchool).collection('classAssignments').doc(existing.id).update({ teacherId });
+            } else {
+                await db.collection('schools').doc(currentSchool).collection('classAssignments').add({ gradeId, streamId, teacherId, deleted: false, createdAt: new Date().toISOString() });
+            }
+            showToast('Teacher assigned');
+            await loadAllData();
+        }
+
+        async function loadTeacherAssignments() {
+            const tbody = document.getElementById('assignmentsList');
+            const assignmentsWithDetails = [];
+            for (let a of classAssignments) {
+                const grade = allGrades.find(g => g.id === a.gradeId);
+                const stream = allStreams.find(s => s.id === a.streamId);
+                const teacher = allTeachers.find(t => t.id === a.teacherId);
+                if (grade && stream && !a.deleted) {
+                    assignmentsWithDetails.push({ id: a.id, gradeName: grade.name, streamName: stream.name, teacherName: teacher?.name || 'Unknown' });
+                }
+            }
+            tbody.innerHTML = assignmentsWithDetails.map(a => `
+                <tr class="border-b">
+                    <td class="p-2 text-xs">${a.gradeName}</td>
+                    <td class="p-2 text-xs">${a.streamName}</td>
+                    <td class="p-2 text-xs">${a.teacherName}</td>
+                    <td class="p-2 text-center"><button onclick="deleteAssignment('${a.id}')" class="text-red-600 text-xs">Remove</button></td>
+                </tr>
+            `).join('');
+            if (assignmentsWithDetails.length === 0) tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-gray-400 text-xs">No teacher assignments</td></tr>';
+        }
+
+        function deleteAssignment(id) {
+            pendingDeleteId = id;
+            pendingDeleteType = 'assignment';
+            document.getElementById('deleteMessage').innerHTML = `Move this assignment to trash?`;
+            document.getElementById('deleteModal').classList.remove('hidden');
+        }
+
+        // ========== TRASH FUNCTIONS ==========
+        async function loadTrash() {
+            const [deletedGrades, deletedStreams, deletedAssignments] = await Promise.all([
+                db.collection('schools').doc(currentSchool).collection('grades').where('deleted', '==', true).get(),
+                db.collection('schools').doc(currentSchool).collection('streams').where('deleted', '==', true).get(),
+                db.collection('schools').doc(currentSchool).collection('classAssignments').where('deleted', '==', true).get()
+            ]);
+            
+            let allDeleted = [];
+            deletedGrades.forEach(d => allDeleted.push({ id: d.id, type: 'grade', name: d.data().name, deletedAt: d.data().deletedAt }));
+            deletedStreams.forEach(d => allDeleted.push({ id: d.id, type: 'stream', name: d.data().name, deletedAt: d.data().deletedAt }));
+            deletedAssignments.forEach(d => allDeleted.push({ id: d.id, type: 'assignment', name: 'Teacher Assignment', deletedAt: d.data().deletedAt }));
+            
+            document.getElementById('trashCount').innerText = allDeleted.length;
+            const container = document.getElementById('trashContainer');
+            if (allDeleted.length === 0) {
+                container.innerHTML = '<div class="p-8 text-center text-gray-400">Trash is empty</div>';
+                return;
+            }
+            container.innerHTML = allDeleted.map(item => `
+                <div class="trash-item p-3 flex justify-between items-center border-b">
+                    <div>
+                        <span class="text-lg">${item.type === 'grade' ? '🏫' : item.type === 'stream' ? '🌊' : '👨‍🏫'}</span>
+                        <span class="ml-2 text-sm">${item.name}</span>
+                        <span class="ml-2 text-xs text-gray-400">${item.type} • ${item.deletedAt ? new Date(item.deletedAt).toLocaleDateString() : 'Unknown'}</span>
+                    </div>
+                    <div>
+                        <button onclick="restoreItem('${item.id}', '${item.type}')" class="px-2 py-1 bg-green-600 text-white rounded text-xs mr-1">Restore</button>
+                        <button onclick="permanentDeleteItem('${item.id}', '${item.type}')" class="px-2 py-1 bg-red-700 text-white rounded text-xs">Delete Forever</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function restoreItem(id, type) {
+            const col = type === 'grade' ? 'grades' : (type === 'stream' ? 'streams' : 'classAssignments');
+            await db.collection('schools').doc(currentSchool).collection(col).doc(id).update({ deleted: false, deletedAt: null });
+            showToast('Restored');
+            await loadAllData();
+            if (!document.getElementById('trashTab').classList.contains('hidden')) loadTrash();
+        }
+
+        async function permanentDeleteItem(id, type) {
+            if (confirm('⚠️ Permanently delete? This action cannot be undone.')) {
+                const col = type === 'grade' ? 'grades' : (type === 'stream' ? 'streams' : 'classAssignments');
+                await db.collection('schools').doc(currentSchool).collection(col).doc(id).delete();
+                showToast('Permanently deleted');
+                await loadAllData();
+                if (!document.getElementById('trashTab').classList.contains('hidden')) loadTrash();
+            }
+        }
+
+        async function emptyTrash() {
+            if (confirm('⚠️ WARNING: This will permanently delete ALL items in trash. This action cannot be undone. Continue?')) {
+                const [deletedGrades, deletedStreams, deletedAssignments] = await Promise.all([
+                    db.collection('schools').doc(currentSchool).collection('grades').where('deleted', '==', true).get(),
+                    db.collection('schools').doc(currentSchool).collection('streams').where('deleted', '==', true).get(),
+                    db.collection('schools').doc(currentSchool).collection('classAssignments').where('deleted', '==', true).get()
+                ]);
+                for (let d of deletedGrades.docs) await db.collection('schools').doc(currentSchool).collection('grades').doc(d.id).delete();
+                for (let d of deletedStreams.docs) await db.collection('schools').doc(currentSchool).collection('streams').doc(d.id).delete();
+                for (let d of deletedAssignments.docs) await db.collection('schools').doc(currentSchool).collection('classAssignments').doc(d.id).delete();
+                showToast('Trash emptied');
+                await loadAllData();
+                loadTrash();
+            }
+        }
+
+        // ========== PROMOTION HISTORY FUNCTIONS ==========
+        async function loadPromotionHistory() {
+            try {
+                const historySnap = await db.collection('schools').doc(currentSchool).collection('promotionHistory').orderBy('promotedAt', 'desc').get();
+                const history = [];
+                historySnap.forEach(doc => history.push({ id: doc.id, ...doc.data() }));
+                
+                if (history.length === 0) {
+                    document.getElementById('historyList').innerHTML = '<p class="text-center text-gray-400 py-4">No promotion history yet. Run a promotion to see records.</p>';
+                } else {
+                    document.getElementById('historyList').innerHTML = history.map(h => `
+                        <div class="p-3 bg-gray-50 rounded-lg flex justify-between items-center hover:shadow-sm transition">
+                            <div>
+                                <p class="font-medium">${h.year} → ${h.newYear}</p>
+                                <p class="text-xs text-gray-500">${new Date(h.promotedAt).toLocaleDateString()}</p>
+                                <p class="text-xs text-gray-500">Type: ${h.promotionType || 'Standard'}</p>
+                                ${h.promotedStudents ? `<p class="text-xs text-gray-400 mt-1">Students: ${h.promotedStudents.map(s => s.name).join(', ').substring(0, 50)}${h.promotedStudents.length > 3 ? '...' : ''}</p>` : ''}
+                            </div>
+                            <div class="text-right">
+                                <p class="text-sm font-bold text-green-600">Promoted: ${h.promotedCount}</p>
+                                <p class="text-xs text-gray-500">Repeated: ${h.repeatedCount || 0}</p>
+                                <button onclick="deleteHistoryRecord('${h.id}')" class="mt-1 px-2 py-0.5 bg-red-500 text-white rounded text-xs hover:bg-red-600">Delete</button>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            } catch (error) {
+                console.error("Error loading promotion history:", error);
+            }
+        }
+
+        async function deleteHistoryRecord(id) {
+            if (confirm('Delete this promotion record? This action cannot be undone.')) {
+                try {
+                    await db.collection('schools').doc(currentSchool).collection('promotionHistory').doc(id).delete();
+                    showToast('Record deleted');
+                    await loadPromotionHistory();
+                } catch (error) {
+                    showToast('Error deleting record: ' + error.message, true);
+                }
+            }
+        }
+
+        async function clearAllHistory() {
+            if (confirm('⚠️ DELETE ALL promotion history? This will permanently remove all records. This action cannot be undone.')) {
+                try {
+                    const historySnap = await db.collection('schools').doc(currentSchool).collection('promotionHistory').get();
+                    let deletedCount = 0;
+                    for (let doc of historySnap.docs) {
+                        await db.collection('schools').doc(currentSchool).collection('promotionHistory').doc(doc.id).delete();
+                        deletedCount++;
+                    }
+                    showToast(`✅ ${deletedCount} promotion records cleared`);
+                    await loadPromotionHistory();
+                } catch (error) {
+                    showToast('Error clearing history: ' + error.message, true);
+                }
+            }
+        }
+
+        // ========== PROMOTION FUNCTIONS - NOW SUPPORTS ALL GRADES ==========
+        function loadGradeCheckboxes() {
+            const container = document.getElementById('gradeCheckboxes');
+            if (container) {
+                container.innerHTML = allGrades.filter(g => g.status === 'active' && !g.deleted).map(g => `
+                    <label class="flex items-center gap-2">
+                        <input type="checkbox" value="${g.name}" class="grade-select-checkbox"> 
+                        <span class="text-sm">${g.name}</span>
+                    </label>
+                `).join('');
+            }
+        }
+
+        function togglePromotionOptions() {
+            const type = document.getElementById('promotionType').value;
+            const selectiveContainer = document.getElementById('selectiveGradesContainer');
+            const conditionalContainer = document.getElementById('conditionalContainer');
+            
+            if (selectiveContainer) selectiveContainer.classList.add('hidden');
+            if (conditionalContainer) conditionalContainer.classList.add('hidden');
+            
+            if (type === 'selective') {
+                if (selectiveContainer) selectiveContainer.classList.remove('hidden');
+                loadGradeCheckboxes();
+            } else if (type === 'conditional') {
+                if (conditionalContainer) conditionalContainer.classList.remove('hidden');
+            }
+        }
+
+        // Get next grade - now works for ALL grades
+        function getNextGrade(currentGrade) {
+            const index = gradeOrder.indexOf(currentGrade);
+            if (index === -1) return null;
+            if (index === gradeOrder.length - 1) return 'Graduated';
+            return gradeOrder[index + 1];
+        }
+
+        async function previewPromotion() {
+            const currentYear = document.getElementById('currentYear').value;
+            const newYear = document.getElementById('newYear').value;
+            const promotionType = document.getElementById('promotionType').value;
+            const minPassRate = parseInt(document.getElementById('minPassRate')?.value || 50);
+            
+            // Get ALL students, not just Grade 6 and 9
+            let promotionEligible = allStudents.filter(s => s.status === 'Active');
+            
+            // If selective promotion, only show selected grades
+            let selectedGrades = [];
+            if (promotionType === 'selective') {
+                document.querySelectorAll('.grade-select-checkbox:checked').forEach(cb => selectedGrades.push(cb.value));
+                if (selectedGrades.length === 0) {
+                    showToast('Select at least one grade to promote', true);
+                    return;
+                }
+                promotionEligible = promotionEligible.filter(s => selectedGrades.includes(s.grade));
+            }
+            
+            if (promotionEligible.length === 0) {
+                showToast('No students eligible for promotion', true);
+                return;
+            }
+            
+            let studentsToPromote = [];
+            let studentsToRepeat = [];
+            let studentsToGraduate = [];
+            
+            for (let student of promotionEligible) {
+                let currentGrade = student.grade;
+                let nextGrade = getNextGrade(currentGrade);
+                let shouldPromote = true;
+                
+                if (promotionType === 'conditional') {
+                    const assessmentsSnap = await db.collection('schools').doc(currentSchool).collection('assessments').where('studentId', '==', student.id).get();
+                    let assessments = []; assessmentsSnap.forEach(d => assessments.push(d.data()));
+                    let total = assessments.length;
+                    let passCount = assessments.filter(a => a.competency === 'EE' || a.competency === 'ME').length;
+                    let passRate = total > 0 ? (passCount / total) * 100 : 0;
+                    shouldPromote = passRate >= minPassRate;
+                }
+                
+                if (shouldPromote && nextGrade) {
+                    if (nextGrade === 'Graduated') {
+                        studentsToGraduate.push({ student, fromGrade: currentGrade, toGrade: nextGrade });
+                    } else {
+                        studentsToPromote.push({ student, fromGrade: currentGrade, toGrade: nextGrade });
+                    }
+                } else if (!shouldPromote) {
+                    studentsToRepeat.push({ student, grade: currentGrade });
+                }
+            }
+            
+            const previewHtml = `
+                <div class="space-y-4">
+                    <div class="bg-green-50 p-3 rounded-lg">
+                        <h4 class="font-bold text-green-800">✅ Students to Promote (${studentsToPromote.length})</h4>
+                        <div class="max-h-48 overflow-y-auto mt-2">${studentsToPromote.map(s => `<div class="flex justify-between p-1 border-b"><span>${s.student.name}</span><span>${s.fromGrade} → ${s.toGrade}</span></div>`).join('') || '<p class="text-gray-500">None</p>'}</div>
+                    </div>
+                    <div class="bg-blue-50 p-3 rounded-lg">
+                        <h4 class="font-bold text-blue-800">🎓 Students to Graduate (${studentsToGraduate.length})</h4>
+                        <div class="max-h-48 overflow-y-auto mt-2">${studentsToGraduate.map(s => `<div class="flex justify-between p-1 border-b"><span>${s.student.name}</span><span>${s.fromGrade} → ${s.toGrade}</span></div>`).join('') || '<p class="text-gray-500">None</p>'}</div>
+                    </div>
+                    <div class="bg-yellow-50 p-3 rounded-lg">
+                        <h4 class="font-bold text-yellow-800">⚠️ Students to Repeat (${studentsToRepeat.length})</h4>
+                        <div class="max-h-48 overflow-y-auto mt-2">${studentsToRepeat.map(s => `<div class="flex justify-between p-1 border-b"><span>${s.student.name}</span><span>${s.grade}</span></div>`).join('') || '<p class="text-gray-500">None</p>'}</div>
+                    </div>
+                    <div class="bg-purple-50 p-3 rounded-lg">
+                        <h4 class="font-bold text-purple-800">📊 Summary</h4>
+                        <p>Academic Year: ${currentYear} → ${newYear}</p>
+                        <p>Promoted: ${studentsToPromote.length} | Graduated: ${studentsToGraduate.length} | Repeated: ${studentsToRepeat.length}</p>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('previewContent').innerHTML = previewHtml;
+            document.getElementById('promotionPreview').classList.remove('hidden');
+            
+            window.promotionData = { 
+                studentsToPromote: studentsToPromote.map(s => ({ id: s.student.id, name: s.student.name, fromGrade: s.fromGrade, toGrade: s.toGrade })),
+                studentsToGraduate: studentsToGraduate.map(s => ({ id: s.student.id, name: s.student.name, fromGrade: s.fromGrade, toGrade: s.toGrade })),
+                studentsToRepeat: studentsToRepeat.map(s => ({ id: s.student.id, name: s.student.name, grade: s.grade })),
+                currentYear: currentYear, 
+                newYear: newYear,
+                promotionType: promotionType,
+                promotedCount: studentsToPromote.length,
+                graduatedCount: studentsToGraduate.length,
+                repeatedCount: studentsToRepeat.length
+            };
+        }
+
+        async function executePromotion() {
+            if (!window.promotionData) {
+                showToast('Please preview promotion first', true);
+                return;
+            }
+            
+            if (window.promotionData.promotedCount === 0 && window.promotionData.graduatedCount === 0) {
+                showToast('No students to promote or graduate', true);
+                return;
+            }
+            
+            const totalAffected = window.promotionData.promotedCount + window.promotionData.graduatedCount;
+            if (confirm(`⚠️ Are you sure you want to promote ${totalAffected} students?\n\n- ${window.promotionData.promotedCount} will move to next grade\n- ${window.promotionData.graduatedCount} will graduate\n- ${window.promotionData.repeatedCount} will repeat\n\nThis action cannot be undone.`)) {
+                try {
+                    showToast('Processing promotion...');
+                    
+                    for (let item of window.promotionData.studentsToPromote) {
+                        await db.collection('schools').doc(currentSchool).collection('students').doc(item.id).update({
+                            grade: item.toGrade,
+                            previousGrade: item.fromGrade,
+                            promotedAt: new Date().toISOString(),
+                            promotionYear: window.promotionData.newYear,
+                            status: item.toGrade === 'Graduated' ? 'Graduated' : 'Active'
+                        });
+                    }
+                    
+                    for (let item of window.promotionData.studentsToGraduate) {
+                        await db.collection('schools').doc(currentSchool).collection('students').doc(item.id).update({
+                            grade: item.toGrade,
+                            previousGrade: item.fromGrade,
+                            promotedAt: new Date().toISOString(),
+                            promotionYear: window.promotionData.newYear,
+                            status: 'Graduated'
+                        });
+                    }
+                    
+                    await db.collection('schools').doc(currentSchool).collection('promotionHistory').add({
+                        year: window.promotionData.currentYear,
+                        newYear: window.promotionData.newYear,
+                        promotionType: window.promotionData.promotionType,
+                        promotedCount: window.promotionData.promotedCount,
+                        graduatedCount: window.promotionData.graduatedCount,
+                        repeatedCount: window.promotionData.repeatedCount,
+                        promotedStudents: [...window.promotionData.studentsToPromote, ...window.promotionData.studentsToGraduate],
+                        promotedAt: new Date().toISOString(),
+                        timestamp: Date.now()
+                    });
+                    
+                    showToast(`✅ Promotion complete! ${window.promotionData.promotedCount} promoted, ${window.promotionData.graduatedCount} graduated!`);
+                    
+                    window.promotionData = null;
+                    document.getElementById('promotionPreview').classList.add('hidden');
+                    await loadAllData();
+                    
+                    if (!document.getElementById('promotionHistory').classList.contains('hidden')) {
+                        await loadPromotionHistory();
+                    }
+                } catch (error) {
+                    showToast('Error during promotion: ' + error.message, true);
+                    console.error("Promotion error:", error);
+                }
+            }
+        }
+
+        async function viewPromotionHistory() {
+            document.getElementById('promotionHistory').classList.remove('hidden');
+            document.getElementById('promotionPreview').classList.add('hidden');
+            await loadPromotionHistory();
+        }
+
+        // ========== ANALYTICS FUNCTIONS ==========
+        function updateAnalytics() {
+            try {
+                const activeGrades = allGrades.filter(g => g.status === 'active' && !g.deleted);
+                if (activeGrades.length === 0) {
+                    document.getElementById('capacitySummary').innerHTML = '<p class="text-center text-gray-400">No grade data available</p>';
+                    return;
+                }
+                
+                const summaryHtml = activeGrades.map(g => {
+                    const enrollment = getEnrollmentCount(g.name);
+                    const p = (enrollment / g.capacity) * 100;
+                    const color = p >= 90 ? 'text-red-600' : p >= 75 ? 'text-yellow-600' : 'text-green-600';
+                    return `<div class="flex justify-between items-center p-2 bg-gray-50 rounded">
+                        <span class="text-xs font-medium">${g.name}</span>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs ${color}">${Math.round(p)}% (${enrollment}/${g.capacity})</span>
+                            <div class="w-24 h-1.5 bg-gray-200 rounded overflow-hidden">
+                                <div class="h-full ${p >= 90 ? 'bg-red-500' : p >= 75 ? 'bg-yellow-500' : 'bg-green-500'} rounded" style="width: ${Math.min(p, 100)}%"></div>
+                            </div>
+                        </div>
+                    </div>`;
+                }).join('');
+                document.getElementById('capacitySummary').innerHTML = summaryHtml;
+                
+                const ctx = document.getElementById('gradeChart')?.getContext('2d');
+                if (ctx) {
+                    if (gradeChart) gradeChart.destroy();
+                    gradeChart = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: activeGrades.map(g => g.name),
+                            datasets: [{ label: 'Number of Students', data: activeGrades.map(g => getEnrollmentCount(g.name)), backgroundColor: '#003f87', borderRadius: 6 }]
+                        },
+                        options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } } }
+                    });
+                }
+                
+                const streamNames = allStreams.filter(s => !s.deleted).map(s => s.name);
+                const streamCounts = {};
+                streamNames.forEach(s => { streamCounts[s] = (streamCounts[s] || 0) + 1; });
+                const ctx2 = document.getElementById('streamChart')?.getContext('2d');
+                if (ctx2) {
+                    if (streamChart) streamChart.destroy();
+                    streamChart = new Chart(ctx2, {
+                        type: 'doughnut',
+                        data: { labels: Object.keys(streamCounts), datasets: [{ data: Object.values(streamCounts), backgroundColor: ['#003f87', '#059669', '#d97706', '#dc2626', '#8b5cf6'], borderWidth: 0 }] },
+                        options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 9 } } } } }
+                    });
+                }
+                
+                const ctx3 = document.getElementById('capacityChart')?.getContext('2d');
+                if (ctx3) {
+                    if (capacityChart) capacityChart.destroy();
+                    capacityChart = new Chart(ctx3, {
+                        type: 'bar',
+                        data: {
+                            labels: activeGrades.map(g => g.name),
+                            datasets: [{ label: 'Utilization %', data: activeGrades.map(g => Math.min((getEnrollmentCount(g.name) / g.capacity) * 100, 100)), backgroundColor: '#003f87', borderRadius: 6 }]
+                        },
+                        options: { responsive: true, maintainAspectRatio: true, scales: { y: { beginAtZero: true, max: 100 } }, plugins: { legend: { position: 'bottom' } } }
+                    });
+                }
+            } catch (error) {
+                console.error("Analytics error:", error);
+            }
+        }
+
+        // ========== EXPORT FUNCTION ==========
+        function exportClassData() {
+            try {
+                const exportData = allGrades.filter(g => !g.deleted).map(g => ({
+                    'Grade Name': g.name,
+                    'Level': g.level,
+                    'Capacity': g.capacity,
+                    'Current Students': getEnrollmentCount(g.name),
+                    'Utilization %': Math.round((getEnrollmentCount(g.name) / g.capacity) * 100),
+                    'Status': g.status
+                }));
+                
+                if (exportData.length === 0) {
+                    showToast('No data to export', true);
+                    return;
+                }
+                
+                const ws = XLSX.utils.json_to_sheet(exportData);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, 'Grades');
+                XLSX.writeFile(wb, `class_structure_${new Date().toISOString().split('T')[0]}.xlsx`);
+                showToast('Exported successfully!');
+            } catch (error) {
+                showToast('Export error: ' + error.message, true);
+            }
+        }
+
+        // Event listeners
+        document.getElementById('confirmDeleteBtn').onclick = confirmDelete;
+        
+        document.getElementById('assignGrade').addEventListener('change', function() {
+            const gradeId = this.value;
+            const streamSelect = document.getElementById('assignStream');
+            if (!gradeId) {
+                streamSelect.innerHTML = '<option value="">Select Stream</option>';
+                return;
+            }
+            const streams = allStreams.filter(s => s.gradeId === gradeId && !s.deleted);
+            streamSelect.innerHTML = '<option value="">Select Stream</option>' + streams.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+        });
+
+        auth.onAuthStateChanged(async (user) => {
+            if (!user) { window.location.href = 'index.html'; return; }
+            currentSchool = sessionStorage.getItem('currentSchoolCode');
+            if (!currentSchool) {
+                const snap = await db.collection('schools').where('adminId', '==', user.uid).get();
+                if (!snap.empty) {
+                    currentSchool = snap.docs[0].id;
+                    sessionStorage.setItem('currentSchoolCode', currentSchool);
+                    sessionStorage.setItem('currentSchoolName', snap.docs[0].data().schoolName);
+                }
+            }
+            document.getElementById('schoolBadge').innerText = sessionStorage.getItem('currentSchoolName') || currentSchool;
+            await loadAllData();
+        });
+    </script>
+</body>
+</html>
