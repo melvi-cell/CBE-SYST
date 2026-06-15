@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Management | LearnPro Kenya ERP</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: #f5f7fa; }
+        .stat-card { background: white; border-radius: 20px; transition: all 0.3s ease; border: 1px solid #e8ecf1; cursor: pointer; }
+        .stat-card:hover { transform: translateY(-3px); box-shadow: 0 15px 30px -12px rgba(0,0,0,0.1); }
+        .toast { position: fixed; bottom: 24px; right: 24px; background: #003f87; color: white; padding: 12px 24px; border-radius: 48px; z-index: 1000; font-weight: 500; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .toast-error { background: #dc2626; }
+        .toast-success { background: #059669; }
+        .status-badge { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 30px; font-size: 11px; font-weight: 600; }
+        .status-active { background: #dcfce7; color: #166534; }
+        .status-graduated { background: #f3e8ff; color: #6b21a5; }
+        .status-transferred { background: #fef3c7; color: #92400e; }
+        .nav-tab { cursor: pointer; padding: 8px 20px; border-radius: 30px; font-size: 14px; font-weight: 500; transition: all 0.2s; }
+        .nav-tab-active { background: #003f87; color: white; }
+        .nav-tab-inactive { background: white; color: #4a5568; border: 1px solid #e2e8f0; }
+        .nav-tab-inactive:hover { background: #f1f5f9; border-color: #003f87; }
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; padding: 14px 12px; background: #f8fafc; font-weight: 600; color: #1e293b; border-bottom: 1px solid #e2e8f0; font-size: 13px; }
+        td { padding: 12px; border-bottom: 1px solid #e2e8f0; font-size: 14px; vertical-align: middle; }
+        .text-center { text-align: center; }
+        .action-buttons { display: flex; gap: 6px; justify-content: center; align-items: center; }
+    </style>
+</head>
+<body class="bg-[#f5f7fa]">
+
+    <!-- Top Navigation Bar -->
+    <div class="bg-white shadow-sm fixed top-0 left-0 right-0 z-40 border-b border-gray-100">
+        <div class="flex justify-between items-center px-8 py-3 max-w-full mx-auto">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-gradient-to-br from-[#003f87] to-[#0056b3] rounded-xl flex items-center justify-center shadow-md">
+                    <span class="material-symbols-outlined text-white text-xl">school</span>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold text-[#003f87] tracking-tight">LEARNPRO KENYA</h1>
+                    <p class="text-[10px] text-gray-400 -mt-0.5">Student Management Portal</p>
+                </div>
+                <span id="schoolBadge" class="ml-3 text-xs bg-[#003f87]/10 text-[#003f87] px-3 py-1 rounded-full font-medium">Loading...</span>
+            </div>
+            <div class="flex items-center gap-3">
+                <button onclick="window.location.href='dashboard.html'" class="flex items-center gap-2 px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-xl transition text-sm">
+                    <span class="material-symbols-outlined text-sm">dashboard</span>
+                    <span class="hidden md:block">Dashboard</span>
+                </button>
+                <button onclick="logout()" class="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-xl transition text-sm">
+                    <span class="material-symbols-outlined text-sm">logout</span>
+                    <span class="hidden md:block">Logout</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="pt-20 px-8 pb-10 max-w-7xl mx-auto">
+        
+        <!-- Page Header with Tabs -->
+        <div class="mb-6 flex justify-between items-center">
+            <div>
+                <h2 class="text-2xl font-bold text-gray-800">Student Management</h2>
+                <p class="text-gray-500 text-sm mt-1">Manage student profiles, enrollment, and academic records</p>
+            </div>
+            <div class="flex gap-2">
+                <div id="activeTabBtn" onclick="switchTab('active')" class="nav-tab nav-tab-active">Active Students</div>
+                <div id="trashTabBtn" onclick="switchTab('trash')" class="nav-tab nav-tab-inactive flex items-center gap-1">
+                    <span class="material-symbols-outlined text-sm">delete</span> Trash <span id="trashCountBadge" class="ml-1 text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full">0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Row -->
+        <div id="statsRow" class="grid grid-cols-4 gap-5 mb-8">
+            <div class="stat-card p-5" onclick="filterByStatus('all')">
+                <div><p class="text-gray-400 text-xs uppercase">Total Students</p><p class="text-3xl font-bold text-gray-800 mt-1" id="totalStudents">0</p></div>
+            </div>
+            <div class="stat-card p-5" onclick="filterByStatus('Active')">
+                <div><p class="text-gray-400 text-xs uppercase">Active Students</p><p class="text-3xl font-bold text-green-600 mt-1" id="activeStudents">0</p></div>
+            </div>
+            <div class="stat-card p-5" onclick="filterByStatus('Graduated')">
+                <div><p class="text-gray-400 text-xs uppercase">Graduated</p><p class="text-3xl font-bold text-purple-600 mt-1" id="graduatedStudents">0</p></div>
+            </div>
+            <div class="stat-card p-5" onclick="filterByStatus('Transferred')">
+                <div><p class="text-gray-400 text-xs uppercase">Transferred</p><p class="text-3xl font-bold text-orange-600 mt-1" id="transferredStudents">0</p></div>
+            </div>
+        </div>
+
+        <!-- Action Bar -->
+        <div id="actionBar" class="bg-white rounded-xl shadow-sm p-4 mb-6 flex flex-wrap justify-between items-center gap-4">
+            <div class="flex gap-2">
+                <button onclick="openAddStudentModal()" class="px-5 py-2.5 bg-[#003f87] text-white rounded-lg flex items-center gap-2 text-sm font-medium">
+                    <span class="material-symbols-outlined text-sm">add</span> Add Student
+                </button>
+                <button onclick="openBulkUploadModal()" class="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-lg flex items-center gap-2 text-sm font-medium">
+                    <span class="material-symbols-outlined text-sm">upload_file</span> Bulk Upload
+                </button>
+                <button onclick="exportToExcel()" class="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-lg flex items-center gap-2 text-sm font-medium">
+                    <span class="material-symbols-outlined text-sm">table_view</span> Export
+                </button>
+            </div>
+            <div class="flex gap-2">
+                <div class="relative"><span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">search</span><input type="text" id="searchInput" onkeyup="filterStudents()" placeholder="Search by name, admission..." class="pl-9 pr-4 py-2 border rounded-lg w-64 text-sm"></div>
+                <select id="gradeFilter" onchange="updateStreamFilter(); filterStudents()" class="px-3 py-2 border rounded-lg text-sm bg-white"><option value="all">All Grades</option><option>Grade 1</option><option>Grade 2</option><option>Grade 3</option><option>Grade 4</option><option>Grade 5</option><option>Grade 6</option><option>Grade 7</option><option>Grade 8</option><option>Grade 9</option></select>
+                <select id="streamFilter" onchange="filterStudents()" class="px-3 py-2 border rounded-lg text-sm bg-white"><option value="all">All Streams</option></select>
+                <select id="statusFilter" onchange="filterStudents()" class="px-3 py-2 border rounded-lg text-sm bg-white"><option value="all">All Status</option><option>Active</option><option>Graduated</option><option>Transferred</option></select>
+                <button onclick="resetFilters()" class="px-3 py-2 text-gray-500 rounded-lg text-sm"><span class="material-symbols-outlined text-sm">refresh</span></button>
+            </div>
+        </div>
+
+        <!-- Trash Action Bar -->
+        <div id="trashActionBar" class="bg-white rounded-xl shadow-sm p-4 mb-6 hidden flex-wrap justify-between items-center gap-4">
+            <button onclick="emptyTrash()" class="px-5 py-2.5 bg-red-600 text-white rounded-lg text-sm">Empty Trash</button>
+            <div class="relative"><span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">search</span><input type="text" id="trashSearchInput" onkeyup="filterTrash()" placeholder="Search deleted..." class="pl-9 pr-4 py-2 border rounded-lg w-64 text-sm"></div>
+        </div>
+
+        <!-- Students Table -->
+        <div id="studentsTableContainer" class="bg-white rounded-xl shadow-sm overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr>
+                            <th class="text-left">Student Name</th>
+                            <th class="text-left">Admission No</th>
+                            <th class="text-left">Grade</th>
+                            <th class="text-left">Stream</th>
+                            <th class="text-left">Parent Contact</th>
+                            <th class="text-left">Status</th>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="studentsTableBody">
+                        <tr><td colspan="7" class="text-center py-12 text-gray-400">No students found. Click "Add Student" to get started.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="px-6 py-4 border-t flex justify-between items-center">
+                <span class="text-sm text-gray-500" id="paginationInfo"></span>
+                <div class="flex gap-2" id="paginationControls"></div>
+            </div>
+        </div>
+
+        <!-- Trash Table -->
+        <div id="trashTableContainer" class="bg-white rounded-xl shadow-sm overflow-hidden hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr>
+                            <th class="text-left">Student Name</th>
+                            <th class="text-left">Admission No</th>
+                            <th class="text-left">Grade</th>
+                            <th class="text-left">Stream</th>
+                            <th class="text-left">Deleted On</th>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="trashTableBody"></tbody>
+                </table>
+            </div>
+            <div class="px-6 py-4 border-t flex justify-between items-center">
+                <span class="text-sm text-gray-500" id="trashPaginationInfo"></span>
+                <div class="flex gap-2" id="trashPaginationControls"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Student Modal -->
+    <div id="studentModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-2xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-5 pb-2 border-b border-gray-100">
+                <h3 class="text-xl font-bold text-[#003f87]" id="modalTitle">Add New Student</h3>
+                <button onclick="closeStudentModal()" class="text-gray-400 hover:text-gray-600"><span class="material-symbols-outlined">close</span></button>
+            </div>
+            <form id="studentForm" class="space-y-4">
+                <input type="hidden" id="editStudentId">
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div><label class="block text-sm font-medium text-gray-700 mb-1">Full Name *</label><input id="name" type="text" class="w-full px-3 py-2 border rounded-lg focus:border-[#003f87] focus:ring-2 focus:ring-[#003f87]/20" required></div>
+                    <div><label class="block text-sm font-medium text-gray-700 mb-1">Admission Number *</label><input id="admNo" type="text" class="w-full px-3 py-2 border rounded-lg" required></div>
+                    <div><label class="block text-sm font-medium text-gray-700 mb-1">UPI Number (NEMIS)</label><input id="upi" type="text" class="w-full px-3 py-2 border rounded-lg"></div>
+                    <div><label class="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label><input id="dob" type="date" class="w-full px-3 py-2 border rounded-lg"></div>
+                    <div><label class="block text-sm font-medium text-gray-700 mb-1">Gender</label><select id="gender" class="w-full px-3 py-2 border rounded-lg"><option>Male</option><option>Female</option></select></div>
+                    <div><label class="block text-sm font-medium text-gray-700 mb-1">Grade / Class *</label><select id="grade" class="w-full px-3 py-2 border rounded-lg" onchange="loadStreamsForGrade()"><option>Grade 1</option><option>Grade 2</option><option>Grade 3</option><option>Grade 4</option><option>Grade 5</option><option>Grade 6</option><option>Grade 7</option><option>Grade 8</option><option>Grade 9</option></select></div>
+                    <div><label class="block text-sm font-medium text-gray-700 mb-1">Stream</label><select id="stream" class="w-full px-3 py-2 border rounded-lg"><option value="">Select Stream</option></select></div>
+                    <div><label class="block text-sm font-medium text-gray-700 mb-1">Status</label><select id="status" class="w-full px-3 py-2 border rounded-lg"><option>Active</option><option>Graduated</option><option>Transferred</option></select></div>
+                    <div><label class="block text-sm font-medium text-gray-700 mb-1">Parent/Guardian Name</label><input id="parentName" type="text" class="w-full px-3 py-2 border rounded-lg"></div>
+                    <div><label class="block text-sm font-medium text-gray-700 mb-1">Parent Phone Number</label><input id="parentPhone" type="tel" class="w-full px-3 py-2 border rounded-lg"></div>
+                    <div><label class="block text-sm font-medium text-gray-700 mb-1">Parent Email Address</label><input id="parentEmail" type="email" class="w-full px-3 py-2 border rounded-lg"></div>
+                    <div><label class="block text-sm font-medium text-gray-700 mb-1">Residential Address</label><input id="address" type="text" class="w-full px-3 py-2 border rounded-lg" placeholder="Optional"></div>
+                </div>
+                <div class="flex gap-3 pt-3"><button type="submit" class="flex-1 py-2.5 bg-[#003f87] text-white rounded-lg font-medium">Save Student</button><button type="button" onclick="closeStudentModal()" class="flex-1 py-2.5 border border-gray-200 rounded-lg font-medium">Cancel</button></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4 text-center">
+            <div class="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4"><span class="material-symbols-outlined text-red-600 text-3xl">delete</span></div>
+            <h3 class="text-xl font-bold text-gray-800 mb-2">Move to Trash?</h3>
+            <p class="text-gray-500 mb-5" id="deleteMessage">This student will be moved to trash. You can restore later.</p>
+            <div class="flex gap-3"><button id="confirmDeleteBtn" class="flex-1 py-2.5 bg-red-600 text-white rounded-lg font-medium">Move to Trash</button><button onclick="closeDeleteModal()" class="flex-1 py-2.5 border border-gray-200 rounded-lg font-medium">Cancel</button></div>
+        </div>
+    </div>
+
+    <!-- Restore Confirmation Modal -->
+    <div id="restoreModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4 text-center">
+            <div class="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4"><span class="material-symbols-outlined text-green-600 text-3xl">restore_from_trash</span></div>
+            <h3 class="text-xl font-bold text-gray-800 mb-2">Restore Student?</h3>
+            <p class="text-gray-500 mb-5" id="restoreMessage">This student will be restored to active directory.</p>
+            <div class="flex gap-3"><button id="confirmRestoreBtn" class="flex-1 py-2.5 bg-green-600 text-white rounded-lg font-medium">Restore</button><button onclick="closeRestoreModal()" class="flex-1 py-2.5 border border-gray-200 rounded-lg font-medium">Cancel</button></div>
+        </div>
+    </div>
+
+    <!-- Permanent Delete Modal -->
+    <div id="permanentDeleteModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4 text-center">
+            <div class="w-14 h-14 bg-red-700/10 rounded-full flex items-center justify-center mx-auto mb-4"><span class="material-symbols-outlined text-red-700 text-3xl">delete_forever</span></div>
+            <h3 class="text-xl font-bold text-gray-800 mb-2">Permanently Delete?</h3>
+            <p class="text-gray-500 mb-5" id="permanentDeleteMessage">This action cannot be undone.</p>
+            <div class="flex gap-3"><button id="confirmPermanentDeleteBtn" class="flex-1 py-2.5 bg-red-700 text-white rounded-lg font-medium">Delete Forever</button><button onclick="closePermanentDeleteModal()" class="flex-1 py-2.5 border border-gray-200 rounded-lg font-medium">Cancel</button></div>
+        </div>
+    </div>
+
+    <!-- Bulk Upload Modal -->
+    <div id="bulkModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4">
+            <div class="flex justify-between items-center mb-4"><h3 class="text-xl font-bold text-[#003f87]">Bulk Upload Students</h3><button onclick="closeBulkModal()" class="text-gray-400"><span class="material-symbols-outlined">close</span></button></div>
+            <div class="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center cursor-pointer hover:border-[#003f87] transition" onclick="document.getElementById('excelFile').click()">
+                <span class="material-symbols-outlined text-4xl text-gray-400 mb-2">cloud_upload</span>
+                <p class="text-sm font-medium">Click to upload Excel/CSV</p>
+                <p class="text-xs text-gray-400">Supported formats: .xlsx, .xls, .csv</p>
+                <input type="file" id="excelFile" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleExcelUpload(this)">
+            </div>
+            <div class="mt-4 p-3 bg-blue-50 rounded-lg"><p class="text-sm font-medium text-blue-800">📋 Required Columns: name, admNo, grade</p><p class="text-xs text-blue-600 mt-1">Optional: stream, parentName, parentPhone, gender, upi</p><button onclick="downloadTemplate()" class="mt-2 text-sm text-[#003f87]">Download Template →</button></div>
+            <div id="uploadPreview" class="mt-3 hidden"></div>
+            <button id="confirmUploadBtn" onclick="confirmBulkUpload()" class="hidden w-full mt-4 py-2.5 bg-green-600 text-white rounded-lg font-medium">Confirm Upload</button>
+        </div>
+    </div>
+
+    <div id="toast" style="display:none" class="toast"></div>
+
+    <script>
+        const firebaseConfig = { apiKey: "AIzaSyA4cm7chJXz90yOLWPtbdIW8KlEozG1lxo", authDomain: "learnpro-kenya-erp.firebaseapp.com", projectId: "learnpro-kenya-erp", storageBucket: "learnpro-kenya-erp.firebasestorage.app", messagingSenderId: "327168081514", appId: "1:327168081514:web:13cdc8b827fa76d95a9413" };
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        let currentSchool = null;
+        let allStudents = [], deletedStudents = [], filteredStudents = [], filteredTrash = [];
+        let allStreams = [], allGrades = [];
+        let currentPage = 1, trashPage = 1, itemsPerPage = 10;
+        let currentTab = 'active';
+        let pendingUploadData = [];
+
+        function showToast(msg, isErr) { let toast = document.getElementById('toast'); toast.textContent = msg; toast.className = `toast ${isErr ? 'toast-error' : 'toast-success'}`; toast.style.display = 'block'; setTimeout(() => toast.style.display = 'none', 3000); }
+        async function logout() { await auth.signOut(); sessionStorage.clear(); window.location.href = 'index.html'; }
+        function closeStudentModal() { document.getElementById('studentModal').classList.add('hidden'); }
+        function closeDeleteModal() { document.getElementById('deleteModal').classList.add('hidden'); }
+        function closeRestoreModal() { document.getElementById('restoreModal').classList.add('hidden'); }
+        function closePermanentDeleteModal() { document.getElementById('permanentDeleteModal').classList.add('hidden'); }
+        function closeBulkModal() { document.getElementById('bulkModal').classList.add('hidden'); }
+        function openAddStudentModal() { 
+            document.getElementById('modalTitle').innerText = 'Add New Student'; 
+            document.getElementById('studentForm').reset(); 
+            document.getElementById('editStudentId').value = ''; 
+            loadStreamsForGrade(); 
+            document.getElementById('studentModal').classList.remove('hidden'); 
+        }
+        function openBulkUploadModal() { document.getElementById('bulkModal').classList.remove('hidden'); }
+
+        // ========== LOAD STREAMS FROM CLASS MANAGEMENT ==========
+        async function loadAllStreams() {
+            if (!currentSchool) return;
+            const streamsSnap = await db.collection('schools').doc(currentSchool).collection('streams').where('deleted', '==', false).get();
+            allStreams = [];
+            streamsSnap.forEach(doc => allStreams.push({ id: doc.id, gradeId: doc.data().gradeId, gradeName: doc.data().gradeName, name: doc.data().name }));
+            
+            const gradesSnap = await db.collection('schools').doc(currentSchool).collection('grades').where('deleted', '==', false).get();
+            allGrades = [];
+            gradesSnap.forEach(doc => allGrades.push({ id: doc.id, name: doc.data().name }));
+        }
+
+        async function loadStreamsForGrade() {
+            const gradeName = document.getElementById('grade').value;
+            const streamSelect = document.getElementById('stream');
+            if (!gradeName) { streamSelect.innerHTML = '<option value="">Select Stream</option>'; return; }
+            
+            const grade = allGrades.find(g => g.name === gradeName);
+            if (!grade) { streamSelect.innerHTML = '<option value="">Select Stream</option>'; return; }
+            
+            const streams = allStreams.filter(s => s.gradeId === grade.id);
+            if (streams.length === 0) {
+                streamSelect.innerHTML = '<option value="">No streams configured for this grade</option>';
+            } else {
+                streamSelect.innerHTML = '<option value="">Select Stream</option>' + streams.map(s => `<option value="${s.name}">${s.name}</option>`).join('');
+            }
+        }
+
+        async function updateStreamFilter() {
+            const gradeFilter = document.getElementById('gradeFilter').value;
+            const streamFilterSelect = document.getElementById('streamFilter');
+            
+            if (!gradeFilter || gradeFilter === 'all') {
+                const uniqueStreams = [...new Set(allStudents.map(s => s.stream).filter(s => s))];
+                streamFilterSelect.innerHTML = '<option value="all">All Streams</option>' + uniqueStreams.map(s => `<option value="${s}">${s}</option>`).join('');
+                return;
+            }
+            
+            const grade = allGrades.find(g => g.name === gradeFilter);
+            if (grade) {
+                const streams = allStreams.filter(s => s.gradeId === grade.id);
+                streamFilterSelect.innerHTML = '<option value="all">All Streams</option>' + streams.map(s => `<option value="${s.name}">${s.name}</option>`).join('');
+            } else {
+                streamFilterSelect.innerHTML = '<option value="all">All Streams</option>';
+            }
+        }
+
+        // ========== MAIN FUNCTIONS ==========
+        function switchTab(tab) {
+            currentTab = tab;
+            if (tab === 'active') {
+                document.getElementById('activeTabBtn').className = 'nav-tab nav-tab-active';
+                document.getElementById('trashTabBtn').className = 'nav-tab nav-tab-inactive flex items-center gap-1';
+                document.getElementById('statsRow').style.display = 'grid';
+                document.getElementById('actionBar').style.display = 'flex';
+                document.getElementById('trashActionBar').style.display = 'none';
+                document.getElementById('studentsTableContainer').style.display = 'block';
+                document.getElementById('trashTableContainer').style.display = 'none';
+                filterStudents();
+            } else {
+                document.getElementById('trashTabBtn').className = 'nav-tab nav-tab-active flex items-center gap-1';
+                document.getElementById('activeTabBtn').className = 'nav-tab nav-tab-inactive';
+                document.getElementById('statsRow').style.display = 'none';
+                document.getElementById('actionBar').style.display = 'none';
+                document.getElementById('trashActionBar').style.display = 'flex';
+                document.getElementById('studentsTableContainer').style.display = 'none';
+                document.getElementById('trashTableContainer').style.display = 'block';
+                loadTrash();
+            }
+        }
+
+        async function loadStudents() {
+            if (!currentSchool) return;
+            await loadAllStreams();
+            
+            const studentsSnap = await db.collection('schools').doc(currentSchool).collection('students').where('deleted', '==', false).get();
+            allStudents = []; studentsSnap.forEach(doc => allStudents.push({ id: doc.id, ...doc.data() }));
+            await loadTrash();
+            await updateStreamFilter();
+            filterStudents();
+            updateStats();
+        }
+
+        async function loadTrash() {
+            if (!currentSchool) return;
+            const trashSnap = await db.collection('schools').doc(currentSchool).collection('students').where('deleted', '==', true).get();
+            deletedStudents = []; trashSnap.forEach(doc => deletedStudents.push({ id: doc.id, ...doc.data() }));
+            document.getElementById('trashCountBadge').innerText = deletedStudents.length;
+            filterTrash();
+        }
+
+        function updateStats() {
+            document.getElementById('totalStudents').innerText = allStudents.length;
+            document.getElementById('activeStudents').innerText = allStudents.filter(s => s.status === 'Active').length;
+            document.getElementById('graduatedStudents').innerText = allStudents.filter(s => s.status === 'Graduated').length;
+            document.getElementById('transferredStudents').innerText = allStudents.filter(s => s.status === 'Transferred').length;
+        }
+
+        function filterStudents() {
+            const search = document.getElementById('searchInput')?.value.toLowerCase() || '';
+            const grade = document.getElementById('gradeFilter')?.value || 'all';
+            const stream = document.getElementById('streamFilter')?.value || 'all';
+            const status = document.getElementById('statusFilter')?.value || 'all';
+            filteredStudents = allStudents.filter(s => (grade === 'all' || s.grade === grade) && (stream === 'all' || s.stream === stream) && (status === 'all' || s.status === status) && (!search || s.name?.toLowerCase().includes(search) || s.admNo?.toLowerCase().includes(search)));
+            currentPage = 1; renderTable();
+        }
+
+        function filterTrash() {
+            const search = document.getElementById('trashSearchInput')?.value.toLowerCase() || '';
+            filteredTrash = deletedStudents.filter(s => !search || s.name?.toLowerCase().includes(search) || s.admNo?.toLowerCase().includes(search));
+            trashPage = 1; renderTrashTable();
+        }
+
+        function filterByStatus(status) { document.getElementById('statusFilter').value = status; filterStudents(); }
+        function resetFilters() { document.getElementById('searchInput').value = ''; document.getElementById('gradeFilter').value = 'all'; document.getElementById('streamFilter').value = 'all'; document.getElementById('statusFilter').value = 'all'; filterStudents(); }
+
+        function renderTable() {
+            const start = (currentPage - 1) * itemsPerPage, end = start + itemsPerPage, pageStudents = filteredStudents.slice(start, end);
+            const tbody = document.getElementById('studentsTableBody');
+            if (pageStudents.length === 0) { 
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center py-12 text-gray-400">No students found. Click "Add Student" to get started.</td></tr>';
+                return; 
+            }
+            tbody.innerHTML = pageStudents.map(s => `<tr>
+                <td class="font-medium">${s.name || 'N/A'}</td>
+                <td>${s.admNo || 'N/A'}</td>
+                <td>${s.grade || 'N/A'}</td>
+                <td>${s.stream || 'N/A'}</td>
+                <td>${s.parentPhone || s.parentName || 'N/A'}</td>
+                <td><span class="status-badge status-${s.status?.toLowerCase() === 'active' ? 'active' : s.status?.toLowerCase() === 'graduated' ? 'graduated' : 'transferred'}">${s.status || 'Active'}</span></td>
+                <td class="text-center"><div class="action-buttons"><button onclick="openEditModal('${s.id}')" class="text-blue-600"><span class="material-symbols-outlined text-sm">edit</span></button><button onclick="moveToTrash('${s.id}', '${s.name}')" class="text-red-600"><span class="material-symbols-outlined text-sm">delete</span></button></div></td>
+            </tr>`).join('');
+            const totalPages = Math.ceil(filteredStudents.length / itemsPerPage);
+            document.getElementById('paginationInfo').innerText = `Showing ${Math.min(filteredStudents.length, start+1)}-${Math.min(end, filteredStudents.length)} of ${filteredStudents.length}`;
+            let pages = ''; for (let i = 1; i <= Math.min(totalPages, 5); i++) pages += `<button onclick="changePage(${i})" class="px-3 py-1 rounded ${currentPage === i ? 'bg-[#003f87] text-white' : 'border'}">${i}</button>`;
+            document.getElementById('paginationControls').innerHTML = pages;
+        }
+
+        function renderTrashTable() {
+            const start = (trashPage - 1) * itemsPerPage, end = start + itemsPerPage, pageTrash = filteredTrash.slice(start, end);
+            const tbody = document.getElementById('trashTableBody');
+            if (pageTrash.length === 0) { tbody.innerHTML = '<tr><td colspan="6" class="text-center py-12 text-gray-400">Trash is empty</td></tr>'; return; }
+            tbody.innerHTML = pageTrash.map(s => `<tr class="bg-red-50"><td class="line-through">${s.name || 'N/A'}</td><td>${s.admNo || 'N/A'}</td><td>${s.grade || 'N/A'}</td><td>${s.stream || 'N/A'}</td><td>${s.deletedAt ? new Date(s.deletedAt).toLocaleDateString() : 'Unknown'}</td><td class="text-center"><button onclick="restoreStudent('${s.id}', '${s.name}')" class="text-green-600 mr-2">Restore</button><button onclick="permanentDeleteStudent('${s.id}', '${s.name}')" class="text-red-600">Delete</button></td></tr>`).join('');
+            const totalPages = Math.ceil(filteredTrash.length / itemsPerPage);
+            document.getElementById('trashPaginationInfo').innerText = `Showing ${Math.min(filteredTrash.length, start+1)}-${Math.min(end, filteredTrash.length)} of ${filteredTrash.length}`;
+            let pages = ''; for (let i = 1; i <= Math.min(totalPages, 5); i++) pages += `<button onclick="changeTrashPage(${i})" class="px-3 py-1 rounded ${trashPage === i ? 'bg-[#003f87] text-white' : 'border'}">${i}</button>`;
+            document.getElementById('trashPaginationControls').innerHTML = pages;
+        }
+
+        function changePage(page) { currentPage = page; renderTable(); }
+        function changeTrashPage(page) { trashPage = page; renderTrashTable(); }
+
+        async function openEditModal(id) {
+            const student = allStudents.find(s => s.id === id);
+            if (student) {
+                document.getElementById('modalTitle').innerText = 'Edit Student';
+                document.getElementById('editStudentId').value = id;
+                document.getElementById('name').value = student.name || '';
+                document.getElementById('admNo').value = student.admNo || '';
+                document.getElementById('upi').value = student.upi || '';
+                document.getElementById('dob').value = student.dob || '';
+                document.getElementById('gender').value = student.gender || 'Male';
+                document.getElementById('grade').value = student.grade || 'Grade 1';
+                await loadStreamsForGrade();
+                document.getElementById('stream').value = student.stream || '';
+                document.getElementById('status').value = student.status || 'Active';
+                document.getElementById('parentName').value = student.parentName || '';
+                document.getElementById('parentPhone').value = student.parentPhone || '';
+                document.getElementById('parentEmail').value = student.parentEmail || '';
+                document.getElementById('address').value = student.address || '';
+                document.getElementById('studentModal').classList.remove('hidden');
+            }
+        }
+
+        function moveToTrash(id, name) {
+            document.getElementById('deleteMessage').innerHTML = `Move <strong>${name}</strong> to trash?`;
+            document.getElementById('confirmDeleteBtn').onclick = () => {
+                db.collection('schools').doc(currentSchool).collection('students').doc(id).update({ deleted: true, deletedAt: new Date().toISOString(), status: 'Deleted' }).then(() => {
+                    showToast('Moved to trash'); closeDeleteModal(); loadStudents(); if (currentTab === 'trash') switchTab('trash');
+                });
+            };
+            document.getElementById('deleteModal').classList.remove('hidden');
+        }
+
+        function restoreStudent(id, name) {
+            document.getElementById('restoreMessage').innerHTML = `Restore <strong>${name}</strong>?`;
+            document.getElementById('confirmRestoreBtn').onclick = () => {
+                db.collection('schools').doc(currentSchool).collection('students').doc(id).update({ deleted: false, deletedAt: null, status: 'Active' }).then(() => {
+                    showToast('Restored'); closeRestoreModal(); loadStudents(); if (currentTab === 'trash') switchTab('trash');
+                });
+            };
+            document.getElementById('restoreModal').classList.remove('hidden');
+        }
+
+        function permanentDeleteStudent(id, name) {
+            document.getElementById('permanentDeleteMessage').innerHTML = `Permanently delete <strong>${name}</strong>?`;
+            document.getElementById('confirmPermanentDeleteBtn').onclick = () => {
+                db.collection('schools').doc(currentSchool).collection('students').doc(id).delete().then(() => {
+                    showToast('Deleted permanently'); closePermanentDeleteModal(); loadStudents(); if (currentTab === 'trash') switchTab('trash');
+                });
+            };
+            document.getElementById('permanentDeleteModal').classList.remove('hidden');
+        }
+
+        async function emptyTrash() {
+            if (confirm('⚠️ Delete ALL students in trash permanently?')) {
+                for (const s of deletedStudents) await db.collection('schools').doc(currentSchool).collection('students').doc(s.id).delete();
+                showToast('Trash emptied'); loadStudents(); if (currentTab === 'trash') switchTab('trash');
+            }
+        }
+
+        document.getElementById('studentForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('editStudentId').value;
+            const data = {
+                name: document.getElementById('name').value, admNo: document.getElementById('admNo').value,
+                upi: document.getElementById('upi').value, dob: document.getElementById('dob').value,
+                gender: document.getElementById('gender').value, grade: document.getElementById('grade').value,
+                stream: document.getElementById('stream').value, status: document.getElementById('status').value,
+                parentName: document.getElementById('parentName').value, parentPhone: document.getElementById('parentPhone').value,
+                parentEmail: document.getElementById('parentEmail').value, address: document.getElementById('address').value,
+                updatedAt: new Date().toISOString()
+            };
+            if (id) { await db.collection('schools').doc(currentSchool).collection('students').doc(id).update(data); showToast('Student updated'); }
+            else { data.createdAt = new Date().toISOString(); data.deleted = false; await db.collection('schools').doc(currentSchool).collection('students').add(data); showToast('Student added'); }
+            closeStudentModal(); loadStudents();
+        });
+
+        function handleExcelUpload(input) {
+            const file = input.files[0]; if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const workbook = XLSX.read(e.target.result, { type: 'array' });
+                const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+                pendingUploadData = rows;
+                document.getElementById('uploadPreview').innerHTML = `<div class="p-2 bg-green-50 rounded"><p>✅ ${rows.length} records ready</p></div>`;
+                document.getElementById('uploadPreview').classList.remove('hidden');
+                document.getElementById('confirmUploadBtn').classList.remove('hidden');
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        async function confirmBulkUpload() {
+            let success = 0;
+            for (const row of pendingUploadData) {
+                await db.collection('schools').doc(currentSchool).collection('students').add({
+                    name: row.name, admNo: row.admNo, upi: row.upi || '', grade: row.grade || 'Grade 1',
+                    stream: row.stream || '', parentName: row.parentName || '', parentPhone: row.parentPhone || '',
+                    gender: row.gender || 'Male', status: 'Active', deleted: false, createdAt: new Date().toISOString()
+                });
+                success++;
+            }
+            showToast(`✅ ${success} students added`); closeBulkModal(); loadStudents();
+        }
+
+        function downloadTemplate() {
+            const ws = XLSX.utils.json_to_sheet([{ name: "John Doe", admNo: "2024/001", grade: "Grade 4", stream: "4A", parentName: "Jane Doe", parentPhone: "0712345678", gender: "Male" }]);
+            const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Template"); XLSX.writeFile(wb, "student_template.xlsx");
+        }
+
+        function exportToExcel() {
+            const ws = XLSX.utils.json_to_sheet(filteredStudents.map(s => ({ Name: s.name, Admission: s.admNo, Grade: s.grade, Stream: s.stream, Status: s.status, Parent: s.parentName, Phone: s.parentPhone })));
+            const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Students"); XLSX.writeFile(wb, `students_${new Date().toISOString().split('T')[0]}.xlsx`);
+            showToast('Exported!');
+        }
+
+        document.getElementById('grade').addEventListener('change', loadStreamsForGrade);
+        document.getElementById('gradeFilter').addEventListener('change', function() { updateStreamFilter(); filterStudents(); });
+
+        auth.onAuthStateChanged(async (user) => {
+            if (!user) { window.location.href = 'index.html'; return; }
+            currentSchool = sessionStorage.getItem('currentSchoolCode');
+            if (!currentSchool) {
+                const snap = await db.collection('schools').where('adminId', '==', user.uid).get();
+                if (!snap.empty) { currentSchool = snap.docs[0].id; sessionStorage.setItem('currentSchoolCode', currentSchool); sessionStorage.setItem('currentSchoolName', snap.docs[0].data().schoolName); }
+            }
+            document.getElementById('schoolBadge').innerText = sessionStorage.getItem('currentSchoolName') || currentSchool;
+            await loadStudents();
+        });
+    </script>
+</body>
+</html>

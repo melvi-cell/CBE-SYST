@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Report Cards | LearnPro Kenya ERP</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: #f5f7fa; }
+        .toast { position: fixed; bottom: 24px; right: 24px; background: #003f87; color: white; padding: 12px 24px; border-radius: 48px; z-index: 1000; font-weight: 500; z-index: 1001; }
+        .toast-error { background: #dc2626; }
+        .toast-success { background: #059669; }
+        .grade-badge { display: inline-flex; padding: 4px 12px; border-radius: 30px; font-size: 11px; font-weight: 600; }
+        .grade-EE { background: #003f87; color: white; }
+        .grade-ME { background: #059669; color: white; }
+        .grade-AE { background: #d97706; color: white; }
+        .grade-BE { background: #dc2626; color: white; }
+        .nav-tab { cursor: pointer; padding: 8px 20px; border-radius: 30px; font-size: 14px; font-weight: 500; transition: all 0.2s; }
+        .nav-tab-active { background: #003f87; color: white; }
+        .nav-tab-inactive { background: white; color: #4a5568; border: 1px solid #e2e8f0; }
+        .student-card { cursor: pointer; transition: all 0.2s; border: 1px solid #eef2ff; }
+        .student-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .report-card-container { font-family: 'Inter', sans-serif; }
+        @media print { .no-print { display: none; } body { background: white; padding: 20px; } }
+    </style>
+</head>
+<body>
+
+<div class="bg-white shadow-sm fixed top-0 left-0 right-0 z-40 border-b border-gray-100 no-print">
+    <div class="flex justify-between items-center px-6 py-3">
+        <div class="flex items-center gap-3">
+            <div class="w-9 h-9 bg-gradient-to-br from-[#003f87] to-[#0056b3] rounded-xl flex items-center justify-center">
+                <span class="material-symbols-outlined text-white text-lg">description</span>
+            </div>
+            <div>
+                <h1 class="text-lg font-bold text-[#003f87]">LEARNPRO KENYA</h1>
+                <p class="text-[9px] text-gray-400 -mt-0.5">CBC Report Card Generator</p>
+            </div>
+            <span id="schoolBadge" class="ml-2 text-xs bg-[#003f87]/10 text-[#003f87] px-2 py-0.5 rounded-full">Loading...</span>
+        </div>
+        <div class="flex gap-2">
+            <button onclick="window.location.href='dashboard.html'" class="px-3 py-1 text-gray-600 hover:bg-gray-100 rounded-lg text-xs">Dashboard</button>
+            <button onclick="logout()" class="px-3 py-1 text-red-600 hover:bg-red-50 rounded-lg text-xs">Logout</button>
+        </div>
+    </div>
+</div>
+
+<div class="pt-16 px-4 pb-6 max-w-7xl mx-auto">
+    
+    <div class="flex gap-2 mb-4 border-b pb-2 no-print">
+        <button onclick="showTab('generate')" id="tabGenerate" class="nav-tab nav-tab-active">📝 Generate Reports</button>
+        <button onclick="showTab('history')" id="tabHistory" class="nav-tab nav-tab-inactive">📜 History</button>
+        <button onclick="showTab('bulk')" id="tabBulk" class="nav-tab nav-tab-inactive">📎 Bulk Generate</button>
+        <button onclick="showTab('trash')" id="tabTrash" class="nav-tab nav-tab-inactive">🗑️ Trash <span id="trashBadge" class="ml-1 text-xs bg-gray-300 text-gray-700 px-1.5 py-0.5 rounded-full">0</span></button>
+    </div>
+
+    <!-- ========== GENERATE REPORTS TAB ========== -->
+    <div id="generatePanel">
+        <div class="bg-white rounded-xl p-3 mb-4 flex flex-wrap gap-3 items-center no-print">
+            <select id="reportGrade" class="p-2 border rounded-lg text-sm bg-white" onchange="loadStreamsForReport()">
+                <option value="">Select Grade</option>
+            </select>
+            <select id="reportStream" class="p-2 border rounded-lg text-sm bg-white">
+                <option value="">Select Stream</option>
+            </select>
+            <select id="reportTerm" class="p-2 border rounded-lg text-sm bg-white">
+                <option>Term 1, 2024</option>
+                <option selected>Term 2, 2024</option>
+                <option>Term 3, 2024</option>
+            </select>
+            <button onclick="loadReportStudents()" class="px-4 py-2 bg-[#003f87] text-white rounded-lg text-sm">Load Students</button>
+            <button onclick="generateAllClassReports()" class="px-4 py-2 bg-green-600 text-white rounded-lg text-sm">Generate All</button>
+            <button onclick="exportStudentsToExcel()" class="px-4 py-2 border rounded-lg text-sm">📊 Export</button>
+        </div>
+
+        <div id="studentsList" class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div class="text-center py-10 text-gray-400 col-span-full">Select grade and stream to view students</div>
+        </div>
+    </div>
+
+    <!-- ========== HISTORY TAB ========== -->
+    <div id="historyPanel" class="hidden">
+        <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+            <div class="p-3 border-b bg-gray-50 flex justify-between items-center">
+                <h3 class="font-bold text-sm">📜 Generated Report Cards History</h3>
+                <button onclick="clearHistory()" class="px-3 py-1.5 bg-red-600 text-white rounded-lg text-sm">Clear All</button>
+            </div>
+            <div id="historyList" class="divide-y divide-gray-100">
+                <div class="p-6 text-center text-gray-400">Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== BULK GENERATE TAB ========== -->
+    <div id="bulkPanel" class="hidden">
+        <div class="bg-white rounded-xl p-5 shadow-sm">
+            <h3 class="text-lg font-bold text-[#003f87] mb-3">📎 Bulk Report Card Generation</h3>
+            <div class="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center cursor-pointer hover:border-[#003f87] transition" onclick="document.getElementById('bulkExcel').click()">
+                <span class="material-symbols-outlined text-4xl text-gray-400 mb-2">upload_file</span>
+                <p class="text-sm font-medium">Upload Student List (Excel/CSV)</p>
+                <p class="text-xs text-gray-400">Generate reports for multiple students at once</p>
+                <input type="file" id="bulkExcel" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleBulkUpload(this)">
+            </div>
+            <button onclick="downloadBulkTemplate()" class="mt-3 text-[#003f87] text-sm">📥 Download Template</button>
+            <div id="bulkPreview" class="mt-3 hidden"></div>
+            <button id="confirmBulkBtn" onclick="confirmBulkGenerate()" class="hidden mt-3 px-4 py-2 bg-green-600 text-white rounded-lg">Generate Reports</button>
+        </div>
+        <div id="bulkReportsContainer" class="mt-4 space-y-6"></div>
+    </div>
+
+    <!-- ========== TRASH TAB ========== -->
+    <div id="trashPanel" class="hidden">
+        <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+            <div class="p-3 border-b bg-gray-50 flex justify-between">
+                <h3 class="font-bold text-sm">🗑️ Deleted Report Cards</h3>
+                <button onclick="emptyTrash()" class="px-3 py-1 bg-red-600 text-white rounded-lg text-sm">Empty Trash</button>
+            </div>
+            <div id="trashList" class="divide-y divide-gray-100">
+                <div class="p-6 text-center text-gray-400">Loading...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Report Card Modal -->
+<div id="reportModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden no-print">
+    <div class="bg-white rounded-2xl p-4 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-center mb-3 sticky top-0 bg-white pb-2">
+            <h3 class="text-lg font-bold text-[#003f87]">CBC Report Card</h3>
+            <div class="flex gap-2">
+                <button onclick="printReportCard()" class="px-3 py-1.5 bg-[#003f87] text-white rounded-lg text-sm">🖨️ Print</button>
+                <button onclick="closeReportModal()" class="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+        </div>
+        <div id="reportContent"></div>
+    </div>
+</div>
+
+<div id="toast" style="display:none" class="toast"></div>
+
+<script>
+    const firebaseConfig = {
+        apiKey: "AIzaSyA4cm7chJXz90yOLWPtbdIW8KlEozG1lxo",
+        authDomain: "learnpro-kenya-erp.firebaseapp.com",
+        projectId: "learnpro-kenya-erp",
+        storageBucket: "learnpro-kenya-erp.firebasestorage.app",
+        messagingSenderId: "327168081514",
+        appId: "1:327168081514:web:13cdc8b827fa76d95a9413"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    let currentSchool = null, schoolName = '';
+    let allStudents = [], allAssessments = [], allGrades = [], allStreams = [];
+    let reportHistory = [], deletedHistory = [];
+    let currentTab = 'generate';
+    let bulkData = [];
+
+    const subjectOrder = ['Mathematics', 'English', 'Kiswahili', 'Integrated Science', 'Social Studies', 'Creative Arts', 'Physical Education'];
+
+    function showToast(msg, isErr) {
+        let toast = document.getElementById('toast');
+        toast.textContent = msg;
+        toast.className = `toast ${isErr ? 'toast-error' : 'toast-success'}`;
+        toast.style.display = 'block';
+        setTimeout(() => toast.style.display = 'none', 3000);
+    }
+
+    async function logout() {
+        await auth.signOut();
+        sessionStorage.clear();
+        window.location.href = 'index.html';
+    }
+
+    function showTab(tab) {
+        currentTab = tab;
+        document.getElementById('generatePanel').classList.add('hidden');
+        document.getElementById('historyPanel').classList.add('hidden');
+        document.getElementById('bulkPanel').classList.add('hidden');
+        document.getElementById('trashPanel').classList.add('hidden');
+        
+        document.getElementById('tabGenerate').className = 'nav-tab nav-tab-inactive';
+        document.getElementById('tabHistory').className = 'nav-tab nav-tab-inactive';
+        document.getElementById('tabBulk').className = 'nav-tab nav-tab-inactive';
+        document.getElementById('tabTrash').className = 'nav-tab nav-tab-inactive';
+        
+        if (tab === 'generate') {
+            document.getElementById('generatePanel').classList.remove('hidden');
+            document.getElementById('tabGenerate').className = 'nav-tab nav-tab-active';
+        } else if (tab === 'history') {
+            document.getElementById('historyPanel').classList.remove('hidden');
+            document.getElementById('tabHistory').className = 'nav-tab nav-tab-active';
+            loadHistory();
+        } else if (tab === 'bulk') {
+            document.getElementById('bulkPanel').classList.remove('hidden');
+            document.getElementById('tabBulk').className = 'nav-tab nav-tab-active';
+        } else if (tab === 'trash') {
+            document.getElementById('trashPanel').classList.remove('hidden');
+            document.getElementById('tabTrash').className = 'nav-tab nav-tab-active';
+            loadTrash();
+        }
+    }
+
+    async function loadAllData() {
+        if (!currentSchool) return;
+        
+        try {
+            const [gradesSnap, streamsSnap, studentsSnap, assessmentsSnap, historySnap] = await Promise.all([
+                db.collection('schools').doc(currentSchool).collection('grades').where('deleted', '==', false).get(),
+                db.collection('schools').doc(currentSchool).collection('streams').where('deleted', '==', false).get(),
+                db.collection('schools').doc(currentSchool).collection('students').where('deleted', '==', false).get(),
+                db.collection('schools').doc(currentSchool).collection('assessments').get(),
+                db.collection('schools').doc(currentSchool).collection('reportHistory').where('deleted', '==', false).get()
+            ]);
+            
+            allGrades = []; gradesSnap.forEach(d => allGrades.push({ id: d.id, name: d.data().name }));
+            allStreams = []; streamsSnap.forEach(d => allStreams.push({ id: d.id, gradeName: d.data().gradeName, name: d.data().name }));
+            allStudents = []; studentsSnap.forEach(d => allStudents.push({ id: d.id, ...d.data() }));
+            allAssessments = []; assessmentsSnap.forEach(d => allAssessments.push({ id: d.id, ...d.data() }));
+            reportHistory = []; historySnap.forEach(d => reportHistory.push({ id: d.id, ...d.data() }));
+            
+            // Load deleted history
+            const deletedSnap = await db.collection('schools').doc(currentSchool).collection('reportHistory').where('deleted', '==', true).get();
+            deletedHistory = []; deletedSnap.forEach(d => deletedHistory.push({ id: d.id, ...d.data() }));
+            
+            schoolName = sessionStorage.getItem('currentSchoolName') || 'LearnPro School';
+            
+            // Populate grade dropdown
+            let gradeHtml = '<option value="">Select Grade</option>';
+            allGrades.forEach(g => { gradeHtml += `<option value="${g.name}">${g.name}</option>`; });
+            document.getElementById('reportGrade').innerHTML = gradeHtml;
+            
+            // Update trash badge
+            document.getElementById('trashBadge').innerText = deletedHistory.length;
+            
+        } catch (err) {
+            console.error(err);
+        }
+    }
+
+    function loadStreamsForReport() {
+        let grade = document.getElementById('reportGrade').value;
+        let streams = allStreams.filter(s => s.gradeName === grade);
+        let html = '<option value="">Select Stream</option>';
+        streams.forEach(s => { html += `<option value="${s.name}">${s.name}</option>`; });
+        document.getElementById('reportStream').innerHTML = html;
+    }
+
+    async function loadReportStudents() {
+        const grade = document.getElementById('reportGrade').value;
+        const stream = document.getElementById('reportStream').value;
+        const term = document.getElementById('reportTerm').value;
+        
+        if (!grade) { showToast('Select grade', true); return; }
+        
+        let students = allStudents.filter(s => s.grade === grade);
+        if (stream) students = students.filter(s => s.stream === stream);
+        
+        const container = document.getElementById('studentsList');
+        if (students.length === 0) {
+            container.innerHTML = '<div class="text-center py-10 text-gray-400 col-span-full">No students found in this class</div>';
+            return;
+        }
+        
+        container.innerHTML = students.map(student => {
+            const studentAssessments = allAssessments.filter(a => a.studentId === student.id && a.term === term);
+            const ee = studentAssessments.filter(a => a.competency === 'EE').length;
+            const me = studentAssessments.filter(a => a.competency === 'ME').length;
+            const ae = studentAssessments.filter(a => a.competency === 'AE').length;
+            const be = studentAssessments.filter(a => a.competency === 'BE').length;
+            const total = ee + me + ae + be;
+            const passRate = total > 0 ? Math.round(((ee + me) / total) * 100) : 0;
+            const overallComp = passRate >= 80 ? 'EE' : passRate >= 65 ? 'ME' : passRate >= 45 ? 'AE' : 'BE';
+            
+            return `
+                <div class="student-card bg-white rounded-xl p-4 shadow-sm border-l-4 border-[#003f87]" onclick="generateReport('${student.id}')">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h3 class="font-bold text-gray-800">${student.name}</h3>
+                            <p class="text-xs text-gray-500">Adm: ${student.admNo} | ${student.grade} ${student.stream || ''}</p>
+                        </div>
+                        <span class="grade-badge grade-${overallComp}">${overallComp} ${passRate}%</span>
+                    </div>
+                    <div class="flex gap-3 mt-3 text-xs">
+                        <span class="text-[#003f87]">EE: ${ee}</span>
+                        <span class="text-green-600">ME: ${me}</span>
+                        <span class="text-yellow-600">AE: ${ae}</span>
+                        <span class="text-red-600">BE: ${be}</span>
+                    </div>
+                    <button class="w-full mt-3 py-1.5 bg-[#003f87] text-white rounded-lg text-sm">Generate Report Card</button>
+                </div>
+            `;
+        }).join('');
+    }
+
+    window.generateReport = async function(studentId) {
+        const student = allStudents.find(s => s.id === studentId);
+        const term = document.getElementById('reportTerm').value;
+        const assessments = allAssessments.filter(a => a.studentId === studentId && a.term === term);
+        
+        const assessmentMap = new Map();
+        assessments.forEach(a => assessmentMap.set(a.subject, a));
+        
+        let rows = '';
+        let ee = 0, me = 0, ae = 0, be = 0;
+        
+        for (let sub of subjectOrder) {
+            const assessment = assessmentMap.get(sub);
+            const competency = assessment?.competency || 'N/A';
+            const teacher = assessment?.teacher || 'Not assigned';
+            
+            if (competency === 'EE') ee++;
+            else if (competency === 'ME') me++;
+            else if (competency === 'AE') ae++;
+            else if (competency === 'BE') be++;
+            
+            rows += `<tr class="border-b"><td class="p-2 font-medium">${sub}</td><td class="p-2 text-center">${competency !== 'N/A' ? `<span class="grade-badge grade-${competency}">${competency}</span>` : '<span class="text-gray-400">-</span>'}</td><td class="p-2 text-gray-600">${teacher}</td></tr>`;
+        }
+        
+        const total = ee + me + ae + be;
+        const passRate = total > 0 ? Math.round(((ee + me) / total) * 100) : 0;
+        let overallComp = 'N/A';
+        if (ee >= me && ee >= ae && ee >= be) overallComp = 'EE';
+        else if (me >= ee && me >= ae && me >= be) overallComp = 'ME';
+        else if (ae >= ee && ae >= me && ae >= be) overallComp = 'AE';
+        else overallComp = 'BE';
+        
+        const comment = passRate >= 80 ? "Excellent performance! The student has demonstrated outstanding understanding of all concepts." : 
+                        passRate >= 65 ? "Good performance. The student meets expectations in most subjects." : 
+                        passRate >= 45 ? "Satisfactory performance. More effort needed in some areas." : 
+                        "Needs significant improvement. Please see the class teacher for intervention.";
+        
+        const html = `
+            <div class="report-card-container p-4 bg-white rounded-xl">
+                <div class="text-center border-b-2 border-[#003f87] pb-3 mb-3">
+                    <h2 class="text-xl font-bold text-[#003f87]">${schoolName}</h2>
+                    <p class="text-gray-500 text-xs">Competency Based Curriculum (CBC) Report Card</p>
+                    <p class="text-xs text-gray-400">${term} Academic Report | KNEC Compliant</p>
+                </div>
+                <div class="grid grid-cols-2 gap-2 bg-gray-50 p-3 rounded-lg mb-3 text-sm">
+                    <div><strong>Student:</strong> ${student.name}</div>
+                    <div><strong>Admission:</strong> ${student.admNo}</div>
+                    <div><strong>Grade:</strong> ${student.grade} ${student.stream || ''}</div>
+                    <div><strong>UPI:</strong> ${student.upi || 'N/A'}</div>
+                    <div><strong>Gender:</strong> ${student.gender || 'N/A'}</div>
+                    <div><strong>Term:</strong> ${term}</div>
+                </div>
+                <h4 class="font-bold text-sm mb-2">Academic Performance</h4>
+                <table class="w-full border mb-3 text-sm">
+                    <thead><tr class="bg-gray-100"><th class="p-2 text-left">Subject</th><th class="p-2 text-center">Competency</th><th class="p-2 text-left">Teacher</th></tr></thead>
+                    <tbody>${rows}</tbody>
+                </table>
+                <div class="bg-blue-50 p-3 rounded-lg mb-3">
+                    <div class="grid grid-cols-4 text-center mb-2">
+                        <div><div class="text-xl font-bold text-[#003f87]">${ee}</div><div class="text-xs">Exceeding</div></div>
+                        <div><div class="text-xl font-bold text-green-600">${me}</div><div class="text-xs">Meeting</div></div>
+                        <div><div class="text-xl font-bold text-yellow-600">${ae}</div><div class="text-xs">Approaching</div></div>
+                        <div><div class="text-xl font-bold text-red-600">${be}</div><div class="text-xs">Below</div></div>
+                    </div>
+                    <div class="flex justify-between items-center p-2 bg-white rounded-lg">
+                        <span><strong>Overall:</strong></span>
+                        <span class="grade-badge grade-${overallComp}">${overallComp}</span>
+                        <span><strong>Pass Rate:</strong></span>
+                        <span class="font-bold ${passRate >= 80 ? 'text-green-600' : passRate >= 50 ? 'text-yellow-600' : 'text-red-600'}">${passRate}%</span>
+                    </div>
+                </div>
+                <div class="bg-yellow-50 p-3 rounded-lg mb-3">
+                    <p class="font-bold text-sm mb-1">📝 Teacher's Comment</p>
+                    <p class="text-sm">${comment}</p>
+                    <p class="text-right text-xs mt-2">Class Teacher: ${assessments[0]?.teacher || 'Class Teacher'}</p>
+                </div>
+                <div class="flex justify-between mt-3 pt-3 border-t text-sm">
+                    <div><strong>Parent's Signature:</strong> _________________</div>
+                    <div><strong>Date:</strong> ${new Date().toLocaleDateString()}</div>
+                </div>
+                <div class="text-center text-xs text-gray-400 mt-3">Generated by LearnPro Kenya ERP System | CBC Compliant</div>
+            </div>
+        `;
+        
+        document.getElementById('reportContent').innerHTML = html;
+        document.getElementById('reportModal').classList.remove('hidden');
+        
+        // Save to history
+        await db.collection('schools').doc(currentSchool).collection('reportHistory').add({
+            studentName: student.name,
+            studentId: student.id,
+            grade: student.grade,
+            stream: student.stream,
+            term: term,
+            overallComp: overallComp,
+            passRate: passRate,
+            generatedAt: new Date().toISOString(),
+            deleted: false
+        });
+        
+        await loadAllData();
+        loadHistory();
+    };
+
+    function closeReportModal() { document.getElementById('reportModal').classList.add('hidden'); }
+    function printReportCard() { window.print(); }
+
+    async function generateAllClassReports() {
+        const grade = document.getElementById('reportGrade').value;
+        const stream = document.getElementById('reportStream').value;
+        const term = document.getElementById('reportTerm').value;
+        
+        if (!grade) { showToast('Select grade', true); return; }
+        
+        let students = allStudents.filter(s => s.grade === grade);
+        if (stream) students = students.filter(s => s.stream === stream);
+        
+        if (students.length === 0) { showToast('No students found', true); return; }
+        
+        showToast(`Generating ${students.length} report cards...`);
+        
+        for (let student of students) {
+            const assessments = allAssessments.filter(a => a.studentId === student.id && a.term === term);
+            const ee = assessments.filter(a => a.competency === 'EE').length;
+            const me = assessments.filter(a => a.competency === 'ME').length;
+            const total = ee + me + assessments.filter(a => a.competency === 'AE').length + assessments.filter(a => a.competency === 'BE').length;
+            const passRate = total > 0 ? Math.round(((ee + me) / total) * 100) : 0;
+            let overallComp = passRate >= 80 ? 'EE' : passRate >= 65 ? 'ME' : passRate >= 45 ? 'AE' : 'BE';
+            
+            await db.collection('schools').doc(currentSchool).collection('reportHistory').add({
+                studentName: student.name,
+                studentId: student.id,
+                grade: student.grade,
+                stream: student.stream,
+                term: term,
+                overallComp: overallComp,
+                passRate: passRate,
+                generatedAt: new Date().toISOString(),
+                deleted: false
+            });
+        }
+        
+        showToast(`${students.length} report cards generated!`);
+        await loadAllData();
+        loadHistory();
+    }
+
+    async function loadHistory() {
+        let history = reportHistory.sort((a,b) => new Date(b.generatedAt) - new Date(a.generatedAt));
+        const container = document.getElementById('historyList');
+        
+        if (history.length === 0) {
+            container.innerHTML = '<div class="p-6 text-center text-gray-400">No report cards generated yet</div>';
+            return;
+        }
+        
+        container.innerHTML = history.map(h => `
+            <div class="p-3 flex justify-between items-center hover:bg-gray-50">
+                <div>
+                    <p class="font-medium text-gray-800">${h.studentName}</p>
+                    <p class="text-xs text-gray-500">${h.grade} ${h.stream || ''} | ${h.term} | ${new Date(h.generatedAt).toLocaleDateString()}</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="grade-badge grade-${h.overallComp}">${h.overallComp} ${h.passRate}%</span>
+                    <button onclick="viewHistoryReport('${h.studentId}', '${h.term}')" class="text-blue-600 text-sm">View</button>
+                    <button onclick="moveToTrash('${h.id}', '${h.studentName}')" class="text-red-600 text-sm">🗑️</button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    async function viewHistoryReport(studentId, term) {
+        const student = allStudents.find(s => s.id === studentId);
+        if (student) {
+            document.getElementById('reportTerm').value = term;
+            generateReport(studentId);
+        }
+    }
+
+    function moveToTrash(id, name) {
+        if (confirm(`Move report card for "${name}" to trash?`)) {
+            db.collection('schools').doc(currentSchool).collection('reportHistory').doc(id).update({ deleted: true, deletedAt: new Date().toISOString() });
+            showToast('Moved to trash');
+            loadAllData();
+            loadHistory();
+            loadTrash();
+        }
+    }
+
+    async function loadTrash() {
+        const container = document.getElementById('trashList');
+        if (deletedHistory.length === 0) {
+            container.innerHTML = '<div class="p-6 text-center text-gray-400">Trash is empty</div>';
+            return;
+        }
+        
+        container.innerHTML = deletedHistory.map(h => `
+            <div class="p-3 flex justify-between items-center hover:bg-gray-50 deleted-row">
+                <div>
+                    <p class="font-medium text-gray-600 line-through">${h.studentName}</p>
+                    <p class="text-xs text-gray-400">${h.grade} ${h.stream || ''} | ${h.term}</p>
+                    <p class="text-xs text-gray-400">Deleted: ${h.deletedAt ? new Date(h.deletedAt).toLocaleDateString() : 'Unknown'}</p>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="restoreReport('${h.id}', '${h.studentName}')" class="px-2 py-1 bg-green-600 text-white rounded text-xs">Restore</button>
+                    <button onclick="permanentDelete('${h.id}', '${h.studentName}')" class="px-2 py-1 bg-red-700 text-white rounded text-xs">Delete Forever</button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    async function restoreReport(id, name) {
+        await db.collection('schools').doc(currentSchool).collection('reportHistory').doc(id).update({ deleted: false, deletedAt: null });
+        showToast(`Restored report for ${name}`);
+        await loadAllData();
+        loadHistory();
+        loadTrash();
+    }
+
+    async function permanentDelete(id, name) {
+        if (confirm(`⚠️ Permanently delete report for "${name}"? This cannot be undone.`)) {
+            await db.collection('schools').doc(currentSchool).collection('reportHistory').doc(id).delete();
+            showToast('Report permanently deleted');
+            await loadAllData();
+            loadHistory();
+            loadTrash();
+        }
+    }
+
+    async function clearHistory() {
+        if (confirm('⚠️ Move ALL report history to trash?')) {
+            for (let h of reportHistory) {
+                await db.collection('schools').doc(currentSchool).collection('reportHistory').doc(h.id).update({ deleted: true, deletedAt: new Date().toISOString() });
+            }
+            showToast('History moved to trash');
+            await loadAllData();
+            loadHistory();
+            loadTrash();
+        }
+    }
+
+    async function emptyTrash() {
+        if (confirm('⚠️ WARNING: This will permanently delete ALL reports in trash. This cannot be undone. Continue?')) {
+            for (let h of deletedHistory) {
+                await db.collection('schools').doc(currentSchool).collection('reportHistory').doc(h.id).delete();
+            }
+            showToast('Trash emptied');
+            await loadAllData();
+            loadHistory();
+            loadTrash();
+        }
+    }
+
+    function handleBulkUpload(input) {
+        const file = input.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const workbook = XLSX.read(e.target.result, { type: 'array' });
+            const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+            bulkData = rows;
+            document.getElementById('bulkPreview').innerHTML = `<div class="p-2 bg-green-50 rounded"><p class="text-sm">✅ ${bulkData.length} students ready for report generation</p></div>`;
+            document.getElementById('bulkPreview').classList.remove('hidden');
+            document.getElementById('confirmBulkBtn').classList.remove('hidden');
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    async function confirmBulkGenerate() {
+        const term = document.getElementById('reportTerm').value;
+        let success = 0;
+        
+        for (let student of bulkData) {
+            const existingStudent = allStudents.find(s => s.admNo == student.admNo || s.name === student.name);
+            if (existingStudent) {
+                await db.collection('schools').doc(currentSchool).collection('reportHistory').add({
+                    studentName: existingStudent.name,
+                    studentId: existingStudent.id,
+                    grade: existingStudent.grade,
+                    stream: existingStudent.stream,
+                    term: term,
+                    overallComp: 'ME',
+                    passRate: 70,
+                    generatedAt: new Date().toISOString(),
+                    deleted: false,
+                    bulkGenerated: true
+                });
+                success++;
+            }
+        }
+        
+        showToast(`✅ ${success} report cards generated`);
+        document.getElementById('bulkPreview').classList.add('hidden');
+        document.getElementById('confirmBulkBtn').classList.add('hidden');
+        document.getElementById('bulkExcel').value = '';
+        await loadAllData();
+        loadHistory();
+    }
+
+    function downloadBulkTemplate() {
+        const ws = XLSX.utils.json_to_sheet([{ admNo: "2024/001", name: "John Doe" }]);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Template");
+        XLSX.writeFile(wb, "report_bulk_template.xlsx");
+    }
+
+    function exportStudentsToExcel() {
+        const grade = document.getElementById('reportGrade').value;
+        const stream = document.getElementById('reportStream').value;
+        let students = allStudents.filter(s => s.grade === grade);
+        if (stream) students = students.filter(s => s.stream === stream);
+        
+        const ws = XLSX.utils.json_to_sheet(students.map(s => ({
+            Name: s.name, Admission: s.admNo, Grade: s.grade, Stream: s.stream, UPI: s.upi, ParentPhone: s.parentPhone
+        })));
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Students");
+        XLSX.writeFile(wb, `students_${grade}_${new Date().toISOString().split('T')[0]}.xlsx`);
+        showToast('Export complete!');
+    }
+
+    auth.onAuthStateChanged(async (user) => {
+        if (!user) { window.location.href = 'index.html'; return; }
+        currentSchool = sessionStorage.getItem('currentSchoolCode');
+        if (!currentSchool) {
+            const snap = await db.collection('schools').where('adminId', '==', user.uid).get();
+            if (!snap.empty) {
+                currentSchool = snap.docs[0].id;
+                sessionStorage.setItem('currentSchoolCode', currentSchool);
+                sessionStorage.setItem('currentSchoolName', snap.docs[0].data().schoolName);
+            }
+        }
+        document.getElementById('schoolBadge').innerText = sessionStorage.getItem('currentSchoolName') || currentSchool;
+        await loadAllData();
+    });
+</script>
+</body>
+</html>

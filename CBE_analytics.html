@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CBE Analytics | LearnPro Kenya</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: #f0f2f5; }
+        .glass-card { background: rgba(255,255,255,0.7); backdrop-filter: blur(20px); border-radius: 24px; border: 1px solid rgba(255,255,255,0.3); }
+        .stat-card { background: white; border-radius: 20px; transition: all 0.3s ease; border: 1px solid #eef2ff; }
+        .stat-card:hover { transform: translateY(-5px); box-shadow: 0 20px 25px -12px rgba(0,63,135,0.15); }
+        .toast { position: fixed; bottom: 24px; right: 24px; background: #003f87; color: white; padding: 12px 24px; border-radius: 48px; z-index: 1000; font-weight: 600; }
+        .toast-error { background: #dc2626; }
+        .toast-success { background: #059669; }
+        .nav-item { transition: all 0.2s ease; cursor: pointer; }
+        .nav-item:hover { background: rgba(0,63,135,0.1); transform: translateX(5px); }
+        .nav-active { background: #003f87; color: white; border-radius: 12px; }
+        .nav-active:hover { background: #003f87; transform: none; }
+        .grade-badge { display: inline-flex; padding: 4px 12px; border-radius: 30px; font-size: 11px; font-weight: 600; }
+        .grade-EE { background: #003f87; color: white; }
+        .grade-ME { background: #059669; color: white; }
+        .grade-AE { background: #d97706; color: white; }
+        .grade-BE { background: #dc2626; color: white; }
+        .deleted-row { background-color: #fef2f2; opacity: 0.7; }
+        .modal { z-index: 1000; }
+        .detail-modal { max-height: 80vh; overflow-y: auto; }
+    </style>
+</head>
+<body>
+
+    <!-- Top Bar -->
+    <div class="bg-white shadow-sm fixed top-0 left-0 right-0 z-30">
+        <div class="flex justify-between items-center px-6 py-4 max-w-full mx-auto">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-gradient-to-br from-[#003f87] to-[#0056b3] rounded-xl flex items-center justify-center shadow-md">
+                    <span class="material-symbols-outlined text-white">analytics</span>
+                </div>
+                <div>
+                    <h1 class="text-xl font-black text-[#003f87] tracking-tight">LEARNPRO KENYA</h1>
+                    <p class="text-[10px] text-gray-500 -mt-1">CBE Analytics Dashboard</p>
+                </div>
+                <span id="schoolBadge" class="ml-4 text-xs bg-green-100 text-green-700 px-3 py-1.5 rounded-full font-medium">Loading...</span>
+            </div>
+            <div class="flex items-center gap-4">
+                <button onclick="goToDashboard()" class="flex items-center gap-2 px-4 py-2 text-[#003f87] hover:bg-[#003f87]/10 rounded-xl transition">
+                    <span class="material-symbols-outlined text-sm">dashboard</span>
+                    <span class="text-sm font-medium hidden md:block">Dashboard</span>
+                </button>
+                <button onclick="logout()" class="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-xl transition">
+                    <span class="material-symbols-outlined text-sm">logout</span>
+                    <span class="text-sm font-medium hidden md:block">Logout</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar + Main Content -->
+    <div class="flex pt-[72px] min-h-screen">
+        <!-- Sidebar -->
+        <div class="w-64 fixed left-0 top-[72px] bottom-0 bg-white border-r border-gray-200 overflow-y-auto">
+            <div class="p-4">
+                <nav class="space-y-1">
+                    <div onclick="showSection('overview')" id="navOverview" class="nav-item nav-active flex items-center gap-3 px-4 py-3 rounded-xl">
+                        <span class="material-symbols-outlined">dashboard</span>
+                        <span class="font-medium">Overview</span>
+                    </div>
+                    <div onclick="showSection('subjects')" id="navSubjects" class="nav-item flex items-center gap-3 px-4 py-3 rounded-xl text-gray-700">
+                        <span class="material-symbols-outlined">menu_book</span>
+                        <span class="font-medium">Subject Performance</span>
+                    </div>
+                    <div onclick="showSection('students')" id="navStudents" class="nav-item flex items-center gap-3 px-4 py-3 rounded-xl text-gray-700">
+                        <span class="material-symbols-outlined">group</span>
+                        <span class="font-medium">Student Progress</span>
+                    </div>
+                    <div onclick="showSection('record')" id="navRecord" class="nav-item flex items-center gap-3 px-4 py-3 rounded-xl text-gray-700">
+                        <span class="material-symbols-outlined">edit_note</span>
+                        <span class="font-medium">Record Assessment</span>
+                    </div>
+                    <div onclick="showSection('trash')" id="navTrash" class="nav-item flex items-center gap-3 px-4 py-3 rounded-xl text-gray-700">
+                        <span class="material-symbols-outlined">delete</span>
+                        <span class="font-medium">Trash <span id="trashBadge" class="ml-1 text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full">0</span></span>
+                    </div>
+                </nav>
+            </div>
+            <div class="absolute bottom-4 left-4 right-4">
+                <div class="bg-gray-100 rounded-xl p-3 text-center">
+                    <p class="text-xs text-gray-500">CBE Competency-Based</p>
+                    <p class="text-[10px] font-bold text-[#003f87] mt-1" id="currentTermDisplay">Term 2</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="ml-64 flex-1 p-6">
+            <!-- Overview Section -->
+            <div id="overviewSection">
+                <div class="mb-6 flex justify-between items-center">
+                    <div><h2 class="text-2xl font-bold text-gray-800" id="overviewTitle">Term 2 Analytics Overview</h2><p class="text-gray-500">Academic Year • CBE Compliance Report</p></div>
+                    <div class="flex gap-3">
+                        <select id="gradeFilter" onchange="updateStreamFilter(); loadAllData()" class="px-4 py-2 border rounded-xl bg-white">
+                            <option value="all">All Grades</option>
+                        </select>
+                        <select id="streamFilter" onchange="loadAllData()" class="px-4 py-2 border rounded-xl bg-white">
+                            <option value="all">All Streams</option>
+                        </select>
+                        <select id="termFilter" onchange="updateTermDisplay(); loadAllData()" class="px-4 py-2 border rounded-xl bg-white">
+                            <option>Term 1</option>
+                            <option selected>Term 2</option>
+                            <option>Term 3</option>
+                        </select>
+                        <button onclick="applyFilters()" class="px-4 py-2 bg-[#003f87] text-white rounded-xl">Apply</button>
+                        <button onclick="refreshAllData()" class="px-4 py-2 border rounded-xl">Refresh</button>
+                    </div>
+                </div>
+
+                <!-- Competency Radar & Grade Distribution -->
+                <div class="grid lg:grid-cols-2 gap-6 mb-8">
+                    <div class="bg-white rounded-2xl p-6 shadow-sm">
+                        <div class="flex justify-between items-start mb-6"><div><h3 class="text-xl font-bold text-[#003f87]">Core CBE Competencies</h3><p class="text-gray-500 text-sm" id="competencySubtitle">Average mastery levels across all grades</p></div><span class="material-symbols-outlined text-[#003f87]">psychology</span></div>
+                        <div class="relative h-80 flex items-center justify-center">
+                            <div class="relative w-64 h-64">
+                                <canvas id="radarChart" width="250" height="250" style="width:250px;height:250px"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-2xl p-6 shadow-sm">
+                        <h3 class="text-xl font-bold text-[#003f87] mb-1">Grade Distribution</h3>
+                        <p class="text-gray-500 text-sm mb-6" id="gradeDistSubtitle">Performance Summary</p>
+                        <div class="space-y-5">
+                            <div><div class="flex justify-between text-sm mb-1"><span class="text-green-600 font-semibold">Exceeding Expectations (EE)</span><span id="eePercent" class="font-bold">0%</span></div><div class="w-full bg-gray-200 rounded-full h-3"><div id="eeBar" class="bg-green-600 h-3 rounded-full" style="width: 0%"></div></div></div>
+                            <div><div class="flex justify-between text-sm mb-1"><span class="text-blue-600 font-semibold">Meeting Expectations (ME)</span><span id="mePercent" class="font-bold">0%</span></div><div class="w-full bg-gray-200 rounded-full h-3"><div id="meBar" class="bg-blue-600 h-3 rounded-full" style="width: 0%"></div></div></div>
+                            <div><div class="flex justify-between text-sm mb-1"><span class="text-yellow-600 font-semibold">Approaching Expectations (AE)</span><span id="aePercent" class="font-bold">0%</span></div><div class="w-full bg-gray-200 rounded-full h-3"><div id="aeBar" class="bg-yellow-600 h-3 rounded-full" style="width: 0%"></div></div></div>
+                            <div><div class="flex justify-between text-sm mb-1"><span class="text-red-600 font-semibold">Below Expectations (BE)</span><span id="bePercent" class="font-bold">0%</span></div><div class="w-full bg-gray-200 rounded-full h-3"><div id="beBar" class="bg-red-600 h-3 rounded-full" style="width: 0%"></div></div></div>
+                        </div>
+                        <div class="mt-6 p-4 bg-blue-50 rounded-xl"><p class="text-sm text-gray-600 italic" id="insightMsg">Loading analytics data...</p></div>
+                    </div>
+                </div>
+
+                <!-- Subject Performance & Trend -->
+                <div class="grid lg:grid-cols-2 gap-6">
+                    <div class="bg-white rounded-2xl overflow-hidden shadow-sm">
+                        <div class="p-6 border-b border-gray-100 flex justify-between items-center"><h3 class="text-xl font-bold text-[#003f87]">Subject Performance</h3><button onclick="showSection('subjects')" class="text-[#003f87] text-sm">View All</button></div>
+                        <div id="subjectPerformanceList" class="divide-y divide-gray-100"></div>
+                    </div>
+
+                    <div class="bg-white rounded-2xl p-6 shadow-sm">
+                        <div class="flex justify-between items-start mb-6"><div><h3 class="text-xl font-bold text-[#003f87]">Performance Trend</h3><p class="text-gray-500 text-sm">Historical mastery (Termly)</p></div><div class="flex gap-3"><span class="flex items-center gap-1 text-sm"><span class="w-3 h-3 rounded-full bg-[#003f87]"></span> Core</span><span class="flex items-center gap-1 text-sm"><span class="w-3 h-3 rounded-full bg-[#006d40]"></span> Practical</span></div></div>
+                        <div class="relative h-64">
+                            <canvas id="trendChart" width="400" height="200"></canvas>
+                        </div>
+                        <div class="mt-4 p-3 bg-[#003f87]/5 rounded-lg border border-[#003f87]/10 flex items-center justify-between"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-[#003f87]">insights</span><span class="text-sm text-[#003f87]" id="trendInsight">Loading trend data...</span></div><span class="material-symbols-outlined text-[#003f87] cursor-pointer">chevron_right</span></div>
+                    </div>
+                </div>
+
+                <!-- Targeted Intervention -->
+                <div class="mt-6 bg-gradient-to-r from-[#003f87]/5 to-[#0056b3]/5 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-6">
+                    <div><span class="px-3 py-1 bg-[#003f87] text-white text-xs font-bold rounded-full uppercase">CBE Insight</span><h3 class="text-xl font-bold text-gray-800 mt-2">Targeted Intervention Required</h3><p class="text-gray-600 text-sm max-w-xl" id="interventionMsg">Loading analytics...</p><div class="flex gap-3 mt-4"><button onclick="showSection('record')" class="px-6 py-2 bg-[#003f87] text-white rounded-xl">Generate Strategy</button><button onclick="openViewDetailsModal()" class="px-6 py-2 border border-[#003f87] text-[#003f87] rounded-xl">View Details</button></div></div>
+                    <div class="w-48 h-48 bg-gradient-to-br from-[#003f87]/20 to-[#0056b3]/20 rounded-2xl flex items-center justify-center"><span class="material-symbols-outlined text-6xl text-[#003f87]/40">auto_awesome</span></div>
+                </div>
+            </div>
+
+            <!-- Subject Performance Section -->
+            <div id="subjectsSection" class="hidden">
+                <div class="mb-6 flex justify-between items-center"><div><h2 class="text-2xl font-bold text-gray-800">Subject Performance Analysis</h2><p class="text-gray-500">Detailed breakdown by subject and competency level</p></div><button onclick="exportSubjectData()" class="px-4 py-2 bg-green-600 text-white rounded-lg text-sm">Export to Excel</button></div>
+                <div id="fullSubjectList" class="bg-white rounded-2xl overflow-hidden shadow-sm"><div class="p-8 text-center text-gray-400">Loading subject data...</div></div>
+            </div>
+
+            <!-- Student Progress Section -->
+            <div id="studentsSection" class="hidden">
+                <div class="mb-6"><h2 class="text-2xl font-bold text-gray-800">Student Progress Tracking</h2><p class="text-gray-500">Individual student performance and competency levels</p></div>
+                <div class="bg-white rounded-xl p-3 mb-4 flex flex-wrap gap-3 items-center">
+                    <select id="studentGradeFilter" class="p-2 border rounded-lg text-sm bg-white" onchange="updateStudentStreamFilter(); loadStudentProgress()"><option value="">Select Grade</option></select>
+                    <select id="studentStreamFilter" class="p-2 border rounded-lg text-sm bg-white" onchange="loadStudentProgress()"><option value="">Select Stream</option></select>
+                    <input type="text" id="studentSearchInput" placeholder="Search student..." class="p-2 border rounded-lg text-sm w-48" onkeyup="loadStudentProgress()">
+                    <button onclick="loadStudentProgress()" class="px-3 py-2 bg-[#003f87] text-white rounded-lg text-sm">Load</button>
+                </div>
+                <div id="studentProgressList" class="grid md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+            </div>
+
+            <!-- Record Assessment Section -->
+            <div id="recordSection" class="hidden">
+                <div class="mb-6"><h2 class="text-2xl font-bold text-gray-800">Record CBE Assessment</h2><p class="text-gray-500">Enter student performance data</p></div>
+                <div class="bg-white rounded-2xl p-6 shadow-sm">
+                    <form id="assessmentForm" class="space-y-5">
+                        <div class="grid md:grid-cols-2 gap-5">
+                            <select id="studentSelect" class="p-3 border rounded-xl" required><option value="">Select Student</option></select>
+                            <select id="subjectSelect" class="p-3 border rounded-xl" required><option value="">Select Subject</option></select>
+                            <select id="competencySelect" class="p-3 border rounded-xl" required><option value="">Select Competency Level</option><option value="EE">EE - Exceeding Expectations</option><option value="ME">ME - Meeting Expectations</option><option value="AE">AE - Approaching Expectations</option><option value="BE">BE - Below Expectations</option></select>
+                            <select id="termSelect" class="p-3 border rounded-xl" required><option>Term 1</option><option selected>Term 2</option><option>Term 3</option></select>
+                            <input type="text" id="teacherName" placeholder="Teacher Name" class="p-3 border rounded-xl">
+                            <input type="text" id="assessmentNotes" placeholder="Additional Notes (Optional)" class="p-3 border rounded-xl">
+                        </div>
+                        <button type="submit" class="w-full py-3 bg-gradient-to-r from-[#003f87] to-[#0056b3] text-white font-semibold rounded-xl">Save Assessment</button>
+                    </form>
+                </div>
+                <div class="mt-6"><h3 class="font-bold text-gray-800 mb-3">Recent Assessments</h3><div id="recentAssessments" class="space-y-2"></div></div>
+            </div>
+
+            <!-- Trash Section -->
+            <div id="trashSection" class="hidden">
+                <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+                    <div class="p-3 border-b bg-gray-50 flex justify-between items-center">
+                        <h3 class="font-bold text-sm">🗑️ Deleted Assessments</h3>
+                        <button onclick="emptyTrash()" class="px-3 py-1.5 bg-red-600 text-white rounded-lg text-sm">Empty Trash</button>
+                    </div>
+                    <div id="trashList" class="divide-y divide-gray-100">
+                        <div class="p-6 text-center text-gray-400">Loading...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- View Details Modal -->
+    <div id="viewDetailsModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden modal">
+        <div class="bg-white rounded-2xl p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4"><h3 class="text-xl font-bold text-[#003f87]">Detailed Analytics Report</h3><button onclick="closeViewDetailsModal()" class="text-gray-400 hover:text-gray-600">✕</button></div>
+            <div id="detailsContent" class="space-y-4"></div>
+            <div class="mt-4 flex justify-end"><button onclick="exportDetailsReport()" class="px-4 py-2 bg-[#003f87] text-white rounded-lg">Export Report</button></div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteConfirmModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden modal">
+        <div class="bg-white rounded-xl p-5 max-w-sm w-full mx-3 text-center">
+            <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">🗑️</div>
+            <h3 class="text-lg font-bold mb-2">Confirm Delete</h3>
+            <p class="text-gray-500 text-sm mb-4" id="deleteConfirmMsg">Move this assessment to trash?</p>
+            <div class="flex gap-2"><button id="confirmDeleteBtn" class="flex-1 py-2 bg-red-600 text-white rounded-lg">Move to Trash</button><button onclick="closeDeleteConfirmModal()" class="flex-1 py-2 border rounded-lg">Cancel</button></div>
+        </div>
+    </div>
+
+    <div id="toast" style="display:none" class="toast"></div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyA4cm7chJXz90yOLWPtbdIW8KlEozG1lxo",
+            authDomain: "learnpro-kenya-erp.firebaseapp.com",
+            projectId: "learnpro-kenya-erp",
+            storageBucket: "learnpro-kenya-erp.firebasestorage.app",
+            messagingSenderId: "327168081514",
+            appId: "1:327168081514:web:13cdc8b827fa76d95a9413"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        let currentSchoolCode = null;
+        let allAssessments = [], allStudents = [], allGrades = [], allStreams = [], allTeachers = [], deletedAssessments = [];
+        let radarChart, trendChart;
+        let pendingDeleteId = null;
+
+        const subjectsByGrade = {
+            'Grade 1': ['Literacy', 'Numeracy', 'Environmental Activities', 'Hygiene and Nutrition', 'Religious Education', 'Creative Arts', 'Physical Education'],
+            'Grade 2': ['Literacy', 'Numeracy', 'Environmental Activities', 'Hygiene and Nutrition', 'Religious Education', 'Creative Arts', 'Physical Education'],
+            'Grade 3': ['Literacy', 'Numeracy', 'Environmental Activities', 'Hygiene and Nutrition', 'Religious Education', 'Creative Arts', 'Physical Education'],
+            'Grade 4': ['English', 'Kiswahili', 'Mathematics', 'Science and Technology', 'Social Studies', 'Creative Arts', 'Physical and Health Education', 'Religious Education'],
+            'Grade 5': ['English', 'Kiswahili', 'Mathematics', 'Science and Technology', 'Social Studies', 'Creative Arts', 'Physical and Health Education', 'Religious Education'],
+            'Grade 6': ['English', 'Kiswahili', 'Mathematics', 'Science and Technology', 'Social Studies', 'Creative Arts', 'Physical and Health Education', 'Religious Education'],
+            'Grade 7': ['English', 'Kiswahili', 'Mathematics', 'Integrated Science', 'Health Education', 'Pre-Technical Studies', 'Social Studies', 'Religious Education', 'Business Studies', 'Agriculture', 'Life Skills', 'Sports and Physical Education'],
+            'Grade 8': ['English', 'Kiswahili', 'Mathematics', 'Integrated Science', 'Health Education', 'Pre-Technical Studies', 'Social Studies', 'Religious Education', 'Business Studies', 'Agriculture', 'Life Skills', 'Sports and Physical Education'],
+            'Grade 9': ['English', 'Kiswahili', 'Mathematics', 'Integrated Science', 'Health Education', 'Pre-Technical Studies', 'Social Studies', 'Religious Education', 'Business Studies', 'Agriculture', 'Life Skills', 'Sports and Physical Education']
+        };
+
+        function getSubjectsForGrade(grade) { return subjectsByGrade[grade] || ['English', 'Kiswahili', 'Mathematics', 'Science', 'Social Studies', 'Creative Arts']; }
+        function showToast(msg, isErr) { const t = document.getElementById('toast'); t.textContent = msg; t.className = `toast ${isErr ? 'toast-error' : 'toast-success'}`; t.style.display = 'block'; setTimeout(() => t.style.display = 'none', 3000); }
+        function goToDashboard() { window.location.href = 'dashboard.html'; }
+        async function logout() { await auth.signOut(); sessionStorage.clear(); window.location.href = 'index.html'; }
+        function closeDeleteConfirmModal() { document.getElementById('deleteConfirmModal').classList.add('hidden'); pendingDeleteId = null; }
+        function closeViewDetailsModal() { document.getElementById('viewDetailsModal').classList.add('hidden'); }
+
+        function showSection(section) {
+            document.getElementById('overviewSection').classList.add('hidden');
+            document.getElementById('subjectsSection').classList.add('hidden');
+            document.getElementById('studentsSection').classList.add('hidden');
+            document.getElementById('recordSection').classList.add('hidden');
+            document.getElementById('trashSection').classList.add('hidden');
+            if (section === 'overview') document.getElementById('overviewSection').classList.remove('hidden');
+            else if (section === 'subjects') { document.getElementById('subjectsSection').classList.remove('hidden'); loadFullSubjects(); }
+            else if (section === 'students') { document.getElementById('studentsSection').classList.remove('hidden'); loadStudentProgress(); }
+            else if (section === 'record') { document.getElementById('recordSection').classList.remove('hidden'); loadRecentAssessments(); loadStudentSelect(); }
+            else if (section === 'trash') { document.getElementById('trashSection').classList.remove('hidden'); loadTrash(); }
+            
+            ['navOverview', 'navSubjects', 'navStudents', 'navRecord', 'navTrash'].forEach(id => {
+                document.getElementById(id).classList.remove('nav-active');
+                document.getElementById(id).classList.add('text-gray-700');
+            });
+            const activeNav = section === 'overview' ? 'navOverview' : section === 'subjects' ? 'navSubjects' : section === 'students' ? 'navStudents' : section === 'record' ? 'navRecord' : 'navTrash';
+            document.getElementById(activeNav).classList.add('nav-active');
+            document.getElementById(activeNav).classList.remove('text-gray-700');
+        }
+
+        function applyFilters() { loadAllData(); showToast('Filters applied'); }
+
+        async function loadAllData() {
+            if (!currentSchoolCode) return;
+            
+            const [gradesSnap, streamsSnap, studentsSnap, assessmentsSnap] = await Promise.all([
+                db.collection('schools').doc(currentSchoolCode).collection('grades').where('deleted', '==', false).get(),
+                db.collection('schools').doc(currentSchoolCode).collection('streams').where('deleted', '==', false).get(),
+                db.collection('schools').doc(currentSchoolCode).collection('students').where('deleted', '==', false).get(),
+                db.collection('schools').doc(currentSchoolCode).collection('assessments').get()
+            ]);
+            
+            allGrades = []; gradesSnap.forEach(d => allGrades.push({ id: d.id, name: d.data().name }));
+            allStreams = []; streamsSnap.forEach(d => allStreams.push({ id: d.id, gradeId: d.data().gradeId, gradeName: d.data().gradeName, name: d.data().name }));
+            allStudents = []; studentsSnap.forEach(d => allStudents.push({ id: d.id, ...d.data() }));
+            
+            allAssessments = []; deletedAssessments = [];
+            assessmentsSnap.forEach(d => {
+                if (d.data().deleted === true) { deletedAssessments.push({ id: d.id, ...d.data() }); }
+                else { allAssessments.push({ id: d.id, ...d.data() }); }
+            });
+            
+            document.getElementById('trashBadge').innerText = deletedAssessments.length;
+            
+            let gradeHtml = '<option value="all">All Grades</option>';
+            allGrades.forEach(g => gradeHtml += `<option value="${g.name}">${g.name}</option>`);
+            document.getElementById('gradeFilter').innerHTML = gradeHtml;
+            document.getElementById('studentGradeFilter').innerHTML = '<option value="">Select Grade</option>' + allGrades.map(g => `<option value="${g.name}">${g.name}</option>`).join('');
+            
+            await updateStreamFilter();
+            await updateStudentStreamFilter();
+            await loadStudentSelect();
+            updateTermDisplay();
+            await updateDashboard();
+        }
+
+        function updateStreamFilter() {
+            const selectedGrade = document.getElementById('gradeFilter').value;
+            const streamSelect = document.getElementById('streamFilter');
+            if (selectedGrade === 'all') {
+                const uniqueStreams = [...new Set(allStreams.map(s => s.name))];
+                streamSelect.innerHTML = '<option value="all">All Streams</option>' + uniqueStreams.map(s => `<option value="${s}">${s}</option>`).join('');
+            } else {
+                const gradeStreams = allStreams.filter(s => s.gradeName === selectedGrade);
+                streamSelect.innerHTML = '<option value="all">All Streams</option>' + gradeStreams.map(s => `<option value="${s.name}">${s.name}</option>`).join('');
+            }
+        }
+
+        function updateStudentStreamFilter() {
+            const selectedGrade = document.getElementById('studentGradeFilter').value;
+            const streamSelect = document.getElementById('studentStreamFilter');
+            if (!selectedGrade) { streamSelect.innerHTML = '<option value="">Select Stream</option>'; return; }
+            const gradeStreams = allStreams.filter(s => s.gradeName === selectedGrade);
+            streamSelect.innerHTML = '<option value="">All Streams</option>' + gradeStreams.map(s => `<option value="${s.name}">${s.name}</option>`).join('');
+        }
+
+        function updateTermDisplay() {
+            const term = document.getElementById('termFilter').value;
+            document.getElementById('currentTermDisplay').innerText = term;
+            document.getElementById('overviewTitle').innerText = `${term} Analytics Overview`;
+        }
+
+        async function updateDashboard() {
+            let grade = document.getElementById('gradeFilter').value;
+            let stream = document.getElementById('streamFilter').value;
+            let term = document.getElementById('termFilter').value;
+            
+            let filtered = allAssessments.filter(a => !a.deleted && a.term === term);
+            if (grade !== 'all') filtered = filtered.filter(a => a.grade === grade);
+            if (stream !== 'all') filtered = filtered.filter(a => a.stream === stream);
+            
+            let total = filtered.length;
+            let ee = filtered.filter(a => a.competency === 'EE').length;
+            let me = filtered.filter(a => a.competency === 'ME').length;
+            let ae = filtered.filter(a => a.competency === 'AE').length;
+            let be = filtered.filter(a => a.competency === 'BE').length;
+            
+            let eeP = total ? Number(((ee/total)*100).toFixed(1)) : 0;
+            let meP = total ? Number(((me/total)*100).toFixed(1)) : 0;
+            let aeP = total ? Number(((ae/total)*100).toFixed(1)) : 0;
+            let beP = total ? Number(((be/total)*100).toFixed(1)) : 0;
+            let passRate = eeP + meP;
+            
+            document.getElementById('eePercent').innerHTML = `${eeP}%`;
+            document.getElementById('mePercent').innerHTML = `${meP}%`;
+            document.getElementById('aePercent').innerHTML = `${aeP}%`;
+            document.getElementById('bePercent').innerHTML = `${beP}%`;
+            document.getElementById('eeBar').style.width = `${eeP}%`;
+            document.getElementById('meBar').style.width = `${meP}%`;
+            document.getElementById('aeBar').style.width = `${aeP}%`;
+            document.getElementById('beBar').style.width = `${beP}%`;
+            
+            let insightMsg = passRate >= 80 ? `🎉 Excellent! ${passRate}% of students are meeting or exceeding expectations.` :
+                            passRate >= 65 ? `📈 Good progress with ${passRate}% pass rate. Continue supporting AE students.` :
+                            passRate >= 45 ? `⚠️ ${passRate}% pass rate. Targeted intervention recommended.` :
+                            `🔴 Critical: Only ${passRate}% pass rate. Immediate action required.`;
+            document.getElementById('insightMsg').innerHTML = insightMsg;
+            document.getElementById('interventionMsg').innerHTML = insightMsg;
+            
+            let subjectStats = {};
+            filtered.forEach(a => {
+                if (!subjectStats[a.subject]) subjectStats[a.subject] = { ee: 0, me: 0, ae: 0, be: 0 };
+                subjectStats[a.subject][a.competency?.toLowerCase() || 'me']++;
+            });
+            
+            let subjectHtml = '';
+            Object.entries(subjectStats).slice(0, 4).forEach(([name, s]) => {
+                let totalSubj = s.ee + s.me + s.ae + s.be;
+                let passSubj = s.ee + s.me;
+                let rate = totalSubj ? Math.round((passSubj/totalSubj)*100) : 0;
+                let rateColor = rate >= 80 ? 'text-green-600' : rate >= 65 ? 'text-blue-600' : rate >= 45 ? 'text-yellow-600' : 'text-red-600';
+                subjectHtml += `<div class="p-4 flex items-center justify-between hover:bg-gray-50"><div><div class="font-semibold">${name}</div><div class="text-sm text-gray-500">${totalSubj} Assessments</div></div><div class="text-right"><div class="font-bold ${rateColor}">${rate}%</div><div class="text-xs text-gray-500">Pass Rate</div></div></div>`;
+            });
+            document.getElementById('subjectPerformanceList').innerHTML = subjectHtml || '<div class="p-8 text-center text-gray-400">No subject data yet</div>';
+            
+            updateRadarChart(filtered);
+            updateTrendChart();
+            document.getElementById('competencySubtitle').innerHTML = grade !== 'all' ? `Average mastery levels across ${grade}` : 'Average mastery levels across all grades';
+            document.getElementById('gradeDistSubtitle').innerHTML = `${term} Performance Summary`;
+        }
+
+        function updateRadarChart(assessments) {
+            const competencies = ['Literacy', 'Numeracy', 'Critical Thinking', 'Creativity', 'Communication', 'Digital Literacy'];
+            let scores = [0, 0, 0, 0, 0, 0];
+            let count = 0;
+            assessments.forEach(a => {
+                let competencyMap = { 'English': 0, 'Literacy': 0, 'Kiswahili': 4, 'Mathematics': 1, 'Numeracy': 1, 'Science': 2, 'Social Studies': 3, 'Creative Arts': 3, 'Integrated Science': 2, 'Business Studies': 3, 'Agriculture': 3 };
+                let idx = competencyMap[a.subject] !== undefined ? competencyMap[a.subject] : 2;
+                if (a.competency === 'EE') scores[idx] += 100;
+                else if (a.competency === 'ME') scores[idx] += 70;
+                else if (a.competency === 'AE') scores[idx] += 50;
+                else if (a.competency === 'BE') scores[idx] += 30;
+                count++;
+            });
+            if (count > 0) scores = scores.map(s => Math.round(s / count));
+            const ctx = document.getElementById('radarChart')?.getContext('2d');
+            if (ctx) { if (radarChart) radarChart.destroy(); radarChart = new Chart(ctx, { type: 'radar', data: { labels: competencies, datasets: [{ label: 'Mastery Score %', data: scores, backgroundColor: 'rgba(0,63,135,0.2)', borderColor: '#003f87', borderWidth: 2, pointBackgroundColor: '#003f87' }] }, options: { responsive: true, maintainAspectRatio: true, scales: { r: { beginAtZero: true, max: 100, ticks: { stepSize: 20 } } }, plugins: { legend: { position: 'bottom' } } } }); }
+        }
+
+        async function updateTrendChart() {
+            const terms = ['Term 1', 'Term 2', 'Term 3'];
+            let coreRates = [], practicalRates = [];
+            const coreSubjects = ['English', 'Kiswahili', 'Mathematics', 'Science', 'Integrated Science'];
+            const practicalSubjects = ['Creative Arts', 'Physical Education', 'Sports and Physical Education', 'Agriculture', 'Business Studies'];
+            for (let term of terms) {
+                let termAssessments = allAssessments.filter(a => !a.deleted && a.term === term);
+                let coreAssessments = termAssessments.filter(a => coreSubjects.includes(a.subject));
+                let practicalAssessments = termAssessments.filter(a => practicalSubjects.includes(a.subject));
+                let corePass = coreAssessments.filter(a => a.competency === 'EE' || a.competency === 'ME').length;
+                let practicalPass = practicalAssessments.filter(a => a.competency === 'EE' || a.competency === 'ME').length;
+                coreRates.push(coreAssessments.length ? Math.round((corePass / coreAssessments.length) * 100) : 0);
+                practicalRates.push(practicalAssessments.length ? Math.round((practicalPass / practicalAssessments.length) * 100) : 0);
+            }
+            const ctx = document.getElementById('trendChart')?.getContext('2d');
+            if (ctx) { if (trendChart) trendChart.destroy(); trendChart = new Chart(ctx, { type: 'line', data: { labels: terms, datasets: [{ label: 'Core Subjects', data: coreRates, borderColor: '#003f87', backgroundColor: 'rgba(0,63,135,0.1)', fill: true, tension: 0.3 }, { label: 'Practical Subjects', data: practicalRates, borderColor: '#006d40', backgroundColor: 'rgba(0,109,64,0.1)', fill: true, tension: 0.3 }] }, options: { responsive: true, maintainAspectRatio: true, scales: { y: { beginAtZero: true, max: 100 } }, plugins: { legend: { position: 'bottom' } } } }); }
+            let improvement = coreRates[1] - coreRates[0];
+            document.getElementById('trendInsight').innerHTML = improvement > 0 ? `📈 Significant growth in Core subjects (+${improvement}%) since Term 1.` : improvement < 0 ? `📉 Decline in Core subjects (${improvement}%). Need intervention.` : `📊 Stable performance across terms.`;
+        }
+
+        function openViewDetailsModal() {
+            let grade = document.getElementById('gradeFilter').value;
+            let stream = document.getElementById('streamFilter').value;
+            let term = document.getElementById('termFilter').value;
+            let filtered = allAssessments.filter(a => !a.deleted && a.term === term);
+            if (grade !== 'all') filtered = filtered.filter(a => a.grade === grade);
+            if (stream !== 'all') filtered = filtered.filter(a => a.stream === stream);
+            
+            let ee = filtered.filter(a => a.competency === 'EE').length;
+            let me = filtered.filter(a => a.competency === 'ME').length;
+            let ae = filtered.filter(a => a.competency === 'AE').length;
+            let be = filtered.filter(a => a.competency === 'BE').length;
+            let total = filtered.length;
+            let passRate = total ? Math.round(((ee + me) / total) * 100) : 0;
+            let uniqueStudents = new Set(filtered.map(a => a.studentId)).size;
+            let uniqueSubjects = new Set(filtered.map(a => a.subject)).size;
+            
+            let subjectRanking = {};
+            filtered.forEach(a => { if (!subjectRanking[a.subject]) subjectRanking[a.subject] = { total: 0, pass: 0 }; subjectRanking[a.subject].total++; if (a.competency === 'EE' || a.competency === 'ME') subjectRanking[a.subject].pass++; });
+            let topSubjects = Object.entries(subjectRanking).map(([name, data]) => ({ name, rate: Math.round((data.pass / data.total) * 100) })).sort((a,b) => b.rate - a.rate).slice(0, 3);
+            let bottomSubjects = Object.entries(subjectRanking).map(([name, data]) => ({ name, rate: Math.round((data.pass / data.total) * 100) })).sort((a,b) => a.rate - b.rate).slice(0, 3);
+            
+            document.getElementById('detailsContent').innerHTML = `
+                <div class="grid grid-cols-2 gap-3"><div class="bg-blue-50 p-3 rounded-lg"><p class="text-xs text-gray-500">Total Assessments</p><p class="text-2xl font-bold text-blue-600">${total}</p></div><div class="bg-green-50 p-3 rounded-lg"><p class="text-xs text-gray-500">Pass Rate</p><p class="text-2xl font-bold text-green-600">${passRate}%</p></div><div class="bg-purple-50 p-3 rounded-lg"><p class="text-xs text-gray-500">Students Assessed</p><p class="text-2xl font-bold text-purple-600">${uniqueStudents}</p></div><div class="bg-orange-50 p-3 rounded-lg"><p class="text-xs text-gray-500">Subjects Covered</p><p class="text-2xl font-bold text-orange-600">${uniqueSubjects}</p></div></div>
+                <div><h4 class="font-bold text-gray-800 mb-2">🏆 Top Performing Subjects</h4>${topSubjects.map(s => `<div class="flex justify-between p-2 bg-gray-50 rounded"><span>${s.name}</span><span class="text-green-600 font-bold">${s.rate}%</span></div>`).join('') || '<p class="text-gray-400">No data</p>'}</div>
+                <div><h4 class="font-bold text-gray-800 mb-2">⚠️ Subjects Needing Improvement</h4>${bottomSubjects.map(s => `<div class="flex justify-between p-2 bg-gray-50 rounded"><span>${s.name}</span><span class="text-red-600 font-bold">${s.rate}%</span></div>`).join('') || '<p class="text-gray-400">No data</p>'}</div>
+                <div class="bg-yellow-50 p-3 rounded-lg"><h4 class="font-bold text-gray-800 mb-2">📝 Recommendations</h4><ul class="list-disc list-inside text-sm space-y-1"><li>Focus on improving ${bottomSubjects[0]?.name || 'weak subjects'} with additional resources</li><li>Celebrate success in ${topSubjects[0]?.name || 'strong subjects'}</li><li>Provide extra support for ${ae + be} students in AE/BE categories</li></ul></div>
+            `;
+            document.getElementById('viewDetailsModal').classList.remove('hidden');
+        }
+
+        function exportDetailsReport() { showToast('Report export feature - would generate PDF'); }
+
+        async function loadFullSubjects() {
+            let grade = document.getElementById('gradeFilter').value;
+            let stream = document.getElementById('streamFilter').value;
+            let term = document.getElementById('termFilter').value;
+            let filtered = allAssessments.filter(a => !a.deleted && a.term === term);
+            if (grade !== 'all') filtered = filtered.filter(a => a.grade === grade);
+            if (stream !== 'all') filtered = filtered.filter(a => a.stream === stream);
+            let subjectStats = {};
+            filtered.forEach(a => { if (!subjectStats[a.subject]) subjectStats[a.subject] = { ee: 0, me: 0, ae: 0, be: 0 }; if (a.competency === 'EE') subjectStats[a.subject].ee++; else if (a.competency === 'ME') subjectStats[a.subject].me++; else if (a.competency === 'AE') subjectStats[a.subject].ae++; else if (a.competency === 'BE') subjectStats[a.subject].be++; });
+            let html = '<div class="divide-y"><div class="grid grid-cols-6 p-4 bg-gray-50 font-semibold text-gray-600"><span>Subject</span><span>EE</span><span>ME</span><span>AE</span><span>BE</span><span>Pass Rate</span></div>';
+            Object.entries(subjectStats).forEach(([name, s]) => { let total = s.ee + s.me + s.ae + s.be; let passRate = total ? Math.round(((s.ee + s.me) / total) * 100) : 0; let rateColor = passRate >= 80 ? 'EE' : passRate >= 65 ? 'ME' : passRate >= 45 ? 'AE' : 'BE'; html += `<div class="grid grid-cols-6 p-4"><span class="font-medium">${name}</span><span class="text-[#003f87]">${s.ee}</span><span class="text-green-600">${s.me}</span><span class="text-yellow-600">${s.ae}</span><span class="text-red-600">${s.be}</span><span class="grade-badge grade-${rateColor}">${passRate}%</span></div>`; });
+            document.getElementById('fullSubjectList').innerHTML = html + '</div>' || '<div class="p-8 text-center text-gray-400">No subject data</div>';
+        }
+
+        async function loadStudentProgress() {
+            let grade = document.getElementById('studentGradeFilter').value;
+            let stream = document.getElementById('studentStreamFilter').value;
+            let search = document.getElementById('studentSearchInput').value.toLowerCase();
+            let term = document.getElementById('termFilter').value;
+            if (!grade) { document.getElementById('studentProgressList').innerHTML = '<div class="col-span-full text-center py-8 text-gray-400">Select a grade to view students</div>'; return; }
+            let students = allStudents.filter(s => s.grade === grade);
+            if (stream && stream !== '') students = students.filter(s => s.stream === stream);
+            if (search) students = students.filter(s => s.name.toLowerCase().includes(search));
+            let container = document.getElementById('studentProgressList');
+            if (students.length === 0) { container.innerHTML = '<div class="col-span-full text-center py-8 text-gray-400">No students found</div>'; return; }
+            container.innerHTML = students.map(student => {
+                let assessments = allAssessments.filter(a => a.studentId === student.id && a.term === term && !a.deleted);
+                let ee = assessments.filter(a => a.competency === 'EE').length;
+                let me = assessments.filter(a => a.competency === 'ME').length;
+                let ae = assessments.filter(a => a.competency === 'AE').length;
+                let be = assessments.filter(a => a.competency === 'BE').length;
+                let total = ee + me + ae + be;
+                let passRate = total > 0 ? Math.round(((ee + me) / total) * 100) : 0;
+                let overallComp = passRate >= 80 ? 'EE' : passRate >= 65 ? 'ME' : passRate >= 45 ? 'AE' : 'BE';
+                let subjectsCount = getSubjectsForGrade(student.grade).length;
+                let assessedCount = assessments.length;
+                return `<div class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-[#003f87]"><div class="flex justify-between items-start"><div><h4 class="font-bold text-gray-800">${student.name}</h4><p class="text-xs text-gray-500">Adm: ${student.admNo} | ${student.grade} ${student.stream || ''}</p><p class="text-xs text-gray-400">${assessedCount}/${subjectsCount} subjects assessed</p></div><span class="grade-badge grade-${overallComp}">${overallComp}</span></div><div class="flex gap-3 mt-3 text-xs"><span class="text-[#003f87]">EE:${ee}</span><span class="text-green-600">ME:${me}</span><span class="text-yellow-600">AE:${ae}</span><span class="text-red-600">BE:${be}</span></div><div class="w-full bg-gray-200 rounded-full h-1.5 mt-2"><div class="bg-green-600 h-1.5 rounded-full" style="width: ${passRate}%"></div></div><div class="flex justify-between mt-2"><button onclick="deleteStudentAssessments('${student.id}', '${student.name}')" class="text-xs text-red-600">Delete All</button></div></div>`;
+            }).join('');
+        }
+
+        function deleteStudentAssessments(studentId, studentName) {
+            if (confirm(`Move ALL assessments for ${studentName} to trash?`)) {
+                (async () => { let assessments = allAssessments.filter(a => a.studentId === studentId && !a.deleted); for (let a of assessments) { await db.collection('schools').doc(currentSchoolCode).collection('assessments').doc(a.id).update({ deleted: true, deletedAt: new Date().toISOString() }); } showToast(`Moved ${assessments.length} records to trash`); await loadAllData(); })();
+            }
+        }
+
+        async function loadStudentSelect() { const select = document.getElementById('studentSelect'); select.innerHTML = '<option value="">Select Student</option>' + allStudents.map(s => `<option value="${s.id}" data-grade="${s.grade}">${s.name} (${s.admNo}) - ${s.grade}</option>`).join(''); }
+        async function loadRecentAssessments() { let term = document.getElementById('termFilter').value; let recent = allAssessments.filter(a => !a.deleted && a.term === term).slice(-5).reverse(); let html = ''; recent.forEach(a => { let student = allStudents.find(s => s.id === a.studentId); html += `<div class="p-3 bg-gray-50 rounded-xl flex justify-between items-center"><div><p class="font-semibold">${student?.name || a.studentName} - ${a.subject}</p><p class="text-xs text-gray-500">${a.competency} • ${a.teacher || 'N/A'}</p></div><div class="flex gap-2"><span class="grade-badge grade-${a.competency}">${a.competency}</span><button onclick="deleteSingleAssessment('${a.id}', '${a.subject}', '${student?.name || a.studentName}')" class="text-red-600 text-xs">Delete</button></div></div>`; }); document.getElementById('recentAssessments').innerHTML = html || '<div class="text-center text-gray-400 py-8">No assessments yet</div>'; }
+
+        function deleteSingleAssessment(id, subject, studentName) { pendingDeleteId = id; document.getElementById('deleteConfirmMsg').innerHTML = `Move "${subject}" assessment for ${studentName} to trash?`; document.getElementById('deleteConfirmModal').classList.remove('hidden'); }
+        async function confirmDeleteAction() { if (pendingDeleteId) { await db.collection('schools').doc(currentSchoolCode).collection('assessments').doc(pendingDeleteId).update({ deleted: true, deletedAt: new Date().toISOString() }); showToast('Moved to trash'); closeDeleteConfirmModal(); await loadAllData(); } }
+
+        async function loadTrash() { let container = document.getElementById('trashList'); if (deletedAssessments.length === 0) { container.innerHTML = '<div class="p-6 text-center text-gray-400">Trash is empty</div>'; return; } container.innerHTML = deletedAssessments.map(a => `<div class="p-3 flex justify-between items-center hover:bg-gray-50 border-b"><div><p class="font-medium text-gray-600 line-through">${a.studentName} - ${a.subject}</p><p class="text-xs text-gray-400">${a.grade} | ${a.competency} | Deleted: ${a.deletedAt ? new Date(a.deletedAt).toLocaleDateString() : 'Unknown'}</p></div><div class="flex gap-2"><button onclick="restoreAssessment('${a.id}')" class="px-2 py-1 bg-green-600 text-white rounded text-xs">Restore</button><button onclick="permanentDelete('${a.id}', '${a.studentName}')" class="px-2 py-1 bg-red-700 text-white rounded text-xs">Delete Forever</button></div></div>`).join(''); }
+        async function restoreAssessment(id) { await db.collection('schools').doc(currentSchoolCode).collection('assessments').doc(id).update({ deleted: false, deletedAt: null }); showToast('Restored'); await loadAllData(); }
+        async function permanentDelete(id, name) { if (confirm(`⚠️ Permanently delete ${name}'s record?`)) { await db.collection('schools').doc(currentSchoolCode).collection('assessments').doc(id).delete(); showToast('Deleted forever'); await loadAllData(); } }
+        async function emptyTrash() { if (confirm('⚠️ Permanently delete ALL assessments in trash?')) { for (let a of deletedAssessments) { await db.collection('schools').doc(currentSchoolCode).collection('assessments').doc(a.id).delete(); } showToast('Trash emptied'); await loadAllData(); } }
+
+        function exportSubjectData() { let ws = XLSX.utils.json_to_sheet(allAssessments.filter(a => !a.deleted).map(a => ({ Student: a.studentName, Subject: a.subject, Competency: a.competency, Teacher: a.teacher, Term: a.term }))); let wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Subjects'); XLSX.writeFile(wb, `subject_analysis_${new Date().toISOString().split('T')[0]}.xlsx`); showToast('Exported!'); }
+
+        document.getElementById('assessmentForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const studentId = document.getElementById('studentSelect').value;
+            const student = allStudents.find(s => s.id === studentId);
+            if (!student) { showToast('Please select a student', true); return; }
+            const subject = document.getElementById('subjectSelect').value;
+            const competency = document.getElementById('competencySelect').value;
+            const term = document.getElementById('termSelect').value;
+            const exists = allAssessments.find(a => a.studentId === student.id && a.subject === subject && a.term === term && !a.deleted);
+            if (exists) { showToast(`Assessment for ${student.name} - ${subject} already exists for ${term}`, true); return; }
+            await db.collection('schools').doc(currentSchoolCode).collection('assessments').add({ studentId: student.id, studentName: student.name, admNo: student.admNo, grade: student.grade, stream: student.stream || '', subject: subject, competency: competency, teacher: document.getElementById('teacherName').value || 'Admin', term: term, notes: document.getElementById('assessmentNotes').value, date: new Date().toISOString(), deleted: false });
+            showToast('Assessment recorded successfully!');
+            document.getElementById('assessmentForm').reset();
+            await loadAllData();
+            loadRecentAssessments();
+        });
+
+        document.getElementById('subjectSelect').addEventListener('focus', function() {
+            const selectedOption = document.getElementById('studentSelect').selectedOptions[0];
+            const grade = selectedOption?.dataset?.grade;
+            if (grade) { let subjects = getSubjectsForGrade(grade); this.innerHTML = '<option value="">Select Subject</option>' + subjects.map(s => `<option value="${s}">${s}</option>`).join(''); }
+            else { this.innerHTML = '<option value="">Select Subject</option><option>English</option><option>Kiswahili</option><option>Mathematics</option><option>Science</option><option>Social Studies</option><option>Creative Arts</option>'; }
+        });
+
+        async function refreshAllData() { await loadAllData(); showToast('Data refreshed successfully!'); }
+        document.getElementById('confirmDeleteBtn').onclick = confirmDeleteAction;
+
+        auth.onAuthStateChanged(async (user) => {
+            if (!user) { window.location.href = 'index.html'; return; }
+            currentSchoolCode = sessionStorage.getItem('currentSchoolCode');
+            if (!currentSchoolCode) { const snap = await db.collection('schools').where('adminId', '==', user.uid).get(); if (!snap.empty) { currentSchoolCode = snap.docs[0].id; sessionStorage.setItem('currentSchoolCode', currentSchoolCode); sessionStorage.setItem('currentSchoolName', snap.docs[0].data().schoolName); } }
+            document.getElementById('schoolBadge').innerText = sessionStorage.getItem('currentSchoolName') || currentSchoolCode;
+            await loadAllData();
+        });
+    </script>
+</body>
+</html>
