@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fee Management | LearnPro Kenya ERP</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: #f5f7fa; }
+        .stat-card { background: white; border-radius: 20px; transition: all 0.3s ease; border: 1px solid #e8ecf1; cursor: pointer; }
+        .stat-card:hover { transform: translateY(-3px); box-shadow: 0 15px 30px -12px rgba(0,0,0,0.1); }
+        .toast { position: fixed; bottom: 24px; right: 24px; background: #003f87; color: white; padding: 12px 24px; border-radius: 48px; z-index: 1000; font-weight: 500; z-index: 1001; }
+        .toast-error { background: #dc2626; }
+        .toast-success { background: #059669; }
+        .status-badge { display: inline-flex; align-items: center; padding: 4px 12px; border-radius: 30px; font-size: 11px; font-weight: 600; }
+        .status-paid { background: #dcfce7; color: #166534; }
+        .status-partial { background: #fef3c7; color: #92400e; }
+        .status-unpaid { background: #fee2e2; color: #991b1b; }
+        .nav-tab { cursor: pointer; padding: 8px 20px; border-radius: 30px; font-size: 14px; font-weight: 500; transition: all 0.2s; }
+        .nav-tab-active { background: #003f87; color: white; }
+        .nav-tab-inactive { background: white; color: #4a5568; border: 1px solid #e2e8f0; }
+        .nav-tab-inactive:hover { background: #f1f5f9; border-color: #003f87; }
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; padding: 14px 12px; background: #f8fafc; font-weight: 600; color: #1e293b; border-bottom: 1px solid #e2e8f0; font-size: 13px; }
+        td { padding: 12px; border-bottom: 1px solid #e2e8f0; font-size: 14px; vertical-align: middle; }
+        .action-buttons { display: flex; gap: 6px; justify-content: center; align-items: center; }
+        .chart-container { transition: all 0.3s ease; }
+        .chart-container:hover { transform: translateY(-2px); }
+    </style>
+</head>
+<body>
+
+    <!-- Top Navigation Bar -->
+    <div class="bg-white shadow-sm fixed top-0 left-0 right-0 z-40 border-b border-gray-100">
+        <div class="flex justify-between items-center px-8 py-3 max-w-full mx-auto">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-gradient-to-br from-[#003f87] to-[#0056b3] rounded-xl flex items-center justify-center shadow-md">
+                    <span class="material-symbols-outlined text-white text-xl">payments</span>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold text-[#003f87] tracking-tight">LEARNPRO KENYA</h1>
+                    <p class="text-[10px] text-gray-400 -mt-0.5">Fee Management System</p>
+                </div>
+                <span id="schoolBadge" class="ml-3 text-xs bg-[#003f87]/10 text-[#003f87] px-3 py-1 rounded-full font-medium">Loading...</span>
+            </div>
+            <div class="flex items-center gap-3">
+                <button onclick="window.location.href='dashboard.html'" class="flex items-center gap-2 px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-xl transition text-sm">
+                    <span class="material-symbols-outlined text-sm">dashboard</span>
+                    <span class="hidden md:block">Dashboard</span>
+                </button>
+                <button onclick="logout()" class="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-xl transition text-sm">
+                    <span class="material-symbols-outlined text-sm">logout</span>
+                    <span class="hidden md:block">Logout</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="pt-20 px-8 pb-10 max-w-7xl mx-auto">
+        
+        <!-- Page Header with Tabs -->
+        <div class="mb-6 flex justify-between items-center flex-wrap gap-4">
+            <div>
+                <h2 class="text-2xl font-bold text-gray-800">Fee Management</h2>
+                <p class="text-gray-500 text-sm mt-1">Track payments, manage fee structures, and student fee records</p>
+            </div>
+            <div class="flex gap-2">
+                <div id="activeTabBtn" onclick="switchTab('active')" class="nav-tab nav-tab-active">Student Fee Records</div>
+                <div id="structureTabBtn" onclick="switchTab('structure')" class="nav-tab nav-tab-inactive">Fee Structure</div>
+                <div id="trashTabBtn" onclick="switchTab('trash')" class="nav-tab nav-tab-inactive flex items-center gap-1">
+                    <span class="material-symbols-outlined text-sm">delete</span> Trash <span id="trashCountBadge" class="ml-1 text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full">0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== ACTIVE TAB - STUDENT FEE RECORDS ==================== -->
+        <div id="activeTabContent">
+            <!-- Stats Cards -->
+            <div class="grid grid-cols-4 gap-5 mb-8">
+                <div class="stat-card p-5">
+                    <div><p class="text-gray-400 text-xs uppercase">Total Students</p><p class="text-3xl font-bold text-blue-600 mt-1" id="totalStudents">0</p></div>
+                </div>
+                <div class="stat-card p-5" onclick="filterByStatus('paid')">
+                    <div><p class="text-gray-400 text-xs uppercase">Total Collected</p><p class="text-3xl font-bold text-green-600 mt-1" id="totalCollected">KSh 0</p></div>
+                </div>
+                <div class="stat-card p-5" onclick="filterByStatus('unpaid')">
+                    <div><p class="text-gray-400 text-xs uppercase">Outstanding Balance</p><p class="text-3xl font-bold text-red-600 mt-1" id="outstandingBalance">KSh 0</p></div>
+                </div>
+                <div class="stat-card p-5">
+                    <div><p class="text-gray-400 text-xs uppercase">Collection Rate</p><p class="text-3xl font-bold text-purple-600 mt-1" id="collectionRate">0%</p></div>
+                </div>
+            </div>
+
+            <!-- Charts Section - 3 Charts Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                <!-- Line Chart: Monthly Collections -->
+                <div class="bg-white rounded-xl shadow-sm p-5 chart-container">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="font-bold text-gray-800">📈 Monthly Collections</h3>
+                        <button onclick="exportChartAsImage('monthlyChart')" class="text-xs text-[#003f87] flex items-center gap-1"><span class="material-symbols-outlined text-sm">download</span> Export</button>
+                    </div>
+                    <canvas id="monthlyChart" height="200" style="max-height: 200px;"></canvas>
+                </div>
+
+                <!-- Pie Chart: Payment Methods Distribution -->
+                <div class="bg-white rounded-xl shadow-sm p-5 chart-container">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="font-bold text-gray-800">🥧 Payment Methods</h3>
+                        <button onclick="exportChartAsImage('methodsChart')" class="text-xs text-[#003f87] flex items-center gap-1"><span class="material-symbols-outlined text-sm">download</span> Export</button>
+                    </div>
+                    <canvas id="methodsChart" height="200" style="max-height: 200px;"></canvas>
+                </div>
+
+                <!-- Bar Chart: Grade-wise Collection -->
+                <div class="bg-white rounded-xl shadow-sm p-5 chart-container">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="font-bold text-gray-800">📊 Grade-wise Collection</h3>
+                        <button onclick="exportChartAsImage('gradeChart')" class="text-xs text-[#003f87] flex items-center gap-1"><span class="material-symbols-outlined text-sm">download</span> Export</button>
+                    </div>
+                    <canvas id="gradeChart" height="200" style="max-height: 200px;"></canvas>
+                </div>
+            </div>
+
+            <!-- Action Bar -->
+            <div class="bg-white rounded-xl shadow-sm p-4 mb-6 flex flex-wrap justify-between items-center gap-4">
+                <div class="flex gap-2">
+                    <button onclick="openPaymentModal()" class="px-5 py-2.5 bg-[#003f87] text-white rounded-lg flex items-center gap-2 text-sm font-medium">
+                        <span class="material-symbols-outlined text-sm">add_card</span> Record Payment
+                    </button>
+                    <button onclick="bulkDeleteSelected()" id="bulkDeleteBtn" class="px-5 py-2.5 bg-red-600 text-white rounded-lg flex items-center gap-2 text-sm font-medium hidden">
+                        <span class="material-symbols-outlined text-sm">delete_sweep</span> Delete Selected (<span id="selectedCount">0</span>)
+                    </button>
+                    <button onclick="exportToExcel()" class="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-lg flex items-center gap-2 text-sm font-medium">
+                        <span class="material-symbols-outlined text-sm">table_view</span> Export
+                    </button>
+                    <button onclick="refreshCharts()" class="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-lg flex items-center gap-2 text-sm font-medium">
+                        <span class="material-symbols-outlined text-sm">refresh</span> Refresh Charts
+                    </button>
+                </div>
+                <div class="flex gap-2">
+                    <div class="relative"><span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">search</span><input type="text" id="searchInput" onkeyup="filterRecords()" placeholder="Search by student..." class="pl-9 pr-4 py-2 border rounded-lg w-64 text-sm"></div>
+                    <select id="statusFilter" onchange="filterRecords()" class="px-3 py-2 border rounded-lg text-sm bg-white">
+                        <option value="all">All Status</option><option value="paid">Paid</option><option value="partial">Partial</option><option value="unpaid">Unpaid</option>
+                    </select>
+                    <button onclick="resetFilters()" class="px-3 py-2 text-gray-500 rounded-lg text-sm"><span class="material-symbols-outlined text-sm">refresh</span></button>
+                </div>
+            </div>
+
+            <!-- Student Fee Records Table -->
+            <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead>
+                            <tr>
+                                <th class="text-left w-12"><input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll()"></th>
+                                <th class="text-left">Student Name</th>
+                                <th class="text-left">Adm No</th>
+                                <th class="text-left">Grade</th>
+                                <th class="text-left">Required Fee (KES)</th>
+                                <th class="text-left">Amount Paid (KES)</th>
+                                <th class="text-left">Balance (KES)</th>
+                                <th class="text-left">Status</th>
+                                <th class="text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="feeRecordsTableBody">
+                            <tr><td colspan="9" class="text-center py-12 text-gray-400">Loading student fee records...<br><button onclick="syncStudentsToFeeRecords()" class="mt-3 px-4 py-2 bg-[#003f87] text-white rounded-lg text-sm">Sync Students</button></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="px-6 py-4 border-t flex justify-between items-center">
+                    <span class="text-sm text-gray-500" id="paginationInfo">Showing 0 of 0</span>
+                    <div class="flex gap-2" id="paginationControls"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== FEE STRUCTURE TAB ==================== -->
+        <div id="structureTabContent" class="hidden">
+            <div class="mb-6 flex justify-between items-center">
+                <div><h2 class="text-2xl font-bold">Fee Structure by Grade</h2><p class="text-gray-500">Set required fees per grade level</p></div>
+                <button onclick="openFeeStructureModal()" class="px-5 py-2.5 bg-[#003f87] text-white rounded-lg flex items-center gap-2"><span class="material-symbols-outlined text-sm">add</span> Add/Edit Fee Structure</button>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead><tr><th>Grade Level</th><th>Required Fee (KES)</th><th class="text-center">Actions</th></tr></thead>
+                        <tbody id="feeStructureBody"><tr><td colspan="3" class="text-center py-12 text-gray-400">Loading fee structure...</td></tr>
+                    </table>
+                </div>
+            </div>
+            <div class="mt-4 p-4 bg-blue-50 rounded-lg">
+                <p class="text-sm text-blue-800"><strong>Note:</strong> Fee structure determines the required amount per student based on their grade. When you update fee structure, all students' required fees will be updated automatically.</p>
+            </div>
+        </div>
+
+        <!-- ==================== TRASH TAB ==================== -->
+        <div id="trashTabContent" class="hidden">
+            <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+                <div class="p-4 border-b flex justify-between items-center">
+                    <h3 class="font-bold">Deleted Fee Records</h3>
+                    <button onclick="emptyTrash()" class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm flex items-center gap-1"><span class="material-symbols-outlined text-sm">delete_forever</span> Empty Trash</button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full"><thead><tr><th>Student Name</th><th>Adm No</th><th>Amount Paid</th><th>Deleted On</th><th class="text-center">Actions</th></thead>
+                        <tbody id="trashTableBody"><tr><td colspan="5" class="text-center py-12 text-gray-400">Trash is empty</td></tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Modal -->
+    <div id="paymentModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4">
+            <div class="flex justify-between items-center mb-4"><h3 class="text-xl font-bold text-[#003f87]">Record Payment</h3><button onclick="closePaymentModal()" class="text-gray-400"><span class="material-symbols-outlined">close</span></button></div>
+            <form id="paymentForm" onsubmit="return false;">
+                <select id="paymentStudentId" class="w-full p-3 border rounded-lg mb-3" required><option value="">Select Student</option></select>
+                <input type="number" id="paymentAmount" placeholder="Amount (KES)" class="w-full p-3 border rounded-lg mb-3" required>
+                <select id="paymentMethod" class="w-full p-3 border rounded-lg mb-3"><option>M-Pesa</option><option>Cash</option><option>Bank Transfer</option><option>Cheque</option></select>
+                <input type="text" id="paymentRef" placeholder="Transaction Reference" class="w-full p-3 border rounded-lg mb-3">
+                <input type="date" id="paymentDate" class="w-full p-3 border rounded-lg mb-3">
+                <button type="button" onclick="submitPayment()" class="w-full py-3 bg-[#003f87] text-white rounded-lg font-medium">Process Payment</button>
+                <button type="button" onclick="closePaymentModal()" class="w-full py-3 border rounded-lg mt-2">Cancel</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Fee Structure Modal -->
+    <div id="feeStructureModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4">
+            <div class="flex justify-between items-center mb-4"><h3 class="text-xl font-bold text-[#003f87]">Set Fee by Grade</h3><button onclick="closeFeeStructureModal()" class="text-gray-400"><span class="material-symbols-outlined">close</span></button></div>
+            <form id="feeStructureForm" onsubmit="return false;">
+                <select id="feeGrade" class="w-full p-3 border rounded-lg mb-3" required>
+                    <option>Grade 1</option><option>Grade 2</option><option>Grade 3</option><option>Grade 4</option><option>Grade 5</option>
+                    <option>Grade 6</option><option>Grade 7</option><option>Grade 8</option><option>Grade 9</option>
+                </select>
+                <input type="number" id="feeAmount" placeholder="Required Fee Amount (KES)" class="w-full p-3 border rounded-lg mb-3" required>
+                <button type="button" onclick="saveFeeStructure()" class="w-full py-3 bg-[#003f87] text-white rounded-lg font-medium">Save Fee Structure</button>
+                <button type="button" onclick="closeFeeStructureModal()" class="w-full py-3 border rounded-lg mt-2">Cancel</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Delete Modals -->
+    <div id="deleteModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden"><div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4 text-center"><h3 class="text-xl font-bold mb-2">Move to Trash?</h3><p class="text-gray-500 mb-5" id="deleteMessage"></p><div class="flex gap-3"><button id="confirmDeleteBtn" class="flex-1 py-2.5 bg-red-600 text-white rounded-lg">Move to Trash</button><button onclick="closeDeleteModal()" class="flex-1 py-2.5 border rounded-lg">Cancel</button></div></div></div>
+    <div id="restoreModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden"><div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4 text-center"><h3 class="text-xl font-bold mb-2">Restore Record?</h3><p class="text-gray-500 mb-5" id="restoreMessage"></p><div class="flex gap-3"><button id="confirmRestoreBtn" class="flex-1 py-2.5 bg-green-600 text-white rounded-lg">Restore</button><button onclick="closeRestoreModal()" class="flex-1 py-2.5 border rounded-lg">Cancel</button></div></div></div>
+
+    <div id="toast" style="display:none" class="toast"></div>
+
+    <script>
+        const firebaseConfig = { apiKey: "AIzaSyA4cm7chJXz90yOLWPtbdIW8KlEozG1lxo", authDomain: "learnpro-kenya-erp.firebaseapp.com", projectId: "learnpro-kenya-erp", storageBucket: "learnpro-kenya-erp.firebasestorage.app", messagingSenderId: "327168081514", appId: "1:327168081514:web:13cdc8b827fa76d95a9413" };
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        
+        let currentSchoolCode = null;
+        let allFeeRecords = [];
+        let deletedRecords = [];
+        let filteredRecords = [];
+        let feeStructure = {};
+        let allStudents = [];
+        let currentPage = 1, itemsPerPage = 10, currentTab = 'active';
+        let selectedRecords = new Set();
+        let deleteTargetId = null, restoreTargetId = null;
+        
+        // Chart instances
+        let monthlyChart, methodsChart, gradeChart;
+
+        function showToast(msg, isError = false) { 
+            const toast = document.getElementById('toast'); 
+            toast.textContent = msg; 
+            toast.className = `toast ${isError ? 'toast-error' : 'toast-success'}`; 
+            toast.style.display = 'block'; 
+            setTimeout(() => toast.style.display = 'none', 3000); 
+        }
+
+        async function logout() { await auth.signOut(); sessionStorage.clear(); window.location.href = 'index.html'; }
+
+        function switchTab(tab) {
+            currentTab = tab;
+            document.getElementById('activeTabContent').classList.add('hidden');
+            document.getElementById('structureTabContent').classList.add('hidden');
+            document.getElementById('trashTabContent').classList.add('hidden');
+            if (tab === 'active') { 
+                document.getElementById('activeTabContent').classList.remove('hidden');
+                ['activeTabBtn','structureTabBtn','trashTabBtn'].forEach(btn => document.getElementById(btn).className = 'nav-tab nav-tab-inactive');
+                document.getElementById('activeTabBtn').className = 'nav-tab nav-tab-active';
+                filterRecords();
+                setTimeout(() => updateAllCharts(), 200);
+            } else if (tab === 'structure') { 
+                document.getElementById('structureTabContent').classList.remove('hidden');
+                ['activeTabBtn','structureTabBtn','trashTabBtn'].forEach(btn => document.getElementById(btn).className = 'nav-tab nav-tab-inactive');
+                document.getElementById('structureTabBtn').className = 'nav-tab nav-tab-active';
+                loadFeeStructure();
+            } else if (tab === 'trash') { 
+                document.getElementById('trashTabContent').classList.remove('hidden');
+                ['activeTabBtn','structureTabBtn','trashTabBtn'].forEach(btn => document.getElementById(btn).className = 'nav-tab nav-tab-inactive');
+                document.getElementById('trashTabBtn').className = 'nav-tab nav-tab-active flex items-center gap-1';
+                loadDeletedRecords();
+            }
+        }
+
+        // Chart Functions
+        function updateAllCharts() {
+            updateMonthlyChart();
+            updateMethodsChart();
+            updateGradeChart();
+        }
+
+        function refreshCharts() {
+            updateAllCharts();
+            showToast('Charts refreshed!');
+        }
+
+        function updateMonthlyChart() {
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+            const monthlyData = [0, 0, 0, 0, 0, 0];
+            
+            allFeeRecords.forEach(record => {
+                if (record.payments && record.payments.length > 0) {
+                    record.payments.forEach(payment => {
+                        if (payment.date) {
+                            const paymentMonth = new Date(payment.date).getMonth();
+                            if (paymentMonth >= 0 && paymentMonth <= 5) {
+                                monthlyData[paymentMonth] += payment.amount || 0;
+                            }
+                        }
+                    });
+                }
+            });
+            
+            const ctx = document.getElementById('monthlyChart').getContext('2d');
+            if (monthlyChart) monthlyChart.destroy();
+            monthlyChart = new Chart(ctx, {
+                type: 'line',
+                data: { labels: months, datasets: [{ label: 'Collections (KES)', data: monthlyData, borderColor: '#003f87', backgroundColor: 'rgba(0,63,135,0.1)', fill: true, tension: 0.4, pointBackgroundColor: '#003f87', pointBorderColor: 'white', pointRadius: 5, pointHoverRadius: 7 }] },
+                options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'top' }, tooltip: { callbacks: { label: (ctx) => `KSh ${ctx.raw.toLocaleString()}` } } } }
+            });
+        }
+
+        function updateMethodsChart() {
+            const methods = { 'M-Pesa': 0, 'Cash': 0, 'Bank Transfer': 0, 'Cheque': 0 };
+            allFeeRecords.forEach(record => {
+                if (record.payments && record.payments.length > 0) {
+                    record.payments.forEach(payment => {
+                        if (payment.method && methods[payment.method] !== undefined) methods[payment.method] += payment.amount || 0;
+                        else if (payment.method === 'Bank Transfer') methods['Bank Transfer'] += payment.amount || 0;
+                    });
+                }
+            });
+            
+            const ctx = document.getElementById('methodsChart').getContext('2d');
+            if (methodsChart) methodsChart.destroy();
+            methodsChart = new Chart(ctx, {
+                type: 'pie',
+                data: { labels: Object.keys(methods), datasets: [{ data: Object.values(methods), backgroundColor: ['#003f87', '#059669', '#d97706', '#6b7280'], borderWidth: 0 }] },
+                options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom' }, tooltip: { callbacks: { label: (ctx) => `${ctx.label}: KSh ${ctx.raw.toLocaleString()}` } } } }
+            });
+        }
+
+        function updateGradeChart() {
+            const grades = ['Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6','Grade 7','Grade 8','Grade 9'];
+            const gradeData = {};
+            grades.forEach(g => gradeData[g] = 0);
+            
+            allFeeRecords.forEach(record => {
+                if (record.grade && gradeData[record.grade] !== undefined) {
+                    gradeData[record.grade] += record.amountPaid || 0;
+                }
+            });
+            
+            const ctx = document.getElementById('gradeChart').getContext('2d');
+            if (gradeChart) gradeChart.destroy();
+            gradeChart = new Chart(ctx, {
+                type: 'bar',
+                data: { labels: grades, datasets: [{ label: 'Amount Collected (KES)', data: grades.map(g => gradeData[g]), backgroundColor: '#003f87', borderRadius: 8 }] },
+                options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'top' }, tooltip: { callbacks: { label: (ctx) => `KSh ${ctx.raw.toLocaleString()}` } } }, scales: { y: { beginAtZero: true, ticks: { callback: (val) => `KSh ${val.toLocaleString()}` } } } }
+            });
+        }
+
+        function exportChartAsImage(chartId) {
+            const canvas = document.getElementById(chartId);
+            const link = document.createElement('a');
+            link.download = `${chartId}.png`;
+            link.href = canvas.toDataURL();
+            link.click();
+            showToast('Chart exported as PNG');
+        }
+
+        async function loadAllStudents() {
+            if (!currentSchoolCode) return;
+            const snap = await db.collection('schools').doc(currentSchoolCode).collection('students').where('deleted', '==', false).get();
+            allStudents = [];
+            snap.forEach(doc => allStudents.push({ id: doc.id, ...doc.data() }));
+            document.getElementById('totalStudents').innerText = allStudents.length;
+            return allStudents;
+        }
+
+        async function loadFeeStructure() {
+            if (!currentSchoolCode) return;
+            const snap = await db.collection('schools').doc(currentSchoolCode).collection('feeStructure').get();
+            feeStructure = {};
+            snap.forEach(doc => { feeStructure[doc.data().grade] = doc.data().amount; });
+            
+            const grades = ['Grade 1','Grade 2','Grade 3','Grade 4','Grade 5','Grade 6','Grade 7','Grade 8','Grade 9'];
+            let html = '';
+            for (const grade of grades) {
+                const amount = feeStructure[grade] || 0;
+                html += `<td><td class="font-medium">${grade}</td><td class="font-bold">KSh ${amount.toLocaleString()}</td>
+                    <td class="text-center"><button onclick="editFeeStructure('${grade}', ${amount})" class="px-3 py-1 bg-[#003f87] text-white rounded-lg text-sm">${amount ? 'Edit' : 'Set'}</button></td></tr>`;
+            }
+            document.getElementById('feeStructureBody').innerHTML = html;
+        }
+
+        async function syncStudentsToFeeRecords() {
+            if (!currentSchoolCode) return;
+            showToast('Syncing students to fee records...');
+            await loadAllStudents();
+            await loadFeeStructure();
+            
+            const existingSnap = await db.collection('schools').doc(currentSchoolCode).collection('feeRecords').where('deleted', '==', false).get();
+            const existingIds = new Set();
+            existingSnap.forEach(doc => existingIds.add(doc.data().studentId));
+            
+            let created = 0;
+            for (const student of allStudents) {
+                if (!existingIds.has(student.id)) {
+                    const requiredFee = feeStructure[student.grade] || 25000;
+                    await db.collection('schools').doc(currentSchoolCode).collection('feeRecords').add({
+                        studentId: student.id, studentName: student.name, admNo: student.admNo,
+                        grade: student.grade, requiredFee: requiredFee, amountPaid: 0,
+                        balance: requiredFee, status: 'unpaid', deleted: false,
+                        payments: [], createdAt: new Date().toISOString()
+                    });
+                    created++;
+                }
+            }
+            showToast(`Synced ${created} new fee records`);
+            await loadFeeRecords();
+        }
+
+        async function loadFeeRecords() {
+            if (!currentSchoolCode) return;
+            const snap = await db.collection('schools').doc(currentSchoolCode).collection('feeRecords').where('deleted', '==', false).get();
+            allFeeRecords = [];
+            snap.forEach(doc => allFeeRecords.push({ id: doc.id, ...doc.data() }));
+            
+            let totalPaid = allFeeRecords.reduce((s, r) => s + (r.amountPaid || 0), 0);
+            let totalRequired = allFeeRecords.reduce((s, r) => s + (r.requiredFee || 0), 0);
+            let outstanding = totalRequired - totalPaid;
+            let collectionRate = totalRequired > 0 ? Math.round((totalPaid / totalRequired) * 100) : 0;
+            
+            document.getElementById('totalCollected').innerText = `KSh ${totalPaid.toLocaleString()}`;
+            document.getElementById('outstandingBalance').innerText = `KSh ${outstanding.toLocaleString()}`;
+            document.getElementById('collectionRate').innerText = `${collectionRate}%`;
+            
+            filterRecords();
+            updateAllCharts();
+        }
+
+        async function loadDeletedRecords() {
+            if (!currentSchoolCode) return;
+            const snap = await db.collection('schools').doc(currentSchoolCode).collection('feeRecords').where('deleted', '==', true).get();
+            deletedRecords = [];
+            snap.forEach(doc => deletedRecords.push({ id: doc.id, ...doc.data() }));
+            document.getElementById('trashCountBadge').innerText = deletedRecords.length;
+            
+            const tbody = document.getElementById('trashTableBody');
+            if (deletedRecords.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="text-center py-12 text-gray-400">Trash is empty</td></tr>'; return; }
+            tbody.innerHTML = deletedRecords.map(r => `<tr class="bg-red-50"><td>${r.studentName}</td><td>${r.admNo}</td><td>KSh ${(r.amountPaid || 0).toLocaleString()}</td><td>${r.deletedAt ? new Date(r.deletedAt).toLocaleDateString() : 'Unknown'}</td>
+                <td class="text-center"><button onclick="openRestoreModal('${r.id}', '${r.studentName}')" class="p-1.5 text-green-600 hover:bg-green-50 rounded-lg"><span class="material-symbols-outlined text-sm">restore_from_trash</span></button>
+                <button onclick="permanentDelete('${r.id}', '${r.studentName}')" class="p-1.5 text-red-700 hover:bg-red-50 rounded-lg"><span class="material-symbols-outlined text-sm">delete_forever</span></button></td></tr>`).join('');
+        }
+
+        function filterRecords() {
+            const search = document.getElementById('searchInput')?.value.toLowerCase() || '';
+            const status = document.getElementById('statusFilter')?.value || 'all';
+            filteredRecords = allFeeRecords.filter(r => {
+                const matchStatus = status === 'all' || r.status === status;
+                const matchSearch = !search || r.studentName?.toLowerCase().includes(search) || r.admNo?.toLowerCase().includes(search);
+                return matchStatus && matchSearch;
+            });
+            currentPage = 1;
+            renderRecordsTable();
+        }
+
+        function filterByStatus(status) { document.getElementById('statusFilter').value = status; filterRecords(); }
+        function resetFilters() { document.getElementById('searchInput').value = ''; document.getElementById('statusFilter').value = 'all'; filterRecords(); }
+
+        function renderRecordsTable() {
+            const start = (currentPage - 1) * itemsPerPage;
+            const pageItems = filteredRecords.slice(start, start + itemsPerPage);
+            const tbody = document.getElementById('feeRecordsTableBody');
+            
+            if (pageItems.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="9" class="text-center py-12 text-gray-400">No fee records found.<br><button onclick="syncStudentsToFeeRecords()" class="mt-3 px-4 py-2 bg-[#003f87] text-white rounded-lg text-sm">Sync Students</button></td></tr>`;
+                return;
+            }
+            
+            tbody.innerHTML = pageItems.map(r => {
+                const balance = (r.requiredFee || 0) - (r.amountPaid || 0);
+                const statusClass = balance <= 0 ? 'paid' : r.amountPaid > 0 ? 'partial' : 'unpaid';
+                const statusText = balance <= 0 ? 'Paid' : r.amountPaid > 0 ? 'Partial' : 'Unpaid';
+                return `<tr>
+                    <td><input type="checkbox" class="record-checkbox" value="${r.id}" onchange="updateSelectedCount()"></td>
+                    <td class="font-medium">${r.studentName}</td><td>${r.admNo}</td><td>${r.grade}</td>
+                    <td class="font-bold">KSh ${(r.requiredFee || 0).toLocaleString()}</td>
+                    <td class="text-green-600 font-bold">KSh ${(r.amountPaid || 0).toLocaleString()}</td>
+                    <td class="text-red-600 font-bold">KSh ${balance.toLocaleString()}</td>
+                    <td><span class="status-badge status-${statusClass}">${statusText}</span></td>
+                    <td class="text-center"><div class="action-buttons">
+                        <button onclick="openPaymentForStudent('${r.id}', '${r.studentName}', ${r.requiredFee}, ${r.amountPaid})" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg"><span class="material-symbols-outlined text-sm">payments</span></button>
+                        <button onclick="openDeleteModal('${r.id}', '${r.studentName}')" class="p-1.5 text-red-600 hover:bg-red-50 rounded-lg"><span class="material-symbols-outlined text-sm">delete</span></button>
+                    </div></td>
+                </tr>`;
+            }).join('');
+            
+            const totalPages = Math.ceil(filteredRecords.length / itemsPerPage);
+            document.getElementById('paginationInfo').innerText = `Showing ${Math.min(filteredRecords.length, start+1)}-${Math.min(start+itemsPerPage, filteredRecords.length)} of ${filteredRecords.length}`;
+            let pages = '';
+            for (let i = 1; i <= Math.min(totalPages, 5); i++) pages += `<button onclick="changePage(${i})" class="px-3 py-1 rounded-lg ${currentPage === i ? 'bg-[#003f87] text-white' : 'hover:bg-gray-50'}">${i}</button>`;
+            document.getElementById('paginationControls').innerHTML = pages;
+        }
+
+        function changePage(page) { currentPage = page; renderRecordsTable(); }
+
+        function toggleSelectAll() {
+            const checkboxes = document.querySelectorAll('.record-checkbox');
+            const isChecked = document.getElementById('selectAllCheckbox').checked;
+            checkboxes.forEach(cb => cb.checked = isChecked);
+            updateSelectedCount();
+        }
+
+        function updateSelectedCount() {
+            selectedRecords.clear();
+            document.querySelectorAll('.record-checkbox:checked').forEach(cb => selectedRecords.add(cb.value));
+            const count = selectedRecords.size;
+            const btn = document.getElementById('bulkDeleteBtn');
+            if (count > 0) { btn.classList.remove('hidden'); document.getElementById('selectedCount').innerText = count; }
+            else { btn.classList.add('hidden'); }
+        }
+
+        async function bulkDeleteSelected() {
+            if (selectedRecords.size === 0) return;
+            if (confirm(`Delete ${selectedRecords.size} selected records?`)) {
+                for (const id of selectedRecords) {
+                    await db.collection('schools').doc(currentSchoolCode).collection('feeRecords').doc(id).update({ deleted: true, deletedAt: new Date().toISOString() });
+                }
+                showToast(`${selectedRecords.size} records moved to trash`);
+                selectedRecords.clear();
+                document.getElementById('bulkDeleteBtn').classList.add('hidden');
+                document.getElementById('selectAllCheckbox').checked = false;
+                await loadFeeRecords();
+                if (currentTab === 'active') filterRecords();
+            }
+        }
+
+        function openPaymentModal() { 
+            const select = document.getElementById('paymentStudentId');
+            select.innerHTML = '<option value="">Select Student</option>' + allFeeRecords.map(r => `<option value="${r.id}" data-name="${r.studentName}" data-adm="${r.admNo}" data-balance="${(r.requiredFee||0)-(r.amountPaid||0)}">${r.studentName} (${r.admNo}) - Balance: KSh ${((r.requiredFee||0)-(r.amountPaid||0)).toLocaleString()}</option>`).join('');
+            document.getElementById('paymentModal').classList.remove('hidden'); 
+        }
+        function closePaymentModal() { document.getElementById('paymentModal').classList.add('hidden'); }
+        
+        function openPaymentForStudent(id, name, required, paid) {
+            document.getElementById('paymentStudentId').innerHTML = `<option value="${id}" selected>${name} - Balance: KSh ${(required-paid).toLocaleString()}</option>`;
+            document.getElementById('paymentModal').classList.remove('hidden');
+        }
+        
+        async function submitPayment() {
+            const recordId = document.getElementById('paymentStudentId').value;
+            const amount = parseInt(document.getElementById('paymentAmount').value);
+            const method = document.getElementById('paymentMethod').value;
+            const ref = document.getElementById('paymentRef').value;
+            const date = document.getElementById('paymentDate').value || new Date().toISOString().split('T')[0];
+            
+            if (!recordId || !amount) { showToast('Please select student and enter amount', true); return; }
+            
+            const record = allFeeRecords.find(r => r.id === recordId);
+            if (record) {
+                const newPaid = (record.amountPaid || 0) + amount;
+                const balance = (record.requiredFee || 0) - newPaid;
+                const status = balance <= 0 ? 'paid' : 'partial';
+                const payments = record.payments || [];
+                payments.push({ amount, method, ref, date, recordedAt: new Date().toISOString() });
+                await db.collection('schools').doc(currentSchoolCode).collection('feeRecords').doc(recordId).update({
+                    amountPaid: newPaid, balance: balance, status: status, payments: payments, lastPaymentDate: date
+                });
+                showToast(`Payment of KSh ${amount.toLocaleString()} recorded for ${record.studentName}`);
+                closePaymentModal();
+                document.getElementById('paymentForm').reset();
+                await loadFeeRecords();
+            }
+        }
+
+        function openFeeStructureModal() { document.getElementById('feeStructureModal').classList.remove('hidden'); }
+        function closeFeeStructureModal() { document.getElementById('feeStructureModal').classList.add('hidden'); }
+        
+        async function saveFeeStructure() {
+            const grade = document.getElementById('feeGrade').value;
+            const amount = parseInt(document.getElementById('feeAmount').value);
+            if (!grade || !amount) { showToast('Please fill all fields', true); return; }
+            
+            await db.collection('schools').doc(currentSchoolCode).collection('feeStructure').doc(grade).set({ grade, amount });
+            showToast(`Fee for ${grade} set to KSh ${amount.toLocaleString()}`);
+            
+            const recordsToUpdate = allFeeRecords.filter(r => r.grade === grade);
+            for (const record of recordsToUpdate) {
+                const balance = amount - (record.amountPaid || 0);
+                const status = balance <= 0 ? 'paid' : record.amountPaid > 0 ? 'partial' : 'unpaid';
+                await db.collection('schools').doc(currentSchoolCode).collection('feeRecords').doc(record.id).update({
+                    requiredFee: amount, balance: balance, status: status
+                });
+            }
+            closeFeeStructureModal();
+            await loadFeeStructure();
+            await loadFeeRecords();
+        }
+        
+        function editFeeStructure(grade, amount) {
+            document.getElementById('feeGrade').value = grade;
+            document.getElementById('feeAmount').value = amount;
+            document.getElementById('feeStructureModal').classList.remove('hidden');
+        }
+
+        function openDeleteModal(id, name) { deleteTargetId = id; document.getElementById('deleteMessage').innerHTML = `Move record for <strong>${name}</strong> to trash?`; document.getElementById('deleteModal').classList.remove('hidden'); }
+        async function confirmDelete() { if (deleteTargetId) { await db.collection('schools').doc(currentSchoolCode).collection('feeRecords').doc(deleteTargetId).update({ deleted: true, deletedAt: new Date().toISOString() }); showToast('Moved to trash'); closeDeleteModal(); await loadFeeRecords(); if (currentTab === 'active') filterRecords(); else if (currentTab === 'trash') loadDeletedRecords(); } }
+        function closeDeleteModal() { document.getElementById('deleteModal').classList.add('hidden'); }
+        
+        function openRestoreModal(id, name) { restoreTargetId = id; document.getElementById('restoreMessage').innerHTML = `Restore record for <strong>${name}</strong>?`; document.getElementById('restoreModal').classList.remove('hidden'); }
+        async function confirmRestore() { if (restoreTargetId) { await db.collection('schools').doc(currentSchoolCode).collection('feeRecords').doc(restoreTargetId).update({ deleted: false, deletedAt: null }); showToast('Restored'); closeRestoreModal(); await loadFeeRecords(); if (currentTab === 'trash') loadDeletedRecords(); } }
+        function closeRestoreModal() { document.getElementById('restoreModal').classList.add('hidden'); }
+        
+        async function permanentDelete(id, name) { if (confirm(`Permanently delete ${name}? This cannot be undone.`)) { await db.collection('schools').doc(currentSchoolCode).collection('feeRecords').doc(id).delete(); showToast('Permanently deleted'); await loadFeeRecords(); loadDeletedRecords(); } }
+        
+        async function emptyTrash() { if (confirm('⚠️ Permanently delete ALL records in trash?')) { for (const r of deletedRecords) { await db.collection('schools').doc(currentSchoolCode).collection('feeRecords').doc(r.id).delete(); } showToast('Trash emptied'); await loadFeeRecords(); loadDeletedRecords(); } }
+        
+        function exportToExcel() { const ws = XLSX.utils.json_to_sheet(filteredRecords.map(r => ({ Student: r.studentName, Admission: r.admNo, Grade: r.grade, RequiredFee: r.requiredFee, AmountPaid: r.amountPaid, Balance: (r.requiredFee||0)-(r.amountPaid||0), Status: r.status }))); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'FeeRecords'); XLSX.writeFile(wb, `fee_records_${new Date().toISOString().split('T')[0]}.xlsx`); showToast('Export complete!'); }
+
+        document.getElementById('confirmDeleteBtn').onclick = confirmDelete;
+        document.getElementById('confirmRestoreBtn').onclick = confirmRestore;
+
+        auth.onAuthStateChanged(async (user) => {
+            if (!user) { window.location.href = 'index.html'; return; }
+            currentSchoolCode = sessionStorage.getItem('currentSchoolCode');
+            if (!currentSchoolCode) { const schoolsSnap = await db.collection('schools').where('adminId', '==', user.uid).get(); if (!schoolsSnap.empty) { currentSchoolCode = schoolsSnap.docs[0].id; sessionStorage.setItem('currentSchoolCode', currentSchoolCode); sessionStorage.setItem('currentSchoolName', schoolsSnap.docs[0].data().schoolName); } }
+            document.getElementById('schoolBadge').innerText = sessionStorage.getItem('currentSchoolName') || currentSchoolCode;
+            await loadAllStudents();
+            await loadFeeStructure();
+            await loadFeeRecords();
+        });
+    </script>
+</body>
+</html>
