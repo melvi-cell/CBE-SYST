@@ -1,0 +1,1287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transport Management | LearnPro Kenya ERP</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: #f0f2f5; }
+        .stat-card { background: white; border-radius: 20px; transition: all 0.3s ease; border: 1px solid #eef2ff; cursor: pointer; }
+        .stat-card:hover { transform: translateY(-3px); box-shadow: 0 15px 30px -12px rgba(0,0,0,0.1); }
+        .toast { position: fixed; bottom: 24px; right: 24px; background: #003f87; color: white; padding: 12px 24px; border-radius: 48px; z-index: 1000; font-weight: 500; }
+        .toast-error { background: #dc2626; }
+        .toast-success { background: #059669; }
+        .nav-tab { cursor: pointer; padding: 8px 20px; border-radius: 30px; font-size: 13px; font-weight: 500; transition: all 0.2s; }
+        .nav-tab-active { background: #003f87; color: white; }
+        .nav-tab-inactive { background: white; color: #4a5568; border: 1px solid #e2e8f0; }
+        .status-badge { display: inline-flex; align-items: center; padding: 4px 12px; border-radius: 30px; font-size: 11px; font-weight: 600; }
+        .status-active { background: #dcfce7; color: #166534; }
+        .status-inactive { background: #fee2e2; color: #991b1b; }
+        .status-maintenance { background: #fef3c7; color: #92400e; }
+        .modal { z-index: 1000; }
+        .chart-container { height: 200px; position: relative; }
+        .vehicle-card { background: white; border-radius: 16px; border: 1px solid #eef2ff; transition: all 0.3s ease; }
+        .vehicle-card:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.08); }
+        @media print { .no-print { display: none; } }
+    </style>
+</head>
+<body>
+
+    <div class="bg-white shadow-sm fixed top-0 left-0 right-0 z-40 border-b border-gray-100 no-print">
+        <div class="flex justify-between items-center px-6 py-2">
+            <div class="flex items-center gap-3">
+                <span class="text-sm font-bold text-[#003f87]" id="schoolNameDisplay">ELMOH HIGH SCHOOL</span>
+                <span class="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Transport </span>
+            </div>
+        </div>
+    </div>
+
+    <div class="pt-14 px-6 pb-6 max-w-7xl mx-auto">
+        
+        <div class="mb-6 flex justify-between items-center flex-wrap gap-3">
+            <div>
+                <h2 class="text-2xl font-bold text-gray-800">🚐 Transport Management</h2>
+                <p class="text-gray-500 text-sm">Manage school vehicles, routes, drivers, and student transport</p>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="openVehicleModal()" class="px-4 py-2 bg-[#003f87] text-white rounded-lg text-sm flex items-center gap-1">
+                    <span class="material-symbols-outlined text-sm">add</span> Add Vehicle
+                </button>
+                <button onclick="exportTransportData()" class="px-4 py-2 border border-gray-300 rounded-lg text-sm flex items-center gap-1">
+                    <span class="material-symbols-outlined text-sm">download</span> Export
+                </button>
+            </div>
+        </div>
+
+        <div class="flex gap-1 mb-4 border-b pb-2 flex-wrap">
+            <button onclick="showTab('overview')" id="tabOverview" class="nav-tab nav-tab-active">📊 Overview</button>
+            <button onclick="showTab('vehicles')" id="tabVehicles" class="nav-tab nav-tab-inactive">🚌 Vehicles</button>
+            <button onclick="showTab('routes')" id="tabRoutes" class="nav-tab nav-tab-inactive">🛣️ Routes</button>
+            <button onclick="showTab('drivers')" id="tabDrivers" class="nav-tab nav-tab-inactive">👨‍✈️ Drivers</button>
+            <button onclick="showTab('assignments')" id="tabAssignments" class="nav-tab nav-tab-inactive">📋 Assignments</button>
+            <button onclick="showTab('maintenance')" id="tabMaintenance" class="nav-tab nav-tab-inactive">🔧 Maintenance</button>
+            <button onclick="showTab('fuel')" id="tabFuel" class="nav-tab nav-tab-inactive">⛽ Fuel</button>
+        </div>
+
+        <!-- ========== OVERVIEW TAB ========== -->
+        <div id="overviewTab">
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+                <div class="stat-card p-4 text-center">
+                    <div class="text-3xl font-bold text-blue-600" id="totalVehicles">0</div>
+                    <p class="text-xs text-gray-500">Total Vehicles</p>
+                </div>
+                <div class="stat-card p-4 text-center">
+                    <div class="text-3xl font-bold text-green-600" id="activeVehicles">0</div>
+                    <p class="text-xs text-gray-500">Active</p>
+                </div>
+                <div class="stat-card p-4 text-center">
+                    <div class="text-3xl font-bold text-orange-600" id="totalRoutes">0</div>
+                    <p class="text-xs text-gray-500">Routes</p>
+                </div>
+                <div class="stat-card p-4 text-center">
+                    <div class="text-3xl font-bold text-purple-600" id="totalStudents">0</div>
+                    <p class="text-xs text-gray-500">Students</p>
+                </div>
+                <div class="stat-card p-4 text-center">
+                    <div class="text-3xl font-bold text-red-600" id="maintenanceDue">0</div>
+                    <p class="text-xs text-gray-500">Maintenance Due</p>
+                </div>
+            </div>
+
+            <div class="grid lg:grid-cols-2 gap-6 mb-6">
+                <div class="bg-white rounded-xl p-5 shadow-sm">
+                    <h3 class="font-bold text-gray-800 mb-3">🚌 Vehicle Status</h3>
+                    <div class="chart-container"><canvas id="vehicleStatusChart"></canvas></div>
+                </div>
+                <div class="bg-white rounded-xl p-5 shadow-sm">
+                    <h3 class="font-bold text-gray-800 mb-3">📊 Routes & Capacity</h3>
+                    <div class="chart-container"><canvas id="routeCapacityChart"></canvas></div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl p-5 shadow-sm">
+                <h3 class="font-bold text-gray-800 mb-3">🔄 Recent Transport Activity</h3>
+                <div id="recentActivity" class="space-y-2">
+                    <div class="text-center py-6 text-gray-400">Loading activity...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== VEHICLES TAB ========== -->
+        <div id="vehiclesTab" class="hidden">
+            <div class="bg-white rounded-xl p-4 mb-4 flex flex-wrap gap-3 items-center">
+                <button onclick="openVehicleModal()" class="px-4 py-2 bg-[#003f87] text-white rounded-lg text-sm">+ Add Vehicle</button>
+                <select id="vehicleStatusFilter" class="px-3 py-2 border rounded-lg text-sm" onchange="loadVehicles()">
+                    <option value="all">All Status</option>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                    <option value="maintenance">Maintenance</option>
+                </select>
+                <input type="text" id="vehicleSearch" placeholder="Search vehicles..." class="px-3 py-2 border rounded-lg text-sm flex-1 min-w-[200px]" onkeyup="loadVehicles()">
+            </div>
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4" id="vehiclesGrid">
+                <div class="text-center py-10 text-gray-400 col-span-full">Loading vehicles...</div>
+            </div>
+        </div>
+
+        <!-- ========== ROUTES TAB ========== -->
+        <div id="routesTab" class="hidden">
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="bg-white rounded-xl p-5 shadow-sm">
+                    <h3 class="font-bold text-gray-800 mb-3">🛣️ Manage Routes</h3>
+                    <form id="routeForm" class="space-y-3">
+                        <input type="hidden" id="editRouteId">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Route Name *</label>
+                            <input type="text" id="routeName" placeholder="e.g., Route A - North" class="w-full px-3 py-2 border rounded-lg" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Vehicle</label>
+                            <select id="routeVehicle" class="w-full px-3 py-2 border rounded-lg">
+                                <option value="">Select Vehicle</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Capacity</label>
+                            <input type="number" id="routeCapacity" placeholder="Max students" class="w-full px-3 py-2 border rounded-lg" min="1">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Stops</label>
+                            <textarea id="routeStops" rows="3" class="w-full px-3 py-2 border rounded-lg" placeholder="List of stops (one per line)"></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                            <select id="routeStatus" class="w-full px-3 py-2 border rounded-lg">
+                                <option value="active">Active</option>
+                                <option value="inactive">Inactive</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="w-full py-2.5 bg-[#003f87] text-white rounded-lg font-medium">Save Route</button>
+                    </form>
+                </div>
+                <div class="bg-white rounded-xl p-5 shadow-sm">
+                    <h3 class="font-bold text-gray-800 mb-3">📋 Routes List</h3>
+                    <div id="routesList" class="space-y-2 max-h-96 overflow-y-auto">
+                        <div class="text-center py-6 text-gray-400">Loading routes...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== DRIVERS TAB ========== -->
+        <div id="driversTab" class="hidden">
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="bg-white rounded-xl p-5 shadow-sm">
+                    <h3 class="font-bold text-gray-800 mb-3">👨‍✈️ Manage Drivers</h3>
+                    <form id="driverForm" class="space-y-3">
+                        <input type="hidden" id="editDriverId">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Driver Name *</label>
+                            <input type="text" id="driverName" placeholder="Full name" class="w-full px-3 py-2 border rounded-lg" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">License Number *</label>
+                            <input type="text" id="driverLicense" placeholder="Driver's license" class="w-full px-3 py-2 border rounded-lg" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                            <input type="tel" id="driverPhone" placeholder="Phone number" class="w-full px-3 py-2 border rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Assigned Vehicle</label>
+                            <select id="driverVehicle" class="w-full px-3 py-2 border rounded-lg">
+                                <option value="">Select Vehicle</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                            <select id="driverStatus" class="w-full px-3 py-2 border rounded-lg">
+                                <option value="active">Active</option>
+                                <option value="on-leave">On Leave</option>
+                                <option value="inactive">Inactive</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="w-full py-2.5 bg-[#003f87] text-white rounded-lg font-medium">Save Driver</button>
+                    </form>
+                </div>
+                <div class="bg-white rounded-xl p-5 shadow-sm">
+                    <h3 class="font-bold text-gray-800 mb-3">📋 Drivers List</h3>
+                    <div id="driversList" class="space-y-2 max-h-96 overflow-y-auto">
+                        <div class="text-center py-6 text-gray-400">Loading drivers...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== ASSIGNMENTS TAB ========== -->
+        <div id="assignmentsTab" class="hidden">
+            <div class="bg-white rounded-xl p-5 shadow-sm">
+                <h3 class="font-bold text-gray-800 mb-3">📋 Student Transport Assignments</h3>
+                <div class="grid md:grid-cols-3 gap-4 mb-4">
+                    <select id="assignmentRoute" class="px-3 py-2 border rounded-lg text-sm" onchange="loadAssignments()">
+                        <option value="all">All Routes</option>
+                    </select>
+                    <select id="assignmentStatus" class="px-3 py-2 border rounded-lg text-sm" onchange="loadAssignments()">
+                        <option value="all">All Status</option>
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                    </select>
+                    <button onclick="openAssignmentModal()" class="px-4 py-2 bg-[#003f87] text-white rounded-lg text-sm">+ Assign Student</button>
+                </div>
+                <div id="assignmentsList" class="space-y-2 max-h-96 overflow-y-auto">
+                    <div class="text-center py-6 text-gray-400">Loading assignments...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== MAINTENANCE TAB ========== -->
+        <div id="maintenanceTab" class="hidden">
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="bg-white rounded-xl p-5 shadow-sm">
+                    <h3 class="font-bold text-gray-800 mb-3">🔧 Record Maintenance</h3>
+                    <form id="maintenanceForm" class="space-y-3">
+                        <input type="hidden" id="editMaintenanceId">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Vehicle *</label>
+                            <select id="maintenanceVehicle" class="w-full px-3 py-2 border rounded-lg" required>
+                                <option value="">Select Vehicle</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Maintenance Type *</label>
+                            <select id="maintenanceType" class="w-full px-3 py-2 border rounded-lg" required>
+                                <option value="">Select Type</option>
+                                <option>Regular Service</option>
+                                <option>Repair</option>
+                                <option>Inspection</option>
+                                <option>Emergency</option>
+                                <option>General</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Date *</label>
+                            <input type="date" id="maintenanceDate" class="w-full px-3 py-2 border rounded-lg" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Cost (KES)</label>
+                            <input type="number" id="maintenanceCost" placeholder="0" class="w-full px-3 py-2 border rounded-lg" min="0">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Details</label>
+                            <textarea id="maintenanceDetails" rows="2" class="w-full px-3 py-2 border rounded-lg" placeholder="Maintenance details..."></textarea>
+                        </div>
+                        <button type="submit" class="w-full py-2.5 bg-[#003f87] text-white rounded-lg font-medium">Record Maintenance</button>
+                    </form>
+                </div>
+                <div class="bg-white rounded-xl p-5 shadow-sm">
+                    <h3 class="font-bold text-gray-800 mb-3">📋 Maintenance History</h3>
+                    <div id="maintenanceList" class="space-y-2 max-h-96 overflow-y-auto">
+                        <div class="text-center py-6 text-gray-400">Loading maintenance records...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== FUEL TAB ========== -->
+        <div id="fuelTab" class="hidden">
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="bg-white rounded-xl p-5 shadow-sm">
+                    <h3 class="font-bold text-gray-800 mb-3">⛽ Record Fuel</h3>
+                    <form id="fuelForm" class="space-y-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Vehicle *</label>
+                            <select id="fuelVehicle" class="w-full px-3 py-2 border rounded-lg" required>
+                                <option value="">Select Vehicle</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Date *</label>
+                            <input type="date" id="fuelDate" class="w-full px-3 py-2 border rounded-lg" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Liters *</label>
+                            <input type="number" id="fuelLiters" placeholder="Liters" class="w-full px-3 py-2 border rounded-lg" min="1" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Cost per Liter (KES)</label>
+                            <input type="number" id="fuelPrice" placeholder="Price per liter" class="w-full px-3 py-2 border rounded-lg" min="0">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Odometer Reading</label>
+                            <input type="number" id="fuelOdometer" placeholder="Current km" class="w-full px-3 py-2 border rounded-lg" min="0">
+                        </div>
+                        <button type="submit" class="w-full py-2.5 bg-[#003f87] text-white rounded-lg font-medium">Record Fuel</button>
+                    </form>
+                </div>
+                <div class="bg-white rounded-xl p-5 shadow-sm">
+                    <h3 class="font-bold text-gray-800 mb-3">📋 Fuel Records</h3>
+                    <div id="fuelList" class="space-y-2 max-h-96 overflow-y-auto">
+                        <div class="text-center py-6 text-gray-400">Loading fuel records...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== MODALS ========== -->
+
+    <!-- Vehicle Modal -->
+    <div id="vehicleModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden modal">
+        <div class="bg-white rounded-2xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-[#003f87]" id="vehicleModalTitle">Add Vehicle</h3>
+                <button onclick="closeVehicleModal()" class="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <form id="vehicleForm" class="space-y-4">
+                <input type="hidden" id="editVehicleId">
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Registration Number *</label>
+                        <input type="text" id="vehicleReg" placeholder="e.g., KCA 123A" class="w-full px-3 py-2 border rounded-lg" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Make/Model</label>
+                        <input type="text" id="vehicleMake" placeholder="e.g., Toyota Hiace" class="w-full px-3 py-2 border rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Capacity *</label>
+                        <input type="number" id="vehicleCapacity" placeholder="Number of seats" class="w-full px-3 py-2 border rounded-lg" min="1" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Color</label>
+                        <input type="text" id="vehicleColor" placeholder="Color" class="w-full px-3 py-2 border rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Insurance Expiry</label>
+                        <input type="date" id="vehicleInsurance" class="w-full px-3 py-2 border rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Next Service Date</label>
+                        <input type="date" id="vehicleService" class="w-full px-3 py-2 border rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                        <select id="vehicleStatus" class="w-full px-3 py-2 border rounded-lg">
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                            <option value="maintenance">Maintenance</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Assigned Driver</label>
+                        <select id="vehicleDriver" class="w-full px-3 py-2 border rounded-lg">
+                            <option value="">Select Driver</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                    <textarea id="vehicleNotes" rows="2" class="w-full px-3 py-2 border rounded-lg" placeholder="Additional notes..."></textarea>
+                </div>
+                <div class="flex gap-3 pt-2">
+                    <button type="submit" class="flex-1 py-2.5 bg-[#003f87] text-white rounded-lg font-medium">Save Vehicle</button>
+                    <button type="button" onclick="closeVehicleModal()" class="flex-1 py-2.5 border border-gray-200 rounded-lg font-medium">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Assignment Modal -->
+    <div id="assignmentModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden modal">
+        <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-[#003f87]">Assign Student</h3>
+                <button onclick="closeAssignmentModal()" class="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <form id="assignmentForm" class="space-y-3">
+                <input type="hidden" id="editAssignmentId">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Student *</label>
+                    <select id="assignmentStudent" class="w-full px-3 py-2 border rounded-lg" required>
+                        <option value="">Select Student</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Route *</label>
+                    <select id="assignmentRouteSelect" class="w-full px-3 py-2 border rounded-lg" required>
+                        <option value="">Select Route</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Pickup Stop</label>
+                    <input type="text" id="assignmentStop" placeholder="Pickup location" class="w-full px-3 py-2 border rounded-lg">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                    <select id="assignmentStatusSelect" class="w-full px-3 py-2 border rounded-lg">
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                    </select>
+                </div>
+                <button type="submit" class="w-full py-2.5 bg-[#003f87] text-white rounded-lg font-medium">Assign Student</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden modal">
+        <div class="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 text-center">
+            <div class="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span class="material-symbols-outlined text-red-600 text-3xl">delete</span>
+            </div>
+            <h3 class="text-xl font-bold text-gray-800 mb-2">Confirm Delete</h3>
+            <p class="text-gray-500 mb-5" id="deleteMessage">This action cannot be undone.</p>
+            <div class="flex gap-3">
+                <button id="confirmDeleteBtn" class="flex-1 py-2.5 bg-red-600 text-white rounded-lg font-medium">Delete</button>
+                <button onclick="closeDeleteModal()" class="flex-1 py-2.5 border border-gray-200 rounded-lg font-medium">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" style="display:none" class="toast"></div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyA4cm7chJXz90yOLWPtbdIW8KlEozG1lxo",
+            authDomain: "learnpro-kenya-erp.firebaseapp.com",
+            projectId: "learnpro-kenya-erp",
+            storageBucket: "learnpro-kenya-erp.firebasestorage.app",
+            messagingSenderId: "327168081514",
+            appId: "1:327168081514:web:13cdc8b827fa76d95a9413"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        let currentSchool = null;
+        let allVehicles = [], allRoutes = [], allDrivers = [], allAssignments = [], allMaintenance = [], allFuel = [], allStudents = [];
+        let deleteTargetId = null, deleteTargetType = null;
+        let vehicleStatusChart = null, routeCapacityChart = null;
+
+        function showToast(msg, isError = false) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.className = `toast ${isError ? 'toast-error' : 'toast-success'}`;
+            toast.style.display = 'block';
+            setTimeout(() => toast.style.display = 'none', 3000);
+        }
+
+        async function logout() {
+            await auth.signOut();
+            sessionStorage.clear();
+            window.location.href = 'index.html';
+        }
+
+        function showTab(tab) {
+            document.querySelectorAll('[id$="Tab"]').forEach(el => el.classList.add('hidden'));
+            document.getElementById(tab + 'Tab').classList.remove('hidden');
+            
+            document.querySelectorAll('.nav-tab').forEach(btn => {
+                btn.classList.remove('nav-tab-active');
+                btn.classList.add('nav-tab-inactive');
+            });
+            document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('nav-tab-active');
+            document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.remove('nav-tab-inactive');
+            
+            if (tab === 'overview') loadOverview();
+            else if (tab === 'vehicles') { loadDriversForVehicle(); loadVehicles(); }
+            else if (tab === 'routes') { loadVehiclesForRoute(); loadRoutes(); }
+            else if (tab === 'drivers') { loadVehiclesForDriver(); loadDrivers(); }
+            else if (tab === 'assignments') { loadStudentsForAssignment(); loadRoutesForAssignment(); loadAssignments(); }
+            else if (tab === 'maintenance') { loadVehiclesForMaintenance(); loadMaintenance(); }
+            else if (tab === 'fuel') { loadVehiclesForFuel(); loadFuel(); }
+        }
+
+        // ========== DATA LOADING ==========
+
+        async function loadAllData() {
+            if (!currentSchool) return;
+            
+            try {
+                const studentsSnap = await db.collection('schools').doc(currentSchool).collection('students').where('deleted', '==', false).get();
+                allStudents = [];
+                studentsSnap.forEach(doc => allStudents.push({ id: doc.id, ...doc.data() }));
+
+                const vehiclesSnap = await db.collection('schools').doc(currentSchool).collection('transportVehicles').where('deleted', '==', false).get();
+                allVehicles = [];
+                vehiclesSnap.forEach(doc => allVehicles.push({ id: doc.id, ...doc.data() }));
+
+                const routesSnap = await db.collection('schools').doc(currentSchool).collection('transportRoutes').where('deleted', '==', false).get();
+                allRoutes = [];
+                routesSnap.forEach(doc => allRoutes.push({ id: doc.id, ...doc.data() }));
+
+                const driversSnap = await db.collection('schools').doc(currentSchool).collection('transportDrivers').where('deleted', '==', false).get();
+                allDrivers = [];
+                driversSnap.forEach(doc => allDrivers.push({ id: doc.id, ...doc.data() }));
+
+                const assignmentsSnap = await db.collection('schools').doc(currentSchool).collection('transportAssignments').where('deleted', '==', false).get();
+                allAssignments = [];
+                assignmentsSnap.forEach(doc => allAssignments.push({ id: doc.id, ...doc.data() }));
+
+                const maintenanceSnap = await db.collection('schools').doc(currentSchool).collection('transportMaintenance').where('deleted', '==', false).get();
+                allMaintenance = [];
+                maintenanceSnap.forEach(doc => allMaintenance.push({ id: doc.id, ...doc.data() }));
+
+                const fuelSnap = await db.collection('schools').doc(currentSchool).collection('transportFuel').where('deleted', '==', false).get();
+                allFuel = [];
+                fuelSnap.forEach(doc => allFuel.push({ id: doc.id, ...doc.data() }));
+
+                document.getElementById('totalVehicles').innerText = allVehicles.length;
+                document.getElementById('activeVehicles').innerText = allVehicles.filter(v => v.status === 'active').length;
+                document.getElementById('totalRoutes').innerText = allRoutes.length;
+                
+                const uniqueStudents = new Set(allAssignments.map(a => a.studentId));
+                document.getElementById('totalStudents').innerText = uniqueStudents.size;
+                
+                const dueForService = allVehicles.filter(v => {
+                    if (!v.nextService) return false;
+                    return new Date(v.nextService) < new Date(Date.now() + 7*24*60*60*1000);
+                });
+                document.getElementById('maintenanceDue').innerText = dueForService.length;
+
+                loadOverview();
+            } catch (error) {
+                console.error("Error loading data:", error);
+                showToast("Error loading transport data", true);
+            }
+        }
+
+        // ========== OVERVIEW ==========
+
+        function loadOverview() {
+            const recent = [...allMaintenance, ...allFuel]
+                .sort((a,b) => new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt))
+                .slice(0, 10);
+            
+            const container = document.getElementById('recentActivity');
+            if (recent.length === 0) {
+                container.innerHTML = '<div class="text-center py-6 text-gray-400">No recent activity</div>';
+            } else {
+                container.innerHTML = recent.map(item => {
+                    const vehicle = allVehicles.find(v => v.id === item.vehicleId);
+                    const isFuel = item.liters;
+                    return `
+                        <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                            <div>
+                                <p class="font-medium text-sm">${isFuel ? '⛽ Fuel' : '🔧 Maintenance'}</p>
+                                <p class="text-xs text-gray-600">${vehicle?.reg || 'Unknown'} ${isFuel ? `- ${item.liters}L` : `- ${item.type}`}</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-xs text-gray-500">${new Date(item.date || item.createdAt).toLocaleDateString()}</p>
+                                ${isFuel ? `<span class="text-xs font-bold text-blue-600">KSh ${(item.liters * item.price).toLocaleString()}</span>` : `<span class="text-xs font-bold text-orange-600">KSh ${item.cost?.toLocaleString() || '0'}</span>`}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            updateCharts();
+        }
+
+        function updateCharts() {
+            // Vehicle status chart
+            const statusCounts = {
+                'Active': allVehicles.filter(v => v.status === 'active').length,
+                'Inactive': allVehicles.filter(v => v.status === 'inactive').length,
+                'Maintenance': allVehicles.filter(v => v.status === 'maintenance').length
+            };
+
+            const ctx1 = document.getElementById('vehicleStatusChart')?.getContext('2d');
+            if (ctx1) {
+                if (vehicleStatusChart) vehicleStatusChart.destroy();
+                vehicleStatusChart = new Chart(ctx1, {
+                    type: 'doughnut',
+                    data: {
+                        labels: Object.keys(statusCounts),
+                        datasets: [{
+                            data: Object.values(statusCounts),
+                            backgroundColor: ['#059669', '#dc2626', '#d97706'],
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } }
+                    }
+                });
+            }
+
+            // Route capacity chart
+            const routeData = allRoutes.map(r => {
+                const assigned = allAssignments.filter(a => a.routeId === r.id && a.status === 'active').length;
+                return { name: r.name, capacity: r.capacity || 0, assigned: assigned };
+            });
+
+            const ctx2 = document.getElementById('routeCapacityChart')?.getContext('2d');
+            if (ctx2) {
+                if (routeCapacityChart) routeCapacityChart.destroy();
+                routeCapacityChart = new Chart(ctx2, {
+                    type: 'bar',
+                    data: {
+                        labels: routeData.map(r => r.name),
+                        datasets: [
+                            { label: 'Assigned', data: routeData.map(r => r.assigned), backgroundColor: '#003f87', borderRadius: 4 },
+                            { label: 'Capacity', data: routeData.map(r => r.capacity), backgroundColor: '#93c5fd', borderRadius: 4 }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } },
+                        scales: { y: { beginAtZero: true, stepSize: 1 } }
+                    }
+                });
+            }
+        }
+
+        // ========== VEHICLES CRUD ==========
+
+        function loadDriversForVehicle() {
+            const select = document.getElementById('vehicleDriver');
+            select.innerHTML = '<option value="">Select Driver</option>' + 
+                allDrivers.filter(d => d.status === 'active').map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+        }
+
+        async function loadVehicles() {
+            const status = document.getElementById('vehicleStatusFilter')?.value || 'all';
+            const search = document.getElementById('vehicleSearch')?.value.toLowerCase() || '';
+
+            let filtered = allVehicles;
+            if (status !== 'all') filtered = filtered.filter(v => v.status === status);
+            if (search) filtered = filtered.filter(v => 
+                v.reg?.toLowerCase().includes(search) || 
+                v.make?.toLowerCase().includes(search)
+            );
+
+            const grid = document.getElementById('vehiclesGrid');
+            if (filtered.length === 0) {
+                grid.innerHTML = '<div class="text-center py-10 text-gray-400 col-span-full">No vehicles found</div>';
+                return;
+            }
+
+            grid.innerHTML = filtered.map(v => {
+                const statusClass = v.status === 'active' ? 'status-active' : 
+                                   v.status === 'maintenance' ? 'status-maintenance' : 'status-inactive';
+                const driver = allDrivers.find(d => d.id === v.driverId);
+                const assignments = allAssignments.filter(a => a.routeId && allRoutes.find(r => r.id === a.routeId && r.vehicleId === v.id));
+                const routeCount = allRoutes.filter(r => r.vehicleId === v.id).length;
+                return `
+                    <div class="vehicle-card p-4">
+                        <div class="flex justify-between items-start mb-2">
+                            <div>
+                                <h4 class="font-bold text-gray-800">${v.reg}</h4>
+                                <p class="text-sm text-gray-500">${v.make || 'Unknown'}</p>
+                            </div>
+                            <span class="status-badge ${statusClass}">${v.status || 'Active'}</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 text-sm mb-3">
+                            <div><span class="text-gray-500">Capacity:</span> ${v.capacity || 0}</div>
+                            <div><span class="text-gray-500">Driver:</span> ${driver?.name || 'Not assigned'}</div>
+                            <div><span class="text-gray-500">Routes:</span> ${routeCount}</div>
+                            <div><span class="text-gray-500">Students:</span> ${assignments.length}</div>
+                        </div>
+                        <div class="flex gap-2 pt-2 border-t">
+                            <button onclick="editVehicle('${v.id}')" class="flex-1 py-1 text-blue-600 border rounded text-sm">Edit</button>
+                            <button onclick="deleteVehicle('${v.id}', '${v.reg}')" class="flex-1 py-1 text-red-600 border rounded text-sm">Delete</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function openVehicleModal() {
+            document.getElementById('vehicleModalTitle').innerText = 'Add Vehicle';
+            document.getElementById('editVehicleId').value = '';
+            document.getElementById('vehicleForm').reset();
+            loadDriversForVehicle();
+            document.getElementById('vehicleModal').classList.remove('hidden');
+        }
+
+        function closeVehicleModal() {
+            document.getElementById('vehicleModal').classList.add('hidden');
+        }
+
+        function editVehicle(id) {
+            const vehicle = allVehicles.find(v => v.id === id);
+            if (vehicle) {
+                document.getElementById('vehicleModalTitle').innerText = 'Edit Vehicle';
+                document.getElementById('editVehicleId').value = id;
+                document.getElementById('vehicleReg').value = vehicle.reg || '';
+                document.getElementById('vehicleMake').value = vehicle.make || '';
+                document.getElementById('vehicleCapacity').value = vehicle.capacity || '';
+                document.getElementById('vehicleColor').value = vehicle.color || '';
+                document.getElementById('vehicleInsurance').value = vehicle.insurance || '';
+                document.getElementById('vehicleService').value = vehicle.nextService || '';
+                document.getElementById('vehicleStatus').value = vehicle.status || 'active';
+                loadDriversForVehicle();
+                setTimeout(() => {
+                    document.getElementById('vehicleDriver').value = vehicle.driverId || '';
+                }, 100);
+                document.getElementById('vehicleNotes').value = vehicle.notes || '';
+                document.getElementById('vehicleModal').classList.remove('hidden');
+            }
+        }
+
+        document.getElementById('vehicleForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('editVehicleId').value;
+            const data = {
+                reg: document.getElementById('vehicleReg').value,
+                make: document.getElementById('vehicleMake').value,
+                capacity: parseInt(document.getElementById('vehicleCapacity').value) || 0,
+                color: document.getElementById('vehicleColor').value,
+                insurance: document.getElementById('vehicleInsurance').value,
+                nextService: document.getElementById('vehicleService').value,
+                status: document.getElementById('vehicleStatus').value,
+                driverId: document.getElementById('vehicleDriver').value,
+                notes: document.getElementById('vehicleNotes').value,
+                updatedAt: new Date().toISOString()
+            };
+
+            try {
+                if (id) {
+                    await db.collection('schools').doc(currentSchool).collection('transportVehicles').doc(id).update(data);
+                    showToast('Vehicle updated');
+                } else {
+                    data.createdAt = new Date().toISOString();
+                    data.deleted = false;
+                    await db.collection('schools').doc(currentSchool).collection('transportVehicles').add(data);
+                    showToast('Vehicle added');
+                }
+                closeVehicleModal();
+                await loadAllData();
+                loadVehicles();
+            } catch (error) {
+                showToast('Error: ' + error.message, true);
+            }
+        });
+
+        function deleteVehicle(id, reg) {
+            deleteTargetId = id;
+            deleteTargetType = 'vehicle';
+            document.getElementById('deleteMessage').innerHTML = `Delete vehicle "<strong>${reg}</strong>"?`;
+            document.getElementById('deleteModal').classList.remove('hidden');
+        }
+
+        // ========== ROUTES CRUD ==========
+
+        function loadVehiclesForRoute() {
+            const select = document.getElementById('routeVehicle');
+            select.innerHTML = '<option value="">Select Vehicle</option>' + 
+                allVehicles.filter(v => v.status === 'active').map(v => `<option value="${v.id}">${v.reg}</option>`).join('');
+        }
+
+        async function loadRoutes() {
+            const container = document.getElementById('routesList');
+            if (allRoutes.length === 0) {
+                container.innerHTML = '<div class="text-center py-6 text-gray-400">No routes configured</div>';
+                return;
+            }
+
+            container.innerHTML = allRoutes.map(r => {
+                const vehicle = allVehicles.find(v => v.id === r.vehicleId);
+                const assigned = allAssignments.filter(a => a.routeId === r.id && a.status === 'active').length;
+                const stops = r.stops ? r.stops.split('\n').filter(s => s.trim()) : [];
+                return `
+                    <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                        <div>
+                            <p class="font-medium">🛣️ ${r.name}</p>
+                            <p class="text-xs text-gray-500">Vehicle: ${vehicle?.reg || 'Not assigned'} • ${assigned}/${r.capacity || 0} students</p>
+                            <p class="text-xs text-gray-400">${stops.length} stops</p>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="editRoute('${r.id}')" class="text-blue-600 text-sm">Edit</button>
+                            <button onclick="deleteRoute('${r.id}', '${r.name}')" class="text-red-600 text-sm">Delete</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        document.getElementById('routeForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('editRouteId').value;
+            const data = {
+                name: document.getElementById('routeName').value,
+                vehicleId: document.getElementById('routeVehicle').value,
+                capacity: parseInt(document.getElementById('routeCapacity').value) || 0,
+                stops: document.getElementById('routeStops').value,
+                status: document.getElementById('routeStatus').value,
+                updatedAt: new Date().toISOString()
+            };
+
+            try {
+                if (id) {
+                    await db.collection('schools').doc(currentSchool).collection('transportRoutes').doc(id).update(data);
+                    showToast('Route updated');
+                } else {
+                    data.createdAt = new Date().toISOString();
+                    data.deleted = false;
+                    await db.collection('schools').doc(currentSchool).collection('transportRoutes').add(data);
+                    showToast('Route added');
+                }
+                document.getElementById('routeForm').reset();
+                document.getElementById('editRouteId').value = '';
+                await loadAllData();
+                loadRoutes();
+            } catch (error) {
+                showToast('Error: ' + error.message, true);
+            }
+        });
+
+        function editRoute(id) {
+            const route = allRoutes.find(r => r.id === id);
+            if (route) {
+                document.getElementById('editRouteId').value = id;
+                document.getElementById('routeName').value = route.name || '';
+                loadVehiclesForRoute();
+                setTimeout(() => {
+                    document.getElementById('routeVehicle').value = route.vehicleId || '';
+                }, 100);
+                document.getElementById('routeCapacity').value = route.capacity || '';
+                document.getElementById('routeStops').value = route.stops || '';
+                document.getElementById('routeStatus').value = route.status || 'active';
+            }
+        }
+
+        function deleteRoute(id, name) {
+            if (confirm(`Delete route "${name}"?`)) {
+                db.collection('schools').doc(currentSchool).collection('transportRoutes').doc(id).update({
+                    deleted: true,
+                    deletedAt: new Date().toISOString()
+                }).then(() => {
+                    showToast('Route deleted');
+                    loadAllData();
+                    loadRoutes();
+                });
+            }
+        }
+
+        // ========== DRIVERS CRUD ==========
+
+        function loadVehiclesForDriver() {
+            const select = document.getElementById('driverVehicle');
+            select.innerHTML = '<option value="">Select Vehicle</option>' + 
+                allVehicles.filter(v => v.status === 'active').map(v => `<option value="${v.id}">${v.reg}</option>`).join('');
+        }
+
+        async function loadDrivers() {
+            const container = document.getElementById('driversList');
+            if (allDrivers.length === 0) {
+                container.innerHTML = '<div class="text-center py-6 text-gray-400">No drivers registered</div>';
+                return;
+            }
+
+            container.innerHTML = allDrivers.map(d => {
+                const vehicle = allVehicles.find(v => v.id === d.vehicleId);
+                const statusClass = d.status === 'active' ? 'status-active' : 
+                                   d.status === 'on-leave' ? 'status-maintenance' : 'status-inactive';
+                return `
+                    <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                        <div>
+                            <p class="font-medium">👨‍✈️ ${d.name}</p>
+                            <p class="text-xs text-gray-500">License: ${d.license} • ${d.phone || 'No phone'}</p>
+                            <p class="text-xs text-gray-400">Vehicle: ${vehicle?.reg || 'Not assigned'}</p>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <span class="status-badge ${statusClass}">${d.status || 'Active'}</span>
+                            <button onclick="editDriver('${d.id}')" class="text-blue-600 text-sm">Edit</button>
+                            <button onclick="deleteDriver('${d.id}', '${d.name}')" class="text-red-600 text-sm">Delete</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        document.getElementById('driverForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('editDriverId').value;
+            const data = {
+                name: document.getElementById('driverName').value,
+                license: document.getElementById('driverLicense').value,
+                phone: document.getElementById('driverPhone').value,
+                vehicleId: document.getElementById('driverVehicle').value,
+                status: document.getElementById('driverStatus').value,
+                updatedAt: new Date().toISOString()
+            };
+
+            try {
+                if (id) {
+                    await db.collection('schools').doc(currentSchool).collection('transportDrivers').doc(id).update(data);
+                    showToast('Driver updated');
+                } else {
+                    data.createdAt = new Date().toISOString();
+                    data.deleted = false;
+                    await db.collection('schools').doc(currentSchool).collection('transportDrivers').add(data);
+                    showToast('Driver added');
+                }
+                document.getElementById('driverForm').reset();
+                document.getElementById('editDriverId').value = '';
+                await loadAllData();
+                loadDrivers();
+            } catch (error) {
+                showToast('Error: ' + error.message, true);
+            }
+        });
+
+        function editDriver(id) {
+            const driver = allDrivers.find(d => d.id === id);
+            if (driver) {
+                document.getElementById('editDriverId').value = id;
+                document.getElementById('driverName').value = driver.name || '';
+                document.getElementById('driverLicense').value = driver.license || '';
+                document.getElementById('driverPhone').value = driver.phone || '';
+                loadVehiclesForDriver();
+                setTimeout(() => {
+                    document.getElementById('driverVehicle').value = driver.vehicleId || '';
+                }, 100);
+                document.getElementById('driverStatus').value = driver.status || 'active';
+            }
+        }
+
+        function deleteDriver(id, name) {
+            if (confirm(`Delete driver "${name}"?`)) {
+                db.collection('schools').doc(currentSchool).collection('transportDrivers').doc(id).update({
+                    deleted: true,
+                    deletedAt: new Date().toISOString()
+                }).then(() => {
+                    showToast('Driver deleted');
+                    loadAllData();
+                    loadDrivers();
+                });
+            }
+        }
+
+        // ========== ASSIGNMENTS ==========
+
+        function loadStudentsForAssignment() {
+            const select = document.getElementById('assignmentStudent');
+            select.innerHTML = '<option value="">Select Student</option>' + 
+                allStudents.map(s => `<option value="${s.id}">${s.name} (${s.admNo})</option>`).join('');
+        }
+
+        function loadRoutesForAssignment() {
+            const select = document.getElementById('assignmentRouteSelect');
+            select.innerHTML = '<option value="">Select Route</option>' + 
+                allRoutes.filter(r => r.status === 'active').map(r => `<option value="${r.id}">${r.name}</option>`).join('');
+        }
+
+        function openAssignmentModal() {
+            document.getElementById('editAssignmentId').value = '';
+            document.getElementById('assignmentForm').reset();
+            loadStudentsForAssignment();
+            loadRoutesForAssignment();
+            document.getElementById('assignmentModal').classList.remove('hidden');
+        }
+
+        function closeAssignmentModal() {
+            document.getElementById('assignmentModal').classList.add('hidden');
+        }
+
+        document.getElementById('assignmentForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('editAssignmentId').value;
+            const data = {
+                studentId: document.getElementById('assignmentStudent').value,
+                routeId: document.getElementById('assignmentRouteSelect').value,
+                stop: document.getElementById('assignmentStop').value,
+                status: document.getElementById('assignmentStatusSelect').value,
+                updatedAt: new Date().toISOString()
+            };
+
+            try {
+                if (id) {
+                    await db.collection('schools').doc(currentSchool).collection('transportAssignments').doc(id).update(data);
+                    showToast('Assignment updated');
+                } else {
+                    data.createdAt = new Date().toISOString();
+                    data.deleted = false;
+                    await db.collection('schools').doc(currentSchool).collection('transportAssignments').add(data);
+                    showToast('Student assigned to route');
+                }
+                closeAssignmentModal();
+                await loadAllData();
+                loadAssignments();
+            } catch (error) {
+                showToast('Error: ' + error.message, true);
+            }
+        });
+
+        async function loadAssignments() {
+            const container = document.getElementById('assignmentsList');
+            if (allAssignments.length === 0) {
+                container.innerHTML = '<div class="text-center py-6 text-gray-400">No student assignments</div>';
+                return;
+            }
+
+            container.innerHTML = allAssignments.map(a => {
+                const student = allStudents.find(s => s.id === a.studentId);
+                const route = allRoutes.find(r => r.id === a.routeId);
+                const vehicle = route ? allVehicles.find(v => v.id === route.vehicleId) : null;
+                return `
+                    <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                        <div>
+                            <p class="font-medium">${student?.name || 'Unknown'}</p>
+                            <p class="text-xs text-gray-500">Route: ${route?.name || 'Not assigned'} • Stop: ${a.stop || 'N/A'}</p>
+                            <p class="text-xs text-gray-400">Vehicle: ${vehicle?.reg || 'N/A'}</p>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <span class="status-badge ${a.status === 'active' ? 'status-active' : 'status-inactive'}">${a.status || 'Active'}</span>
+                            <button onclick="deleteAssignment('${a.id}')" class="text-red-600 text-sm">Remove</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function deleteAssignment(id) {
+            if (confirm('Remove this student from the route?')) {
+                db.collection('schools').doc(currentSchool).collection('transportAssignments').doc(id).update({
+                    deleted: true,
+                    deletedAt: new Date().toISOString()
+                }).then(() => {
+                    showToast('Assignment removed');
+                    loadAllData();
+                    loadAssignments();
+                });
+            }
+        }
+
+        // ========== MAINTENANCE ==========
+
+        function loadVehiclesForMaintenance() {
+            const select = document.getElementById('maintenanceVehicle');
+            select.innerHTML = '<option value="">Select Vehicle</option>' + 
+                allVehicles.map(v => `<option value="${v.id}">${v.reg}</option>`).join('');
+        }
+
+        document.getElementById('maintenanceForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('editMaintenanceId').value;
+            const data = {
+                vehicleId: document.getElementById('maintenanceVehicle').value,
+                type: document.getElementById('maintenanceType').value,
+                date: document.getElementById('maintenanceDate').value,
+                cost: parseInt(document.getElementById('maintenanceCost').value) || 0,
+                details: document.getElementById('maintenanceDetails').value,
+                updatedAt: new Date().toISOString()
+            };
+
+            try {
+                if (id) {
+                    await db.collection('schools').doc(currentSchool).collection('transportMaintenance').doc(id).update(data);
+                    showToast('Maintenance record updated');
+                } else {
+                    data.createdAt = new Date().toISOString();
+                    data.deleted = false;
+                    await db.collection('schools').doc(currentSchool).collection('transportMaintenance').add(data);
+                    showToast('Maintenance recorded');
+                }
+                document.getElementById('maintenanceForm').reset();
+                document.getElementById('editMaintenanceId').value = '';
+                await loadAllData();
+                loadMaintenance();
+            } catch (error) {
+                showToast('Error: ' + error.message, true);
+            }
+        });
+
+        async function loadMaintenance() {
+            const container = document.getElementById('maintenanceList');
+            if (allMaintenance.length === 0) {
+                container.innerHTML = '<div class="text-center py-6 text-gray-400">No maintenance records</div>';
+                return;
+            }
+
+            container.innerHTML = allMaintenance.sort((a,b) => new Date(b.date) - new Date(a.date)).map(m => {
+                const vehicle = allVehicles.find(v => v.id === m.vehicleId);
+                return `
+                    <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                        <div>
+                            <p class="font-medium">🔧 ${m.type}</p>
+                            <p class="text-xs text-gray-500">Vehicle: ${vehicle?.reg || 'Unknown'}</p>
+                            <p class="text-xs text-gray-400">${m.details || 'No details'}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-xs text-gray-500">${new Date(m.date).toLocaleDateString()}</p>
+                            <p class="text-sm font-bold text-orange-600">KSh ${m.cost?.toLocaleString() || '0'}</p>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // ========== FUEL ==========
+
+        function loadVehiclesForFuel() {
+            const select = document.getElementById('fuelVehicle');
+            select.innerHTML = '<option value="">Select Vehicle</option>' + 
+                allVehicles.filter(v => v.status === 'active').map(v => `<option value="${v.id}">${v.reg}</option>`).join('');
+        }
+
+        document.getElementById('fuelForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const data = {
+                vehicleId: document.getElementById('fuelVehicle').value,
+                date: document.getElementById('fuelDate').value,
+                liters: parseFloat(document.getElementById('fuelLiters').value) || 0,
+                price: parseFloat(document.getElementById('fuelPrice').value) || 0,
+                odometer: parseInt(document.getElementById('fuelOdometer').value) || 0,
+                createdAt: new Date().toISOString(),
+                deleted: false
+            };
+
+            try {
+                await db.collection('schools').doc(currentSchool).collection('transportFuel').add(data);
+                showToast('Fuel record added');
+                document.getElementById('fuelForm').reset();
+                await loadAllData();
+                loadFuel();
+            } catch (error) {
+                showToast('Error: ' + error.message, true);
+            }
+        });
+
+        async function loadFuel() {
+            const container = document.getElementById('fuelList');
+            if (allFuel.length === 0) {
+                container.innerHTML = '<div class="text-center py-6 text-gray-400">No fuel records</div>';
+                return;
+            }
+
+            container.innerHTML = allFuel.sort((a,b) => new Date(b.date) - new Date(a.date)).map(f => {
+                const vehicle = allVehicles.find(v => v.id === f.vehicleId);
+                const total = f.liters * f.price;
+                return `
+                    <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                        <div>
+                            <p class="font-medium">⛽ ${vehicle?.reg || 'Unknown'}</p>
+                            <p class="text-xs text-gray-500">${f.liters}L @ KSh ${f.price}/L</p>
+                            <p class="text-xs text-gray-400">Odometer: ${f.odometer || 'N/A'} km</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-xs text-gray-500">${new Date(f.date).toLocaleDateString()}</p>
+                            <p class="text-sm font-bold text-blue-600">KSh ${total.toLocaleString()}</p>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // ========== EXPORT ==========
+
+        function exportTransportData() {
+            const data = allVehicles.map(v => {
+                const driver = allDrivers.find(d => d.id === v.driverId);
+                const routes = allRoutes.filter(r => r.vehicleId === v.id);
+                const assignments = allAssignments.filter(a => a.routeId && routes.some(r => r.id === a.routeId));
+                return {
+                    'Registration': v.reg,
+                    'Make': v.make || 'N/A',
+                    'Capacity': v.capacity || 0,
+                    'Driver': driver?.name || 'Not assigned',
+                    'Routes': routes.length,
+                    'Students': assignments.length,
+                    'Status': v.status || 'Active',
+                    'Insurance Expiry': v.insurance || 'N/A',
+                    'Next Service': v.nextService || 'N/A'
+                };
+            });
+
+            if (data.length === 0) {
+                showToast('No data to export', true);
+                return;
+            }
+
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Transport');
+            XLSX.writeFile(wb, `transport_${new Date().toISOString().split('T')[0]}.xlsx`);
+            showToast('Export complete!');
+        }
+
+        // ========== DELETE CONFIRMATION ==========
+
+        document.getElementById('confirmDeleteBtn').addEventListener('click', async () => {
+            if (!deleteTargetId) return;
+
+            try {
+                if (deleteTargetType === 'vehicle') {
+                    await db.collection('schools').doc(currentSchool).collection('transportVehicles').doc(deleteTargetId).update({
+                        deleted: true,
+                        deletedAt: new Date().toISOString()
+                    });
+                    showToast('Vehicle deleted');
+                }
+                closeDeleteModal();
+                await loadAllData();
+                loadVehicles();
+            } catch (error) {
+                showToast('Error deleting: ' + error.message, true);
+            }
+        });
+
+        function closeDeleteModal() {
+            document.getElementById('deleteModal').classList.add('hidden');
+            deleteTargetId = null;
+            deleteTargetType = null;
+        }
+
+        // ========== AUTH ==========
+
+        auth.onAuthStateChanged(async (user) => {
+            if (!user) {
+                window.location.href = 'index.html';
+                return;
+            }
+
+            currentSchool = sessionStorage.getItem('currentSchoolCode');
+            if (!currentSchool) {
+                try {
+                    const snap = await db.collection('schools').where('adminId', '==', user.uid).get();
+                    if (!snap.empty) {
+                        currentSchool = snap.docs[0].id;
+                        sessionStorage.setItem('currentSchoolCode', currentSchool);
+                        sessionStorage.setItem('currentSchoolName', snap.docs[0].data().schoolName);
+                    }
+                } catch (error) {
+                    console.error('Error fetching school:', error);
+                }
+            }
+
+            const schoolName = sessionStorage.getItem('currentSchoolName') || 'ELMOH HIGH SCHOOL';
+            document.getElementById('schoolNameDisplay').innerText = schoolName;
+
+            if (currentSchool) {
+                await loadAllData();
+            }
+        });
+
+        window.addEventListener('message', function(event) {
+            if (event.data && event.data.type === 'themeChange') {
+                const theme = event.data.theme;
+                document.body.className = '';
+                if (theme === 'dark') document.body.classList.add('theme-dark');
+                else if (theme === 'green') document.body.classList.add('theme-green');
+                else if (theme === 'grey') document.body.classList.add('theme-grey');
+            }
+        });
+
+        if (window.parent !== window) {
+            window.parent.postMessage({ type: 'iframeReady' }, '*');
+        }
+    </script>
+
+</body>
+</html>

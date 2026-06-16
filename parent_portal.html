@@ -1,0 +1,1242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parent Portal | LearnPro Kenya</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: #f0f2f5; }
+        .stat-card { background: white; border-radius: 20px; transition: all 0.3s ease; border: 1px solid #eef2ff; cursor: pointer; }
+        .stat-card:hover { transform: translateY(-5px); box-shadow: 0 20px 25px -12px rgba(0,63,135,0.15); }
+        .toast { position: fixed; bottom: 24px; right: 24px; background: #003f87; color: white; padding: 12px 24px; border-radius: 48px; z-index: 1000; font-weight: 600; }
+        .toast-error { background: #dc2626; }
+        .toast-success { background: #059669; }
+        .nav-tab { cursor: pointer; padding: 10px 24px; border-radius: 30px; font-size: 14px; font-weight: 500; transition: all 0.2s; border: 1px solid transparent; }
+        .nav-tab-active { background: #003f87; color: white; border-color: #003f87; }
+        .nav-tab-inactive { background: white; color: #4a5568; border: 1px solid #e2e8f0; }
+        .nav-tab-inactive:hover { background: #f1f5f9; border-color: #003f87; }
+        .grade-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+        .grade-EE { background: #003f87; color: white; }
+        .grade-ME { background: #059669; color: white; }
+        .grade-AE { background: #d97706; color: white; }
+        .grade-BE { background: #dc2626; color: white; }
+        .status-badge { display: inline-flex; padding: 4px 12px; border-radius: 30px; font-size: 11px; font-weight: 600; }
+        .status-paid { background: #dcfce7; color: #166534; }
+        .status-partial { background: #fef3c7; color: #92400e; }
+        .status-unpaid { background: #fee2e2; color: #991b1b; }
+        .loading-spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid #e2e8f0; border-radius: 50%; border-top-color: #003f87; animation: spin 0.6s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .modal { z-index: 1000; }
+        .login-card { background: white; border-radius: 24px; box-shadow: 0 20px 25px -12px rgba(0,0,0,0.15); }
+        .deleted-row { background-color: #fef2f2; opacity: 0.7; }
+        @media print { .no-print { display: none; } }
+    </style>
+</head>
+<body>
+
+    <!-- ========== LOGIN SCREEN ========== -->
+    <div id="loginScreen" class="fixed inset-0 bg-gradient-to-br from-[#003f87]/5 to-[#0056b3]/5 flex items-center justify-center z-50">
+        <div class="login-card p-8 max-w-md w-full mx-4">
+            <div class="text-center mb-8">
+                <div class="w-20 h-20 bg-[#003f87] rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+                    <span class="material-symbols-outlined text-white text-4xl">family_history</span>
+                </div>
+                <h2 class="text-2xl font-bold text-gray-800">Parent Portal</h2>
+                <p class="text-gray-500 text-sm mt-1">Enter UPI or Admission Number to access</p>
+            </div>
+            
+            <form id="parentLoginForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">UPI / Admission Number</label>
+                    <div class="relative">
+                        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xl">badge</span>
+                        <input 
+                            id="loginInput" 
+                            type="text" 
+                            class="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:border-[#003f87] focus:ring-2 focus:ring-[#003f87]/20 transition" 
+                            placeholder="e.g., 1234567890 or 2024/001"
+                            required
+                            autocomplete="off"
+                        >
+                    </div>
+                    <p class="text-xs text-gray-400 mt-1">Use your UPI number or your child's Admission Number</p>
+                </div>
+                <button 
+                    type="submit" 
+                    id="loginBtn"
+                    class="w-full py-3.5 bg-gradient-to-r from-[#003f87] to-[#0056b3] text-white font-semibold rounded-xl hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                >
+                    <span class="material-symbols-outlined text-sm">login</span> Access Portal
+                </button>
+                <p class="text-xs text-gray-400 text-center mt-4">Contact school admin if you don't have a UPI number</p>
+            </form>
+        </div>
+    </div>
+
+    <!-- ========== MAIN DASHBOARD ========== -->
+    <div id="dashboardContent" class="hidden">
+        <!-- Top Bar -->
+        <div class="bg-white shadow-sm fixed top-0 left-0 right-0 z-40 border-b border-gray-100 no-print">
+            <div class="flex justify-between items-center px-6 py-2">
+                <div class="flex items-center gap-3">
+                    <span class="text-sm font-bold text-[#003f87]" id="schoolNameDisplay">Loading...</span>
+                    <span class="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Parent Portal</span>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span class="text-sm text-gray-600" id="parentNameDisplay">Parent</span>
+                    <span class="text-xs bg-gray-100 px-2 py-0.5 rounded-full" id="childCountDisplay">Children: 0</span>
+                    <button onclick="logoutParent()" class="px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded-lg">Logout</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="pt-14 px-6 pb-6 max-w-7xl mx-auto">
+            <!-- Page Header -->
+            <div class="mb-6 flex justify-between items-center flex-wrap gap-3">
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-800" id="parentGreeting">Welcome, Parent!</h2>
+                    <p class="text-gray-500 text-sm" id="parentInfo">Track your children's academic progress</p>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="refreshDashboard()" class="px-4 py-2 bg-[#003f87] text-white rounded-lg text-sm flex items-center gap-1">
+                        <span class="material-symbols-outlined text-sm">refresh</span> Refresh
+                    </button>
+                </div>
+            </div>
+
+            <!-- Top Navigation Tabs -->
+            <div class="flex gap-1 mb-4 border-b pb-2 flex-wrap">
+                <button onclick="showTab('overview')" id="tabOverview" class="nav-tab nav-tab-active">📊 Dashboard</button>
+                <button onclick="showTab('children')" id="tabChildren" class="nav-tab nav-tab-inactive">👨‍🎓 My Children</button>
+                <button onclick="showTab('fees')" id="tabFees" class="nav-tab nav-tab-inactive">💰 Fee Statement</button>
+                <button onclick="showTab('reports')" id="tabReports" class="nav-tab nav-tab-inactive">📄 Report Cards</button>
+                <button onclick="showTab('messages')" id="tabMessages" class="nav-tab nav-tab-inactive">💬 Messages</button>
+                <button onclick="showTrash()" id="tabTrash" class="nav-tab nav-tab-inactive flex items-center gap-1">
+                    🗑️ Trash <span id="trashCountBadge" class="ml-1 text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full">0</span>
+                </button>
+            </div>
+
+            <!-- ========== OVERVIEW TAB ========== -->
+            <div id="overviewTab">
+                <!-- Stats -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div class="stat-card p-6 flex items-center gap-4">
+                        <div class="w-14 h-14 bg-blue-100 rounded-2xl flex items-center justify-center">
+                            <span class="material-symbols-outlined text-blue-700 text-2xl">groups</span>
+                        </div>
+                        <div>
+                            <p class="text-gray-500 text-sm">Children Enrolled</p>
+                            <p class="text-3xl font-bold text-blue-700" id="childrenCount">0</p>
+                        </div>
+                    </div>
+                    <div class="stat-card p-6 flex items-center gap-4">
+                        <div class="w-14 h-14 bg-green-100 rounded-2xl flex items-center justify-center">
+                            <span class="material-symbols-outlined text-green-700 text-2xl">attach_money</span>
+                        </div>
+                        <div>
+                            <p class="text-gray-500 text-sm">Total Fee Balance</p>
+                            <p class="text-3xl font-bold text-green-700" id="feeBalance">KSh 0</p>
+                        </div>
+                    </div>
+                    <div class="stat-card p-6 flex items-center gap-4">
+                        <div class="w-14 h-14 bg-purple-100 rounded-2xl flex items-center justify-center">
+                            <span class="material-symbols-outlined text-purple-700 text-2xl">school</span>
+                        </div>
+                        <div>
+                            <p class="text-gray-500 text-sm">Overall Performance</p>
+                            <p class="text-3xl font-bold text-purple-700" id="overallPerformance">N/A</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Announcements & Events -->
+                <div class="grid lg:grid-cols-2 gap-6">
+                    <div class="bg-white rounded-2xl p-6 shadow-sm">
+                        <h3 class="font-bold text-gray-800 mb-3">📢 Recent Announcements</h3>
+                        <div id="parentAnnouncements" class="space-y-3">
+                            <div class="text-center py-6 text-gray-400"><span class="loading-spinner"></span> Loading announcements...</div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-2xl p-6 shadow-sm">
+                        <h3 class="font-bold text-gray-800 mb-3">📅 Upcoming Events</h3>
+                        <div id="parentEvents" class="space-y-3">
+                            <div class="text-center py-6 text-gray-400"><span class="loading-spinner"></span> Loading events...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========== MY CHILDREN TAB ========== -->
+            <div id="childrenTab" class="hidden">
+                <div class="mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800">My Children</h2>
+                    <p class="text-gray-500">View academic progress and details</p>
+                </div>
+                <div id="childrenGrid" class="grid md:grid-cols-2 gap-6">
+                    <div class="text-center py-10 text-gray-400 col-span-full"><span class="loading-spinner"></span> Loading children...</div>
+                </div>
+            </div>
+
+            <!-- ========== FEE STATEMENT TAB (from Fee Management) ========== -->
+            <div id="feesTab" class="hidden">
+                <div class="mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800">Fee Statement</h2>
+                    <p class="text-gray-500">View payment history and outstanding balances</p>
+                </div>
+                <div class="bg-white rounded-2xl p-6 shadow-sm">
+                    <div id="feeSummary" class="grid md:grid-cols-2 gap-6 mb-6">
+                        <div class="text-center p-4 bg-green-50 rounded-xl">
+                            <p class="text-gray-500 text-sm">Total Paid</p>
+                            <p class="text-3xl font-bold text-green-600" id="totalPaidFees">KSh 0</p>
+                        </div>
+                        <div class="text-center p-4 bg-yellow-50 rounded-xl">
+                            <p class="text-gray-500 text-sm">Outstanding Balance</p>
+                            <p class="text-3xl font-bold text-yellow-600" id="outstandingFees">KSh 0</p>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-sm">Date</th>
+                                    <th class="px-4 py-3 text-left text-sm">Student</th>
+                                    <th class="px-4 py-3 text-left text-sm">Description</th>
+                                    <th class="px-4 py-3 text-left text-sm">Amount</th>
+                                    <th class="px-4 py-3 text-left text-sm">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="feeHistoryBody">
+                                <tr><td colspan="5" class="text-center py-8 text-gray-400"><span class="loading-spinner"></span> Loading payment history...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <button class="w-full mt-6 py-3 bg-[#003f87] text-white rounded-xl" onclick="downloadFeeStatement()">Download Full Statement</button>
+                </div>
+            </div>
+
+            <!-- ========== REPORT CARDS TAB (from Report Cards) ========== -->
+            <div id="reportsTab" class="hidden">
+                <div class="mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800">Report Cards</h2>
+                    <p class="text-gray-500">View detailed academic reports for your children</p>
+                </div>
+                <div id="reportCardsGrid" class="grid md:grid-cols-2 gap-6">
+                    <div class="text-center py-10 text-gray-400 col-span-full"><span class="loading-spinner"></span> Loading report cards...</div>
+                </div>
+            </div>
+
+            <!-- ========== MESSAGES TAB (from Message Center) ========== -->
+            <div id="messagesTab" class="hidden">
+                <div class="bg-white rounded-2xl p-6 shadow-sm">
+                    <h3 class="font-bold text-gray-800 mb-3">💬 Message School</h3>
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Subject</label>
+                            <input type="text" id="messageSubject" class="w-full p-3 border rounded-xl" placeholder="Message subject">
+                            <label class="block text-sm font-medium text-gray-700 mt-3 mb-1">Message</label>
+                            <textarea id="parentMessageContent" rows="4" class="w-full p-3 border rounded-xl" placeholder="Type your message..."></textarea>
+                            <button onclick="sendParentMessage()" class="mt-3 w-full py-3 bg-[#003f87] text-white rounded-xl">Send Message</button>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-sm text-gray-600 mb-2">Previous Messages</h4>
+                            <div id="parentMessageHistory" class="space-y-2 max-h-64 overflow-y-auto">
+                                <div class="text-center py-6 text-gray-400"><span class="loading-spinner"></span> Loading messages...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========== TRASH TAB ========== -->
+            <div id="trashTab" class="hidden">
+                <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+                    <div class="p-4 border-b flex justify-between items-center">
+                        <h3 class="font-bold text-sm">🗑️ Deleted Items</h3>
+                        <button onclick="emptyTrash()" class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm flex items-center gap-1">
+                            <span class="material-symbols-outlined text-sm">delete_forever</span> Empty Trash
+                        </button>
+                    </div>
+                    <div id="trashContainer" class="divide-y divide-gray-100">
+                        <div class="p-6 text-center text-gray-400"><span class="loading-spinner"></span> Loading trash...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Report Card Modal -->
+    <div id="reportModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden modal">
+        <div class="bg-white rounded-2xl p-6 max-w-3xl w-full max-h-[90vh] overflow-y-auto mx-4">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-[#003f87]" id="reportModalTitle">Report Card</h3>
+                <button onclick="closeReportModal()" class="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <div id="reportModalContent"></div>
+            <button onclick="printReport()" class="mt-4 w-full py-3 bg-[#003f87] text-white rounded-xl">Print Report</button>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden modal">
+        <div class="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 text-center">
+            <div class="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span class="material-symbols-outlined text-red-600 text-3xl">delete</span>
+            </div>
+            <h3 class="text-xl font-bold text-gray-800 mb-2">Confirm Delete</h3>
+            <p class="text-gray-500 mb-5" id="deleteMessage">This action cannot be undone.</p>
+            <div class="flex gap-3">
+                <button id="confirmDeleteBtn" class="flex-1 py-2.5 bg-red-600 text-white rounded-lg font-medium">Move to Trash</button>
+                <button onclick="closeDeleteModal()" class="flex-1 py-2.5 border border-gray-200 rounded-lg font-medium">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Restore Confirmation Modal -->
+    <div id="restoreModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden modal">
+        <div class="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 text-center">
+            <div class="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span class="material-symbols-outlined text-green-600 text-3xl">restore_from_trash</span>
+            </div>
+            <h3 class="text-xl font-bold text-gray-800 mb-2">Restore Item?</h3>
+            <p class="text-gray-500 mb-5" id="restoreMessage">This will be restored to active items.</p>
+            <div class="flex gap-3">
+                <button id="confirmRestoreBtn" class="flex-1 py-2.5 bg-green-600 text-white rounded-lg font-medium">Restore</button>
+                <button onclick="closeRestoreModal()" class="flex-1 py-2.5 border border-gray-200 rounded-lg font-medium">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Permanent Delete Modal -->
+    <div id="permanentDeleteModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden modal">
+        <div class="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 text-center">
+            <div class="w-14 h-14 bg-red-700/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span class="material-symbols-outlined text-red-700 text-3xl">delete_forever</span>
+            </div>
+            <h3 class="text-xl font-bold text-gray-800 mb-2">Delete Permanently?</h3>
+            <p class="text-gray-500 mb-5" id="permanentDeleteMessage">This action cannot be undone.</p>
+            <div class="flex gap-3">
+                <button id="confirmPermanentDeleteBtn" class="flex-1 py-2.5 bg-red-700 text-white rounded-lg font-medium">Delete Forever</button>
+                <button onclick="closePermanentDeleteModal()" class="flex-1 py-2.5 border border-gray-200 rounded-lg font-medium">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" style="display:none" class="toast"></div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyA4cm7chJXz90yOLWPtbdIW8KlEozG1lxo",
+            authDomain: "learnpro-kenya-erp.firebaseapp.com",
+            projectId: "learnpro-kenya-erp",
+            storageBucket: "learnpro-kenya-erp.firebasestorage.app",
+            messagingSenderId: "327168081514",
+            appId: "1:327168081514:web:13cdc8b827fa76d95a9413",
+            measurementId: "G-CL7LTBL2XD"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        let currentSchoolCode = null;
+        let currentStudentId = null;
+        let parentName = '';
+        let parentPhone = '';
+        let linkedStudents = [];
+        let studentAssessments = {};
+        let feeRecords = [];
+        let allMessages = [];
+        let reportHistory = [];
+        let deletedMessages = [];
+        let showingTrash = false;
+        let deleteTargetId = null;
+        let restoreTargetId = null;
+
+        // Subject order for report cards
+        const subjectOrder = ['Mathematics', 'English', 'Kiswahili', 'Integrated Science', 'Social Studies', 'Creative Arts', 'Physical Education'];
+
+        function showToast(msg, isError = false) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.className = `toast ${isError ? 'toast-error' : 'toast-success'}`;
+            toast.style.display = 'block';
+            setTimeout(() => toast.style.display = 'none', 3000);
+        }
+
+        function closeDeleteModal() {
+            document.getElementById('deleteModal').classList.add('hidden');
+            deleteTargetId = null;
+        }
+
+        function closeRestoreModal() {
+            document.getElementById('restoreModal').classList.add('hidden');
+            restoreTargetId = null;
+        }
+
+        function closePermanentDeleteModal() {
+            document.getElementById('permanentDeleteModal').classList.add('hidden');
+            deleteTargetId = null;
+        }
+
+        function closeReportModal() {
+            document.getElementById('reportModal').classList.add('hidden');
+        }
+
+        function printReport() {
+            window.print();
+        }
+
+        // ========== LOGIN ==========
+        async function handleParentLogin(event) {
+            event.preventDefault();
+            
+            const loginInput = document.getElementById('loginInput');
+            const loginValue = loginInput.value.trim();
+            const loginBtn = document.getElementById('loginBtn');
+            
+            if (!loginValue) {
+                showToast('Please enter your UPI or Admission Number', true);
+                return;
+            }
+            
+            loginBtn.innerHTML = '<span class="loading-spinner"></span> Verifying...';
+            loginBtn.disabled = true;
+            
+            try {
+                currentSchoolCode = sessionStorage.getItem('currentSchoolCode');
+                if (!currentSchoolCode) {
+                    const user = auth.currentUser;
+                    if (user) {
+                        const snap = await db.collection('schools').where('adminId', '==', user.uid).get();
+                        if (!snap.empty) {
+                            currentSchoolCode = snap.docs[0].id;
+                            sessionStorage.setItem('currentSchoolCode', currentSchoolCode);
+                            sessionStorage.setItem('currentSchoolName', snap.docs[0].data().schoolName);
+                        }
+                    }
+                }
+                
+                if (!currentSchoolCode) {
+                    showToast('School not found. Please contact admin.', true);
+                    loginBtn.innerHTML = '<span class="material-symbols-outlined text-sm">login</span> Access Portal';
+                    loginBtn.disabled = false;
+                    return;
+                }
+                
+                // Step 1: Try to find student by UPI
+                let studentSnap = await db.collection('schools').doc(currentSchoolCode)
+                    .collection('students')
+                    .where('upi', '==', loginValue)
+                    .where('deleted', '==', false)
+                    .get();
+                
+                // Step 2: If not found by UPI, try by Admission Number
+                if (studentSnap.empty) {
+                    studentSnap = await db.collection('schools').doc(currentSchoolCode)
+                        .collection('students')
+                        .where('admNo', '==', loginValue)
+                        .where('deleted', '==', false)
+                        .get();
+                }
+                
+                if (studentSnap.empty) {
+                    showToast('No student found with this UPI or Admission Number.', true);
+                    loginBtn.innerHTML = '<span class="material-symbols-outlined text-sm">login</span> Access Portal';
+                    loginBtn.disabled = false;
+                    return;
+                }
+                
+                const studentDoc = studentSnap.docs[0];
+                const studentData = studentDoc.data();
+                currentStudentId = studentDoc.id;
+                
+                // Get parent info from student record
+                parentName = studentData.parentName || 'Parent';
+                parentPhone = studentData.parentPhone || '';
+                
+                // Store session
+                sessionStorage.setItem('parentStudentId', currentStudentId);
+                sessionStorage.setItem('parentName', parentName);
+                sessionStorage.setItem('parentPhone', parentPhone);
+                sessionStorage.setItem('parentLoginValue', loginValue);
+                
+                // Hide login, show dashboard
+                document.getElementById('loginScreen').classList.add('hidden');
+                document.getElementById('dashboardContent').classList.remove('hidden');
+                
+                // Load all parent data
+                await loadParentData();
+                
+                showToast(`Welcome, ${parentName}!`);
+                
+            } catch (error) {
+                console.error("Login error:", error);
+                showToast('Error logging in. Please try again.', true);
+            } finally {
+                loginBtn.innerHTML = '<span class="material-symbols-outlined text-sm">login</span> Access Portal';
+                loginBtn.disabled = false;
+            }
+        }
+
+        function logoutParent() {
+            sessionStorage.removeItem('parentStudentId');
+            sessionStorage.removeItem('parentName');
+            sessionStorage.removeItem('parentPhone');
+            sessionStorage.removeItem('parentLoginValue');
+            
+            document.getElementById('dashboardContent').classList.add('hidden');
+            document.getElementById('loginScreen').classList.remove('hidden');
+            document.getElementById('loginInput').value = '';
+            showToast('Logged out successfully');
+        }
+
+        // ========== DASHBOARD FUNCTIONS ==========
+        function showTab(tab) {
+            showingTrash = false;
+            document.querySelectorAll('[id$="Tab"]').forEach(el => el.classList.add('hidden'));
+            document.getElementById(tab + 'Tab').classList.remove('hidden');
+            
+            document.querySelectorAll('.nav-tab').forEach(btn => {
+                btn.classList.remove('nav-tab-active');
+                btn.classList.add('nav-tab-inactive');
+            });
+            document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('nav-tab-active');
+            document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.remove('nav-tab-inactive');
+            
+            if (tab === 'overview') loadOverview();
+            else if (tab === 'children') loadChildren();
+            else if (tab === 'fees') loadFeeStatement();
+            else if (tab === 'reports') loadReportCards();
+            else if (tab === 'messages') loadParentMessages();
+        }
+
+        function showTrash() {
+            showingTrash = true;
+            document.querySelectorAll('[id$="Tab"]').forEach(el => el.classList.add('hidden'));
+            document.getElementById('trashTab').classList.remove('hidden');
+            
+            document.querySelectorAll('.nav-tab').forEach(btn => {
+                btn.classList.remove('nav-tab-active');
+                btn.classList.add('nav-tab-inactive');
+            });
+            document.getElementById('tabTrash').classList.add('nav-tab-active');
+            document.getElementById('tabTrash').classList.remove('nav-tab-inactive');
+            
+            loadTrash();
+        }
+
+        async function loadParentData() {
+            if (!currentSchoolCode || !currentStudentId) return;
+            
+            try {
+                const schoolName = sessionStorage.getItem('currentSchoolName') || 'School';
+                document.getElementById('schoolNameDisplay').innerText = schoolName;
+                document.getElementById('parentNameDisplay').innerText = parentName || 'Parent';
+                document.getElementById('parentGreeting').innerText = `Welcome, ${parentName || 'Parent'}!`;
+                document.getElementById('parentInfo').innerText = parentPhone ? `Phone: ${parentPhone}` : 'No phone registered';
+                
+                // Find ALL students with the same parent name and phone
+                let studentsQuery = db.collection('schools').doc(currentSchoolCode)
+                    .collection('students')
+                    .where('deleted', '==', false);
+                
+                if (parentName && parentPhone) {
+                    let snap = await studentsQuery
+                        .where('parentName', '==', parentName)
+                        .where('parentPhone', '==', parentPhone)
+                        .get();
+                    
+                    if (snap.empty) {
+                        snap = await studentsQuery
+                            .where('parentPhone', '==', parentPhone)
+                            .get();
+                    }
+                    
+                    linkedStudents = [];
+                    snap.forEach(doc => linkedStudents.push({ id: doc.id, ...doc.data() }));
+                } else if (parentPhone) {
+                    const snap = await studentsQuery
+                        .where('parentPhone', '==', parentPhone)
+                        .get();
+                    
+                    linkedStudents = [];
+                    snap.forEach(doc => linkedStudents.push({ id: doc.id, ...doc.data() }));
+                } else {
+                    const snap = await studentsQuery
+                        .where('admNo', '==', sessionStorage.getItem('parentLoginValue'))
+                        .get();
+                    
+                    linkedStudents = [];
+                    snap.forEach(doc => linkedStudents.push({ id: doc.id, ...doc.data() }));
+                }
+                
+                document.getElementById('childrenCount').innerText = linkedStudents.length;
+                document.getElementById('childCountDisplay').innerText = `Children: ${linkedStudents.length}`;
+                
+                // Get assessments for all linked students
+                for (const student of linkedStudents) {
+                    const assSnap = await db.collection('schools').doc(currentSchoolCode)
+                        .collection('assessments')
+                        .where('studentId', '==', student.id)
+                        .where('deleted', '==', false)
+                        .get();
+                    
+                    studentAssessments[student.id] = [];
+                    assSnap.forEach(doc => studentAssessments[student.id].push({ id: doc.id, ...doc.data() }));
+                }
+                
+                // Get fee records for all linked students
+                feeRecords = [];
+                for (const student of linkedStudents) {
+                    const feeSnap = await db.collection('schools').doc(currentSchoolCode)
+                        .collection('feeRecords')
+                        .where('studentId', '==', student.id)
+                        .where('deleted', '==', false)
+                        .get();
+                    
+                    feeSnap.forEach(doc => feeRecords.push({ id: doc.id, ...doc.data() }));
+                }
+                
+                // Get report history
+                const historySnap = await db.collection('schools').doc(currentSchoolCode)
+                    .collection('reportHistory')
+                    .where('deleted', '==', false)
+                    .get();
+                
+                reportHistory = [];
+                historySnap.forEach(doc => {
+                    const data = doc.data();
+                    if (linkedStudents.some(s => s.id === data.studentId)) {
+                        reportHistory.push({ id: doc.id, ...data });
+                    }
+                });
+                
+                // Get messages
+                const msgSnap = await db.collection('schools').doc(currentSchoolCode)
+                    .collection('messages')
+                    .where('deleted', '==', false)
+                    .get();
+                
+                allMessages = [];
+                msgSnap.forEach(doc => {
+                    const data = doc.data();
+                    if (data.parentPhone === parentPhone || data.parentName === parentName) {
+                        allMessages.push({ id: doc.id, ...data });
+                    }
+                });
+                
+                // Get deleted messages count
+                const deletedSnap = await db.collection('schools').doc(currentSchoolCode)
+                    .collection('messages')
+                    .where('deleted', '==', true)
+                    .get();
+                
+                deletedMessages = [];
+                deletedSnap.forEach(doc => deletedMessages.push({ id: doc.id, ...doc.data() }));
+                document.getElementById('trashCountBadge').innerText = deletedMessages.length;
+                
+                if (showingTrash) {
+                    loadTrash();
+                } else {
+                    loadOverview();
+                }
+            } catch (error) {
+                console.error("Error loading parent data:", error);
+                showToast("Error loading data", true);
+            }
+        }
+
+        function loadOverview() {
+            // Announcements
+            const announcementsContainer = document.getElementById('parentAnnouncements');
+            db.collection('schools').doc(currentSchoolCode)
+                .collection('announcements')
+                .where('deleted', '==', false)
+                .where('status', '==', 'published')
+                .get()
+                .then(snap => {
+                    if (snap.empty) {
+                        announcementsContainer.innerHTML = '<div class="text-center py-6 text-gray-400">No recent announcements</div>';
+                        return;
+                    }
+                    let items = [];
+                    snap.forEach(doc => items.push({ id: doc.id, ...doc.data() }));
+                    items.sort((a, b) => {
+                        const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
+                        const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
+                        return dateB - dateA;
+                    });
+                    items = items.slice(0, 3);
+                    
+                    let html = '';
+                    items.forEach(a => {
+                        html += `
+                            <div class="p-3 bg-blue-50 rounded-lg">
+                                <p class="text-sm font-medium">${a.title}</p>
+                                <p class="text-xs text-gray-500">${a.content ? a.content.substring(0, 60) + '...' : ''}</p>
+                                <p class="text-xs text-gray-400 mt-1">${new Date(a.createdAt).toLocaleDateString()}</p>
+                            </div>
+                        `;
+                    });
+                    announcementsContainer.innerHTML = html;
+                })
+                .catch(() => {
+                    announcementsContainer.innerHTML = '<div class="text-center py-6 text-gray-400">No announcements available</div>';
+                });
+            
+            // Events
+            const eventsContainer = document.getElementById('parentEvents');
+            db.collection('schools').doc(currentSchoolCode)
+                .collection('events')
+                .where('deleted', '==', false)
+                .where('date', '>=', new Date().toISOString().split('T')[0])
+                .get()
+                .then(snap => {
+                    if (snap.empty) {
+                        eventsContainer.innerHTML = '<div class="text-center py-6 text-gray-400">No upcoming events</div>';
+                        return;
+                    }
+                    let items = [];
+                    snap.forEach(doc => items.push({ id: doc.id, ...doc.data() }));
+                    items.sort((a, b) => a.date - b.date);
+                    items = items.slice(0, 3);
+                    
+                    let html = '';
+                    items.forEach(e => {
+                        const date = new Date(e.date);
+                        html += `
+                            <div class="flex items-center gap-3">
+                                <div class="w-12 h-12 bg-[#003f87]/10 rounded-xl flex flex-col items-center justify-center">
+                                    <span class="text-xs font-bold text-[#003f87]">${date.toLocaleString('en', { month: 'short' }).toUpperCase()}</span>
+                                    <span class="text-lg font-bold text-[#003f87]">${date.getDate()}</span>
+                                </div>
+                                <div>
+                                    <p class="font-medium">${e.title}</p>
+                                    <p class="text-xs text-gray-500">${e.time || 'All Day'} • ${e.location || 'School'}</p>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    eventsContainer.innerHTML = html;
+                })
+                .catch(() => {
+                    eventsContainer.innerHTML = '<div class="text-center py-6 text-gray-400">No upcoming events</div>';
+                });
+            
+            // Performance
+            let totalPass = 0;
+            let totalAssess = 0;
+            for (const student of linkedStudents) {
+                const assessments = studentAssessments[student.id] || [];
+                const ee = assessments.filter(a => a.competency === 'EE').length;
+                const me = assessments.filter(a => a.competency === 'ME').length;
+                totalPass += ee + me;
+                totalAssess += assessments.length;
+            }
+            const performance = totalAssess > 0 ? Math.round((totalPass / totalAssess) * 100) : 0;
+            document.getElementById('overallPerformance').innerText = performance > 0 ? `${performance}%` : 'N/A';
+            
+            // Fee balance
+            let totalPaid = 0;
+            let totalRequired = 0;
+            feeRecords.forEach(record => {
+                totalPaid += record.amountPaid || 0;
+                totalRequired += record.requiredFee || 0;
+            });
+            document.getElementById('feeBalance').innerText = `KSh ${(totalRequired - totalPaid).toLocaleString()}`;
+        }
+
+        // ========== CHILDREN ==========
+        function loadChildren() {
+            const grid = document.getElementById('childrenGrid');
+            
+            if (linkedStudents.length === 0) {
+                grid.innerHTML = '<div class="text-center py-10 text-gray-400 col-span-full">No children linked to your account</div>';
+                return;
+            }
+            
+            grid.innerHTML = linkedStudents.map(student => {
+                const assessments = studentAssessments[student.id] || [];
+                const ee = assessments.filter(a => a.competency === 'EE').length;
+                const me = assessments.filter(a => a.competency === 'ME').length;
+                const ae = assessments.filter(a => a.competency === 'AE').length;
+                const be = assessments.filter(a => a.competency === 'BE').length;
+                const total = ee + me + ae + be;
+                const passRate = total > 0 ? Math.round(((ee + me) / total) * 100) : 0;
+                const overallComp = passRate >= 80 ? 'EE' : passRate >= 65 ? 'ME' : passRate >= 45 ? 'AE' : 'BE';
+                
+                return `
+                    <div class="bg-white rounded-2xl overflow-hidden shadow-sm border-l-4 border-[#003f87]">
+                        <div class="p-5">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <h3 class="text-xl font-bold text-gray-800">${student.name}</h3>
+                                    <p class="text-sm text-gray-500">${student.grade || 'N/A'} ${student.stream || ''} • Adm: ${student.admNo || 'N/A'}</p>
+                                </div>
+                                <span class="grade-badge grade-${overallComp}">${overallComp}</span>
+                            </div>
+                            <div class="grid grid-cols-4 gap-2 mt-4 text-center text-sm">
+                                <div class="bg-blue-50 p-2 rounded">
+                                    <div class="font-bold text-blue-600">${ee}</div>
+                                    <div class="text-xs text-gray-500">EE</div>
+                                </div>
+                                <div class="bg-green-50 p-2 rounded">
+                                    <div class="font-bold text-green-600">${me}</div>
+                                    <div class="text-xs text-gray-500">ME</div>
+                                </div>
+                                <div class="bg-yellow-50 p-2 rounded">
+                                    <div class="font-bold text-yellow-600">${ae}</div>
+                                    <div class="text-xs text-gray-500">AE</div>
+                                </div>
+                                <div class="bg-red-50 p-2 rounded">
+                                    <div class="font-bold text-red-600">${be}</div>
+                                    <div class="text-xs text-gray-500">BE</div>
+                                </div>
+                            </div>
+                            <button onclick="viewStudentReport('${student.id}')" class="w-full mt-4 py-2 bg-[#003f87] text-white rounded-lg text-sm">View Full Report</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // ========== FEE STATEMENT (from Fee Management) ==========
+        function loadFeeStatement() {
+            let totalPaid = 0;
+            let totalRequired = 0;
+            
+            feeRecords.forEach(record => {
+                totalPaid += record.amountPaid || 0;
+                totalRequired += record.requiredFee || 0;
+            });
+            
+            document.getElementById('totalPaidFees').innerText = `KSh ${totalPaid.toLocaleString()}`;
+            document.getElementById('outstandingFees').innerText = `KSh ${(totalRequired - totalPaid).toLocaleString()}`;
+            
+            const tbody = document.getElementById('feeHistoryBody');
+            
+            if (feeRecords.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-gray-400">No payment history</td></tr>';
+                return;
+            }
+            
+            let html = '';
+            feeRecords.forEach(record => {
+                const student = linkedStudents.find(s => s.id === record.studentId);
+                const payments = record.payments || [];
+                if (payments.length === 0) {
+                    html += `
+                        <tr class="border-b">
+                            <td class="px-4 py-2 text-sm">${record.createdAt ? new Date(record.createdAt).toLocaleDateString() : 'N/A'}</td>
+                            <td class="px-4 py-2 text-sm">${student?.name || 'Unknown'}</td>
+                            <td class="px-4 py-2 text-sm">${record.requiredFee ? 'Fee Registration' : 'N/A'}</td>
+                            <td class="px-4 py-2 text-sm font-medium">KSh 0</td>
+                            <td class="px-4 py-2"><span class="status-badge status-unpaid">Unpaid</span></td>
+                        </tr>
+                    `;
+                }
+                payments.forEach(payment => {
+                    html += `
+                        <tr class="border-b">
+                            <td class="px-4 py-2 text-sm">${payment.date || new Date(payment.recordedAt).toLocaleDateString()}</td>
+                            <td class="px-4 py-2 text-sm">${student?.name || 'Unknown'}</td>
+                            <td class="px-4 py-2 text-sm">${payment.method || 'Payment'}</td>
+                            <td class="px-4 py-2 text-sm font-medium">KSh ${(payment.amount || 0).toLocaleString()}</td>
+                            <td class="px-4 py-2"><span class="status-badge status-paid">Paid</span></td>
+                        </tr>
+                    `;
+                });
+            });
+            tbody.innerHTML = html;
+        }
+
+        function downloadFeeStatement() {
+            showToast('Fee statement downloaded as PDF');
+        }
+
+        // ========== REPORT CARDS (from Report Cards) ==========
+        function loadReportCards() {
+            const grid = document.getElementById('reportCardsGrid');
+            
+            if (reportHistory.length === 0 && linkedStudents.length === 0) {
+                grid.innerHTML = '<div class="text-center py-10 text-gray-400 col-span-full">No report cards available</div>';
+                return;
+            }
+            
+            // Group report history by student
+            const studentReports = {};
+            reportHistory.forEach(r => {
+                if (!studentReports[r.studentId]) {
+                    studentReports[r.studentId] = [];
+                }
+                studentReports[r.studentId].push(r);
+            });
+            
+            // Get students that have reports
+            const studentsWithReports = linkedStudents.filter(s => studentReports[s.id] && studentReports[s.id].length > 0);
+            
+            if (studentsWithReports.length === 0) {
+                grid.innerHTML = `
+                    <div class="text-center py-10 text-gray-400 col-span-full">
+                        No report cards generated yet.
+                        <br><br>
+                        <button onclick="generateReportForAllChildren()" class="px-4 py-2 bg-[#003f87] text-white rounded-lg text-sm">
+                            Generate Reports for All Children
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+            
+            grid.innerHTML = studentsWithReports.map(student => {
+                const reports = studentReports[student.id] || [];
+                const latest = reports[0] || {};
+                const assessments = studentAssessments[student.id] || [];
+                const ee = assessments.filter(a => a.competency === 'EE').length;
+                const me = assessments.filter(a => a.competency === 'ME').length;
+                const total = assessments.length;
+                const passRate = total > 0 ? Math.round(((ee + me) / total) * 100) : 0;
+                const overallComp = passRate >= 80 ? 'EE' : passRate >= 65 ? 'ME' : passRate >= 45 ? 'AE' : 'BE';
+                
+                return `
+                    <div class="bg-white rounded-2xl p-5 shadow-sm cursor-pointer hover:shadow-md transition" onclick="viewStudentReport('${student.id}')">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h4 class="font-bold text-gray-800">${student.name}</h4>
+                                <p class="text-sm text-gray-500">${student.grade || 'N/A'} ${student.stream || ''}</p>
+                            </div>
+                            <span class="grade-badge grade-${overallComp}">${overallComp} ${passRate}%</span>
+                        </div>
+                        <div class="mt-2 flex gap-2 text-xs text-gray-500">
+                            <span>${latest.term || 'Term 2, 2024'}</span>
+                            <span>•</span>
+                            <span>${assessments.length} subjects assessed</span>
+                            <span>•</span>
+                            <span>${reports.length} reports</span>
+                        </div>
+                        <button class="w-full mt-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200">View Report</button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function generateReportForAllChildren() {
+            showToast('Generating reports for all children...');
+            let count = 0;
+            
+            for (const student of linkedStudents) {
+                const assessments = allAssessments.filter(a => a.studentId === student.id);
+                const ee = assessments.filter(a => a.competency === 'EE').length;
+                const me = assessments.filter(a => a.competency === 'ME').length;
+                const total = assessments.length;
+                const passRate = total > 0 ? Math.round(((ee + me) / total) * 100) : 0;
+                const overallComp = passRate >= 80 ? 'EE' : passRate >= 65 ? 'ME' : passRate >= 45 ? 'AE' : 'BE';
+                
+                await db.collection('schools').doc(currentSchoolCode).collection('reportHistory').add({
+                    studentName: student.name,
+                    studentId: student.id,
+                    grade: student.grade,
+                    stream: student.stream,
+                    term: 'Term 2, 2024',
+                    overallComp: overallComp,
+                    passRate: passRate,
+                    generatedAt: new Date().toISOString(),
+                    deleted: false,
+                    parentGenerated: true
+                });
+                count++;
+            }
+            
+            showToast(`✅ ${count} report cards generated!`);
+            await loadParentData();
+            loadReportCards();
+        }
+
+        function viewStudentReport(studentId) {
+            const student = linkedStudents.find(s => s.id === studentId);
+            if (!student) return;
+            
+            const assessments = studentAssessments[student.id] || [];
+            
+            document.getElementById('reportModalTitle').innerHTML = `${student.name} - Report Card`;
+            
+            let rows = '';
+            let ee = 0, me = 0, ae = 0, be = 0;
+            
+            if (assessments.length === 0) {
+                rows = '<tr><td colspan="3" class="text-center py-4 text-gray-400">No assessments recorded</td></tr>';
+            } else {
+                assessments.sort((a, b) => (a.subject || '').localeCompare(b.subject || ''));
+                assessments.forEach(a => {
+                    if (a.competency === 'EE') ee++;
+                    else if (a.competency === 'ME') me++;
+                    else if (a.competency === 'AE') ae++;
+                    else if (a.competency === 'BE') be++;
+                    rows += `
+                        <tr class="border-b">
+                            <td class="p-2 text-sm font-medium">${a.subject || 'N/A'}</td>
+                            <td class="p-2 text-center"><span class="grade-badge grade-${a.competency || 'N/A'}">${a.competency || 'N/A'}</span></td>
+                            <td class="p-2 text-xs text-gray-500">${a.teacher || 'Staff'}</td>
+                        </tr>
+                    `;
+                });
+            }
+            
+            const total = ee + me + ae + be;
+            const passRate = total > 0 ? Math.round(((ee + me) / total) * 100) : 0;
+            const overallComp = passRate >= 80 ? 'EE' : passRate >= 65 ? 'ME' : passRate >= 45 ? 'AE' : 'BE';
+            
+            const firstAssessment = assessments[0];
+            const comment = firstAssessment?.comment || 'No comment provided.';
+            
+            document.getElementById('reportModalContent').innerHTML = `
+                <div class="bg-gray-50 p-4 rounded-lg grid grid-cols-2 gap-2 text-sm mb-4">
+                    <div><strong>Student:</strong> ${student.name}</div>
+                    <div><strong>Admission:</strong> ${student.admNo || 'N/A'}</div>
+                    <div><strong>Grade:</strong> ${student.grade || 'N/A'} ${student.stream || ''}</div>
+                    <div><strong>Term:</strong> Term 2, 2024</div>
+                </div>
+                <table class="w-full border mb-4 text-sm">
+                    <thead><tr class="bg-gray-100"><th class="p-2 text-left">Subject</th><th class="p-2 text-center">Competency</th><th class="p-2 text-left">Teacher</th></tr></thead>
+                    <tbody>${rows}</tbody>
+                </table>
+                <div class="bg-blue-50 p-3 rounded-lg mb-4">
+                    <div class="grid grid-cols-4 text-center mb-2">
+                        <div><div class="text-xl font-bold text-[#003f87]">${ee}</div><div class="text-xs">EE</div></div>
+                        <div><div class="text-xl font-bold text-green-600">${me}</div><div class="text-xs">ME</div></div>
+                        <div><div class="text-xl font-bold text-yellow-600">${ae}</div><div class="text-xs">AE</div></div>
+                        <div><div class="text-xl font-bold text-red-600">${be}</div><div class="text-xs">BE</div></div>
+                    </div>
+                    <div class="flex justify-between items-center p-2 bg-white rounded-lg">
+                        <span><strong>Overall:</strong></span>
+                        <span class="grade-badge grade-${overallComp}">${overallComp}</span>
+                        <span><strong>Pass Rate:</strong></span>
+                        <span class="font-bold ${passRate >= 80 ? 'text-green-600' : passRate >= 50 ? 'text-yellow-600' : 'text-red-600'}">${passRate}%</span>
+                    </div>
+                </div>
+                <div class="bg-yellow-50 p-3 rounded-lg">
+                    <p class="font-bold text-sm mb-1">📝 Teacher's Comment</p>
+                    <p class="text-sm">${comment}</p>
+                </div>
+            `;
+            
+            document.getElementById('reportModal').classList.remove('hidden');
+        }
+
+        // ========== MESSAGES (from Message Center) ==========
+        function loadParentMessages() {
+            const container = document.getElementById('parentMessageHistory');
+            
+            const sortedMessages = [...allMessages].sort((a, b) => {
+                const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
+                const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
+                return dateB - dateA;
+            });
+            
+            if (sortedMessages.length === 0) {
+                container.innerHTML = '<div class="text-center py-6 text-gray-400">No messages yet</div>';
+                return;
+            }
+            
+            let html = '';
+            sortedMessages.slice(0, 5).forEach(msg => {
+                const isFromSchool = msg.senderId === 'admin' || msg.senderId === 'school';
+                html += `
+                    <div class="p-3 ${isFromSchool ? 'bg-blue-50' : 'bg-gray-50'} rounded-lg">
+                        <p class="text-sm font-medium">${isFromSchool ? '📩 School Admin' : '📤 You'}</p>
+                        <p class="text-xs text-gray-600">${msg.content || ''}</p>
+                        <p class="text-xs text-gray-400 mt-1">${msg.createdAt ? new Date(msg.createdAt).toLocaleDateString() : ''}</p>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        function sendParentMessage() {
+            const subject = document.getElementById('messageSubject').value.trim();
+            const content = document.getElementById('parentMessageContent').value.trim();
+            
+            if (!content) {
+                showToast('Please enter a message', true);
+                return;
+            }
+            
+            db.collection('schools').doc(currentSchoolCode)
+                .collection('messages')
+                .add({
+                    senderName: parentName || 'Parent',
+                    senderPhone: parentPhone || '',
+                    parentPhone: parentPhone || '',
+                    parentName: parentName || 'Parent',
+                    recipientId: 'admin',
+                    subject: subject || 'Parent Message',
+                    content: content,
+                    type: 'parent_message',
+                    read: false,
+                    deleted: false,
+                    createdAt: new Date().toISOString()
+                })
+                .then(() => {
+                    showToast('Message sent successfully!');
+                    document.getElementById('messageSubject').value = '';
+                    document.getElementById('parentMessageContent').value = '';
+                    loadParentMessages();
+                })
+                .catch(() => {
+                    showToast('Error sending message', true);
+                });
+        }
+
+        // ========== TRASH ==========
+        async function loadTrash() {
+            const container = document.getElementById('trashContainer');
+            
+            try {
+                const delMsgSnap = await db.collection('schools').doc(currentSchoolCode)
+                    .collection('messages')
+                    .where('deleted', '==', true)
+                    .get();
+                
+                deletedMessages = [];
+                delMsgSnap.forEach(doc => {
+                    const data = doc.data();
+                    if (data.parentPhone === parentPhone || data.parentName === parentName) {
+                        deletedMessages.push({ id: doc.id, ...data, type: 'message' });
+                    }
+                });
+                deletedMessages.sort((a, b) => {
+                    const dateA = a.deletedAt ? new Date(a.deletedAt) : new Date(0);
+                    const dateB = b.deletedAt ? new Date(b.deletedAt) : new Date(0);
+                    return dateB - dateA;
+                });
+                
+                document.getElementById('trashCountBadge').innerText = deletedMessages.length;
+                
+                if (deletedMessages.length === 0) {
+                    container.innerHTML = '<div class="text-center py-6 text-gray-400">Trash is empty</div>';
+                    return;
+                }
+                
+                container.innerHTML = deletedMessages.map(item => `
+                    <div class="p-4 flex justify-between items-center border-b deleted-row">
+                        <div>
+                            <p class="font-medium text-gray-700">💬 Message</p>
+                            <p class="text-sm text-gray-600">${item.content || 'Deleted message'}</p>
+                            <p class="text-xs text-gray-400">${item.deletedAt ? new Date(item.deletedAt).toLocaleDateString() : 'Unknown'}</p>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="restoreTrashItem('${item.id}')" class="px-3 py-1 bg-green-600 text-white rounded text-sm flex items-center gap-1">
+                                ♻️ Restore
+                            </button>
+                            <button onclick="permanentDeleteItem('${item.id}')" class="px-3 py-1 bg-red-700 text-white rounded text-sm flex items-center gap-1">
+                                🗑️ Delete Forever
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error("Error loading trash:", error);
+                container.innerHTML = '<div class="text-center py-6 text-red-500">Error loading trash</div>';
+            }
+        }
+
+        async function restoreTrashItem(id) {
+            try {
+                await db.collection('schools').doc(currentSchoolCode)
+                    .collection('messages')
+                    .doc(id)
+                    .update({ 
+                        deleted: false,
+                        deletedAt: null,
+                        updatedAt: new Date().toISOString()
+                    });
+                showToast('Item restored');
+                await loadParentData();
+                loadTrash();
+            } catch (error) {
+                showToast('Error restoring', true);
+            }
+        }
+
+        async function permanentDeleteItem(id) {
+            if (confirm('⚠️ Permanently delete this item? This cannot be undone.')) {
+                try {
+                    await db.collection('schools').doc(currentSchoolCode)
+                        .collection('messages')
+                        .doc(id)
+                        .delete();
+                    showToast('Permanently deleted');
+                    await loadParentData();
+                    loadTrash();
+                } catch (error) {
+                    showToast('Error deleting permanently', true);
+                }
+            }
+        }
+
+        async function emptyTrash() {
+            if (confirm('⚠️ WARNING: This will permanently delete ALL items in trash. This cannot be undone. Continue?')) {
+                try {
+                    for (const item of deletedMessages) {
+                        await db.collection('schools').doc(currentSchoolCode)
+                            .collection('messages')
+                            .doc(item.id)
+                            .delete();
+                    }
+                    showToast('Trash emptied');
+                    await loadParentData();
+                    loadTrash();
+                } catch (error) {
+                    showToast('Error emptying trash', true);
+                }
+            }
+        }
+
+        function refreshDashboard() {
+            showToast('Refreshing...');
+            loadParentData();
+        }
+
+        // ========== EVENT LISTENERS ==========
+        document.getElementById('parentLoginForm').addEventListener('submit', handleParentLogin);
+
+        // Check for existing parent session
+        (function checkParentSession() {
+            const studentId = sessionStorage.getItem('parentStudentId');
+            
+            if (studentId) {
+                currentStudentId = studentId;
+                currentSchoolCode = sessionStorage.getItem('currentSchoolCode');
+                parentName = sessionStorage.getItem('parentName') || 'Parent';
+                parentPhone = sessionStorage.getItem('parentPhone') || '';
+                
+                document.getElementById('loginScreen').classList.add('hidden');
+                document.getElementById('dashboardContent').classList.remove('hidden');
+                loadParentData();
+            }
+        })();
+
+        window.addEventListener('message', function(event) {
+            if (event.data && event.data.type === 'themeChange') {
+                const theme = event.data.theme;
+                document.body.className = '';
+                if (theme === 'dark') document.body.classList.add('theme-dark');
+                else if (theme === 'green') document.body.classList.add('theme-green');
+                else if (theme === 'grey') document.body.classList.add('theme-grey');
+            }
+        });
+
+        if (window.parent !== window) {
+            window.parent.postMessage({ type: 'iframeReady' }, '*');
+        }
+    </script>
+</body>
+</html>
