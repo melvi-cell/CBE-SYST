@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parent Portal | LearnPro Kenya</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: #f0f2f5; }
+        .glass-card { background: rgba(255,255,255,0.7); backdrop-filter: blur(20px); border-radius: 24px; border: 1px solid rgba(255,255,255,0.3); }
+        .stat-card { background: white; border-radius: 20px; transition: all 0.3s ease; border: 1px solid #eef2ff; cursor: pointer; }
+        .stat-card:hover { transform: translateY(-5px); box-shadow: 0 20px 25px -12px rgba(0,63,135,0.15); }
+        .toast { position: fixed; bottom: 24px; right: 24px; background: #003f87; color: white; padding: 12px 24px; border-radius: 48px; z-index: 1000; font-weight: 600; }
+        .toast-error { background: #dc2626; }
+        .toast-success { background: #059669; }
+        .nav-item { transition: all 0.2s ease; cursor: pointer; }
+        .nav-item:hover { background: rgba(0,63,135,0.1); transform: translateX(5px); }
+        .nav-active { background: #003f87; color: white; border-radius: 12px; }
+        .grade-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+        .grade-EE { background: #003f87; color: white; }
+        .grade-ME { background: #059669; color: white; }
+        .grade-AE { background: #d97706; color: white; }
+        .grade-BE { background: #dc2626; color: white; }
+    </style>
+</head>
+<body>
+    <!-- Sidebar + Main Content -->
+    <div class="flex pt-[72px] min-h-screen">
+        <!-- Sidebar -->
+        <div class="w-64 fixed left-0 top-[72px] bottom-0 bg-white border-r border-gray-200 overflow-y-auto">
+            <div class="p-4">
+                <div class="bg-gradient-to-r from-[#003f87]/10 to-[#0056b3]/10 rounded-xl p-4 mb-6 text-center">
+                    <div class="w-16 h-16 rounded-full bg-[#003f87] mx-auto mb-2 flex items-center justify-center"><span class="text-2xl font-bold text-white">MK</span></div>
+                    <h4 class="font-bold text-gray-800">Mary Kamau</h4>
+                    <p class="text-xs text-gray-500">Parent</p>
+                    <p class="text-xs text-[#003f87] mt-1">2 Linked Students</p>
+                </div>
+                <nav class="space-y-1">
+                    <div onclick="showSection('overview')" id="navOverview" class="nav-item nav-active flex items-center gap-3 px-4 py-3 rounded-xl">
+                        <span class="material-symbols-outlined">dashboard</span><span class="font-medium">Dashboard</span>
+                    </div>
+                    <div onclick="showSection('children')" id="navChildren" class="nav-item flex items-center gap-3 px-4 py-3 rounded-xl text-gray-700">
+                        <span class="material-symbols-outlined">family_history</span><span class="font-medium">My Children</span>
+                    </div>
+                    <div onclick="showSection('fees')" id="navFees" class="nav-item flex items-center gap-3 px-4 py-3 rounded-xl text-gray-700">
+                        <span class="material-symbols-outlined">payments</span><span class="font-medium">Fee Statement</span>
+                    </div>
+                    <div onclick="showSection('reports')" id="navReports" class="nav-item flex items-center gap-3 px-4 py-3 rounded-xl text-gray-700">
+                        <span class="material-symbols-outlined">assessment</span><span class="font-medium">Report Cards</span>
+                    </div>
+                    <div onclick="showSection('messages')" id="navMessages" class="nav-item flex items-center gap-3 px-4 py-3 rounded-xl text-gray-700">
+                        <span class="material-symbols-outlined">chat</span><span class="font-medium">Messages</span>
+                    </div>
+                </nav>
+            </div>
+            <div class="absolute bottom-4 left-4 right-4"><div class="bg-gray-100 rounded-xl p-3 text-center"><p class="text-xs text-gray-500">Parent Access</p><p class="text-[10px] font-bold text-[#003f87] mt-1">Term 2, 2024</p></div></div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="ml-64 flex-1 p-6">
+            <!-- Overview Section -->
+            <div id="overviewSection">
+                <div class="mb-6"><h2 class="text-2xl font-bold text-gray-800">Welcome back, Mary!</h2><p class="text-gray-500">Track your children's academic progress and school activities</p></div>
+                <div class="grid md:grid-cols-2 gap-6 mb-8">
+                    <div class="stat-card p-6 flex items-center gap-4"><div class="w-14 h-14 bg-blue-100 rounded-2xl flex items-center justify-center"><span class="material-symbols-outlined text-blue-700 text-2xl">groups</span></div><div><p class="text-gray-500 text-sm">Children Enrolled</p><p class="text-3xl font-bold text-blue-700">2</p></div></div>
+                    <div class="stat-card p-6 flex items-center gap-4"><div class="w-14 h-14 bg-green-100 rounded-2xl flex items-center justify-center"><span class="material-symbols-outlined text-green-700 text-2xl">attach_money</span></div><div><p class="text-gray-500 text-sm">Fee Balance</p><p class="text-3xl font-bold text-green-700">KSh 0</p></div></div>
+                </div>
+                <div class="grid lg:grid-cols-2 gap-6"><div class="bg-white rounded-2xl p-6 shadow-sm"><h3 class="font-bold text-gray-800 mb-3">Recent Announcements</h3><div class="space-y-3"><div class="p-3 bg-blue-50 rounded-lg"><p class="text-sm font-medium">Parent-Teacher Conference</p><p class="text-xs text-gray-500">Thursday, Oct 19 • 2:00 PM</p></div><div class="p-3 bg-yellow-50 rounded-lg"><p class="text-sm font-medium">Half-Term Break</p><p class="text-xs text-gray-500">School closes Oct 20, reopens Oct 24</p></div><div class="p-3 bg-green-50 rounded-lg"><p class="text-sm font-medium">Fee Payment Deadline</p><p class="text-xs text-gray-500">Term 2 fees due by Oct 30</p></div></div></div>
+                    <div class="bg-white rounded-2xl p-6 shadow-sm"><h3 class="font-bold text-gray-800 mb-3">Upcoming Events</h3><div class="space-y-3"><div class="flex items-center gap-3"><div class="w-12 h-12 bg-[#003f87]/10 rounded-xl flex flex-col items-center justify-center"><span class="text-xs font-bold text-[#003f87]">OCT</span><span class="text-lg font-bold text-[#003f87]">19</span></div><div><p class="font-medium">Parent Conference</p><p class="text-xs text-gray-500">2:00 PM • Main Hall</p></div></div><div class="flex items-center gap-3"><div class="w-12 h-12 bg-[#003f87]/10 rounded-xl flex flex-col items-center justify-center"><span class="text-xs font-bold text-[#003f87]">OCT</span><span class="text-lg font-bold text-[#003f87]">20</span></div><div><p class="font-medium">Half Term Begins</p><p class="text-xs text-gray-500">All Day</p></div></div></div></div></div>
+            </div>
+
+            <!-- My Children Section -->
+            <div id="childrenSection" class="hidden"><div class="mb-6"><h2 class="text-2xl font-bold text-gray-800">My Children</h2><p class="text-gray-500">View academic progress and details</p></div>
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div class="bg-white rounded-2xl overflow-hidden shadow-sm"><div class="bg-gradient-to-r from-[#003f87] to-[#0056b3] p-4 text-white"><div class="flex justify-between items-center"><div><h3 class="text-xl font-bold">Juma Kamau</h3><p class="text-white/80 text-sm">Grade 4 Blue</p></div><div class="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center"><span class="text-xl font-bold">JK</span></div></div></div>
+                        <div class="p-5"><div class="grid grid-cols-2 gap-4 mb-4"><div class="text-center"><p class="text-gray-500 text-sm">Admission No</p><p class="font-bold">LP-2024-0012</p></div><div class="text-center"><p class="text-gray-500 text-sm">Class Teacher</p><p class="font-bold">Mrs. Anyango</p></div></div>
+                        <h4 class="font-semibold text-gray-800 mb-2">Recent Performance</h4><div class="space-y-2"><div class="flex justify-between items-center"><span>Mathematics</span><span class="grade-badge grade-ME">ME</span></div><div class="flex justify-between items-center"><span>English</span><span class="grade-badge grade-EE">EE</span></div><div class="flex justify-between items-center"><span>Science</span><span class="grade-badge grade-ME">ME</span></div><div class="flex justify-between items-center"><span>Kiswahili</span><span class="grade-badge grade-ME">ME</span></div></div>
+                        <button class="w-full mt-4 py-2 border border-[#003f87] text-[#003f87] rounded-lg">View Full Report →</button></div></div>
+
+                    <div class="bg-white rounded-2xl overflow-hidden shadow-sm"><div class="bg-gradient-to-r from-[#006d40] to-[#008751] p-4 text-white"><div class="flex justify-between items-center"><div><h3 class="text-xl font-bold">Muthoni Kamau</h3><p class="text-white/80 text-sm">Grade 1 Green</p></div><div class="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center"><span class="text-xl font-bold">MK</span></div></div></div>
+                        <div class="p-5"><div class="grid grid-cols-2 gap-4 mb-4"><div class="text-center"><p class="text-gray-500 text-sm">Admission No</p><p class="font-bold">LP-2024-0085</p></div><div class="text-center"><p class="text-gray-500 text-sm">Class Teacher</p><p class="font-bold">Ms. Wanjiku</p></div></div>
+                        <h4 class="font-semibold text-gray-800 mb-2">Recent Performance</h4><div class="space-y-2"><div class="flex justify-between items-center"><span>Literacy</span><span class="grade-badge grade-EE">EE</span></div><div class="flex justify-between items-center"><span>Numeracy</span><span class="grade-badge grade-ME">ME</span></div><div class="flex justify-between items-center"><span>Environmental</span><span class="grade-badge grade-EE">EE</span></div><div class="flex justify-between items-center"><span>Creative Arts</span><span class="grade-badge grade-ME">ME</span></div></div>
+                        <button class="w-full mt-4 py-2 border border-[#003f87] text-[#003f87] rounded-lg">View Full Report →</button></div></div>
+                </div>
+            </div>
+
+            <!-- Fee Statement Section -->
+            <div id="feesSection" class="hidden"><div class="mb-6"><h2 class="text-2xl font-bold text-gray-800">Fee Statement</h2><p class="text-gray-500">View payment history and outstanding balances</p></div>
+                <div class="bg-white rounded-2xl p-6 shadow-sm"><div class="grid md:grid-cols-2 gap-6 mb-6"><div class="text-center p-4 bg-green-50 rounded-xl"><p class="text-gray-500 text-sm">Total Paid</p><p class="text-3xl font-bold text-green-600">KSh 45,000</p></div><div class="text-center p-4 bg-yellow-50 rounded-xl"><p class="text-gray-500 text-sm">Outstanding Balance</p><p class="text-3xl font-bold text-yellow-600">KSh 0</p></div></div>
+                <div class="overflow-x-auto"><table class="w-full"><thead class="bg-gray-50"><tr><th class="px-4 py-3 text-left">Date</th><th class="px-4 py-3 text-left">Description</th><th class="px-4 py-3 text-left">Amount</th><th class="px-4 py-3 text-left">Status</th></tr></thead>
+                <tbody class="divide-y"><tr><td class="px-4 py-2">Jan 15, 2024</td><td>Term 1 Fees</td><td>KSh 25,000</td><td><span class="text-green-600">Paid</span></td></tr>
+                <tr><td class="px-4 py-2">Apr 10, 2024</td><td>Term 2 Fees</td><td>KSh 20,000</td><td><span class="text-green-600">Paid</span></td></tr></tbody></table></div>
+                <button class="w-full mt-6 py-3 bg-[#003f87] text-white rounded-xl">Download Statement</button></div></div>
+        </div>
+    </div>
+
+    <div id="toast" style="display:none" class="toast"></div>
+
+    <script>
+        const firebaseConfig = { apiKey: "AIzaSyA4cm7chJXz90yOLWPtbdIW8KlEozG1lxo", authDomain: "learnpro-kenya-erp.firebaseapp.com", projectId: "learnpro-kenya-erp", storageBucket: "learnpro-kenya-erp.firebasestorage.app", messagingSenderId: "327168081514", appId: "1:327168081514:web:13cdc8b827fa76d95a9413" };
+        firebase.initializeApp(firebaseConfig); const auth = firebase.auth(); const db = firebase.firestore();
+        let currentSchoolCode = null;
+        function showToast(msg, isError = false) { const toast = document.getElementById('toast'); toast.textContent = msg; toast.className = `toast ${isError ? 'toast-error' : 'toast-success'}`; toast.style.display = 'block'; setTimeout(() => toast.style.display = 'none', 3000); }
+        function goToDashboard() { window.location.href = 'dashboard.html'; }
+        async function logout() { await auth.signOut(); sessionStorage.clear(); window.location.href = 'index.html'; }
+        function showSection(section) {
+            document.getElementById('overviewSection').classList.add('hidden'); document.getElementById('childrenSection').classList.add('hidden'); document.getElementById('feesSection').classList.add('hidden'); document.getElementById('reportsSection').classList.add('hidden'); document.getElementById('messagesSection').classList.add('hidden');
+            if (section === 'overview') document.getElementById('overviewSection').classList.remove('hidden');
+            else if (section === 'children') document.getElementById('childrenSection').classList.remove('hidden');
+            else if (section === 'fees') document.getElementById('feesSection').classList.remove('hidden');
+            ['navOverview', 'navChildren', 'navFees', 'navReports', 'navMessages'].forEach(id => { document.getElementById(id).classList.remove('nav-active'); document.getElementById(id).classList.add('text-gray-700'); });
+            const activeNav = section === 'overview' ? 'navOverview' : section === 'children' ? 'navChildren' : 'navFees';
+            document.getElementById(activeNav).classList.add('nav-active'); document.getElementById(activeNav).classList.remove('text-gray-700');
+        }
+        auth.onAuthStateChanged(async (user) => { if (!user) { window.location.href = 'index.html'; return; } currentSchoolCode = sessionStorage.getItem('currentSchoolCode'); if (!currentSchoolCode) { const schoolsSnap = await db.collection('schools').where('adminId', '==', user.uid).get(); if (!schoolsSnap.empty) { currentSchoolCode = schoolsSnap.docs[0].id; sessionStorage.setItem('currentSchoolCode', currentSchoolCode); sessionStorage.setItem('currentSchoolName', schoolsSnap.docs[0].data().schoolName); } } document.getElementById('schoolBadge').innerText = sessionStorage.getItem('currentSchoolName') || currentSchoolCode; });
+    </script>
+</body>
+</html>

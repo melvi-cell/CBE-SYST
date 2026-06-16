@@ -1,0 +1,1102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cafeteria Management | LearnPro Kenya ERP</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: #f0f2f5; }
+        .stat-card { background: white; border-radius: 20px; transition: all 0.3s ease; border: 1px solid #eef2ff; cursor: pointer; }
+        .stat-card:hover { transform: translateY(-3px); box-shadow: 0 15px 30px -12px rgba(0,0,0,0.1); }
+        .toast { position: fixed; bottom: 24px; right: 24px; background: #003f87; color: white; padding: 12px 24px; border-radius: 48px; z-index: 1000; font-weight: 500; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .toast-error { background: #dc2626; }
+        .toast-success { background: #059669; }
+        .nav-tab { cursor: pointer; padding: 8px 20px; border-radius: 30px; font-size: 13px; font-weight: 500; transition: all 0.2s; }
+        .nav-tab-active { background: #003f87; color: white; }
+        .nav-tab-inactive { background: white; color: #4a5568; border: 1px solid #e2e8f0; }
+        .nav-tab-inactive:hover { background: #f1f5f9; border-color: #003f87; }
+        .status-badge { display: inline-flex; align-items: center; padding: 4px 12px; border-radius: 30px; font-size: 11px; font-weight: 600; }
+        .status-available { background: #dcfce7; color: #166534; }
+        .status-low { background: #fef3c7; color: #92400e; }
+        .status-out { background: #fee2e2; color: #991b1b; }
+        .meal-card { background: white; border-radius: 16px; border: 1px solid #eef2ff; transition: all 0.3s ease; }
+        .meal-card:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.08); }
+        .modal { z-index: 1000; }
+        .chart-container { height: 200px; position: relative; }
+        @media print { .no-print { display: none; } }
+    </style>
+</head>
+<body>
+
+    <!-- Top Bar -->
+    <div class="bg-white shadow-sm fixed top-0 left-0 right-0 z-40 border-b border-gray-100 no-print">
+        <div class="flex justify-between items-center px-6 py-2">
+            <div class="flex items-center gap-3">
+                <span class="text-sm font-bold text-[#003f87]" id="schoolNameDisplay">ELMOH HIGH SCHOOL</span>
+                <span class="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full">Cafeteria Module</span>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="window.location.href='dashboard.html'" class="px-3 py-1 text-gray-600 hover:bg-gray-100 rounded-lg text-xs">Dashboard</button>
+                <button onclick="logout()" class="px-3 py-1 text-red-600 hover:bg-red-50 rounded-lg text-xs">Logout</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="pt-14 px-6 pb-6 max-w-7xl mx-auto">
+        
+        <!-- Page Header -->
+        <div class="mb-6 flex justify-between items-center flex-wrap gap-3">
+            <div>
+                <h2 class="text-2xl font-bold text-gray-800">🍽️ Cafeteria Management</h2>
+                <p class="text-gray-500 text-sm">Manage meals, inventory, and student dining services</p>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="openMealModal()" class="px-4 py-2 bg-[#003f87] text-white rounded-lg text-sm flex items-center gap-1">
+                    <span class="material-symbols-outlined text-sm">add</span> Add Meal
+                </button>
+                <button onclick="exportCafeteriaData()" class="px-4 py-2 border border-gray-300 rounded-lg text-sm flex items-center gap-1">
+                    <span class="material-symbols-outlined text-sm">download</span> Export
+                </button>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="flex gap-1 mb-4 border-b pb-2 flex-wrap">
+            <button onclick="showTab('overview')" id="tabOverview" class="nav-tab nav-tab-active">📊 Overview</button>
+            <button onclick="showTab('meals')" id="tabMeals" class="nav-tab nav-tab-inactive">🍲 Meals</button>
+            <button onclick="showTab('inventory')" id="tabInventory" class="nav-tab nav-tab-inactive">📦 Inventory</button>
+            <button onclick="showTab('orders')" id="tabOrders" class="nav-tab nav-tab-inactive">📋 Orders</button>
+            <button onclick="showTab('students')" id="tabStudents" class="nav-tab nav-tab-inactive">👨‍🎓 Student Meals</button>
+            <button onclick="showTab('menu')" id="tabMenu" class="nav-tab nav-tab-inactive">📅 Weekly Menu</button>
+        </div>
+
+        <!-- ========== OVERVIEW TAB ========== -->
+        <div id="overviewTab">
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+                <div class="stat-card p-4 text-center">
+                    <div class="text-3xl font-bold text-blue-600" id="totalMeals">0</div>
+                    <p class="text-xs text-gray-500">Total Meals</p>
+                </div>
+                <div class="stat-card p-4 text-center">
+                    <div class="text-3xl font-bold text-green-600" id="todayOrders">0</div>
+                    <p class="text-xs text-gray-500">Today's Orders</p>
+                </div>
+                <div class="stat-card p-4 text-center">
+                    <div class="text-3xl font-bold text-orange-600" id="inventoryItems">0</div>
+                    <p class="text-xs text-gray-500">Inventory Items</p>
+                </div>
+                <div class="stat-card p-4 text-center">
+                    <div class="text-3xl font-bold text-purple-600" id="studentsServed">0</div>
+                    <p class="text-xs text-gray-500">Students Served</p>
+                </div>
+                <div class="stat-card p-4 text-center">
+                    <div class="text-3xl font-bold text-red-600" id="lowStockItems">0</div>
+                    <p class="text-xs text-gray-500">Low Stock</p>
+                </div>
+            </div>
+
+            <div class="grid lg:grid-cols-2 gap-6 mb-6">
+                <div class="bg-white rounded-xl p-5 shadow-sm">
+                    <h3 class="font-bold text-gray-800 mb-3">📊 Meal Categories</h3>
+                    <div class="chart-container"><canvas id="mealChart"></canvas></div>
+                </div>
+                <div class="bg-white rounded-xl p-5 shadow-sm">
+                    <h3 class="font-bold text-gray-800 mb-3">📈 Daily Orders Trend</h3>
+                    <div class="chart-container"><canvas id="ordersChart"></canvas></div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl p-5 shadow-sm">
+                <h3 class="font-bold text-gray-800 mb-3">🔄 Recent Activity</h3>
+                <div id="recentActivity" class="space-y-2">
+                    <div class="text-center py-6 text-gray-400">Loading activity...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== MEALS TAB ========== -->
+        <div id="mealsTab" class="hidden">
+            <div class="bg-white rounded-xl p-4 mb-4 flex flex-wrap gap-3 items-center">
+                <button onclick="openMealModal()" class="px-4 py-2 bg-[#003f87] text-white rounded-lg text-sm">+ Add Meal</button>
+                <select id="mealCategoryFilter" class="px-3 py-2 border rounded-lg text-sm" onchange="loadMeals()">
+                    <option value="all">All Categories</option>
+                    <option>Breakfast</option>
+                    <option>Lunch</option>
+                    <option>Dinner</option>
+                    <option>Snacks</option>
+                    <option>Beverages</option>
+                </select>
+                <input type="text" id="mealSearch" placeholder="Search meals..." class="px-3 py-2 border rounded-lg text-sm flex-1 min-w-[200px]" onkeyup="loadMeals()">
+            </div>
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4" id="mealsGrid">
+                <div class="text-center py-10 text-gray-400 col-span-full">Loading meals...</div>
+            </div>
+        </div>
+
+        <!-- ========== INVENTORY TAB ========== -->
+        <div id="inventoryTab" class="hidden">
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="bg-white rounded-xl p-5 shadow-sm">
+                    <h3 class="font-bold text-gray-800 mb-3">📦 Manage Inventory</h3>
+                    <form id="inventoryForm" class="space-y-3">
+                        <input type="hidden" id="editInventoryId">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Item Name *</label>
+                            <input type="text" id="invName" placeholder="e.g., Rice, Cooking Oil" class="w-full px-3 py-2 border rounded-lg" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                            <select id="invCategory" class="w-full px-3 py-2 border rounded-lg">
+                                <option>Grains</option>
+                                <option>Vegetables</option>
+                                <option>Fruits</option>
+                                <option>Meat</option>
+                                <option>Dairy</option>
+                                <option>Beverages</option>
+                                <option>Snacks</option>
+                                <option>Other</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Quantity *</label>
+                            <input type="number" id="invQuantity" placeholder="Stock quantity" class="w-full px-3 py-2 border rounded-lg" min="0" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Unit</label>
+                            <input type="text" id="invUnit" placeholder="e.g., kg, liters, pieces" class="w-full px-3 py-2 border rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Reorder Level</label>
+                            <input type="number" id="invReorder" placeholder="Minimum stock alert" class="w-full px-3 py-2 border rounded-lg" min="0">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Supplier</label>
+                            <input type="text" id="invSupplier" placeholder="Supplier name" class="w-full px-3 py-2 border rounded-lg">
+                        </div>
+                        <button type="submit" class="w-full py-2.5 bg-[#003f87] text-white rounded-lg font-medium">Save Item</button>
+                    </form>
+                </div>
+                <div class="bg-white rounded-xl p-5 shadow-sm">
+                    <h3 class="font-bold text-gray-800 mb-3">📋 Inventory List</h3>
+                    <div id="inventoryList" class="space-y-2 max-h-96 overflow-y-auto">
+                        <div class="text-center py-6 text-gray-400">Loading inventory...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== ORDERS TAB ========== -->
+        <div id="ordersTab" class="hidden">
+            <div class="bg-white rounded-xl p-5 shadow-sm">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-bold text-gray-800">📋 Today's Orders</h3>
+                    <div class="flex gap-2">
+                        <input type="date" id="orderDateFilter" class="px-3 py-2 border rounded-lg text-sm" onchange="loadOrders()">
+                        <button onclick="openOrderModal()" class="px-4 py-2 bg-[#003f87] text-white rounded-lg text-sm">+ New Order</button>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="p-2 text-left text-xs">Student</th>
+                                <th class="p-2 text-left text-xs">Meal</th>
+                                <th class="p-2 text-left text-xs">Category</th>
+                                <th class="p-2 text-left text-xs">Quantity</th>
+                                <th class="p-2 text-left text-xs">Status</th>
+                                <th class="p-2 text-center text-xs">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ordersList"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== STUDENT MEALS TAB ========== -->
+        <div id="studentsTab" class="hidden">
+            <div class="bg-white rounded-xl p-4 mb-4 flex flex-wrap gap-3 items-center">
+                <select id="studentMealFilter" class="px-3 py-2 border rounded-lg text-sm" onchange="loadStudentMeals()">
+                    <option value="">All Students</option>
+                </select>
+                <input type="text" id="studentMealSearch" placeholder="Search students..." class="px-3 py-2 border rounded-lg text-sm flex-1 min-w-[200px]" onkeyup="loadStudentMeals()">
+                <button onclick="loadStudentMeals()" class="px-4 py-2 bg-[#003f87] text-white rounded-lg text-sm">Load</button>
+            </div>
+            <div id="studentMealsList" class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div class="text-center py-10 text-gray-400 col-span-full">Loading students...</div>
+            </div>
+        </div>
+
+        <!-- ========== WEEKLY MENU TAB ========== -->
+        <div id="menuTab" class="hidden">
+            <div class="bg-white rounded-xl p-5 shadow-sm">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-bold text-gray-800">📅 Weekly Menu</h3>
+                    <button onclick="openMenuModal()" class="px-4 py-2 bg-[#003f87] text-white rounded-lg text-sm">+ Add to Menu</button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="p-2 text-left text-xs">Day</th>
+                                <th class="p-2 text-left text-xs">Breakfast</th>
+                                <th class="p-2 text-left text-xs">Lunch</th>
+                                <th class="p-2 text-left text-xs">Dinner</th>
+                                <th class="p-2 text-left text-xs">Snacks</th>
+                                <th class="p-2 text-center text-xs">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="weeklyMenuBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== MODALS ========== -->
+
+    <!-- Meal Modal -->
+    <div id="mealModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden modal">
+        <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-[#003f87]" id="mealModalTitle">Add Meal</h3>
+                <button onclick="closeMealModal()" class="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <form id="mealForm" class="space-y-3">
+                <input type="hidden" id="editMealId">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Meal Name *</label>
+                    <input type="text" id="mealName" placeholder="e.g., Rice & Beans" class="w-full px-3 py-2 border rounded-lg" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Category *</label>
+                    <select id="mealCategory" class="w-full px-3 py-2 border rounded-lg" required>
+                        <option>Breakfast</option>
+                        <option>Lunch</option>
+                        <option>Dinner</option>
+                        <option>Snacks</option>
+                        <option>Beverages</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                    <textarea id="mealDescription" rows="2" class="w-full px-3 py-2 border rounded-lg" placeholder="Meal description..."></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Price (KES)</label>
+                    <input type="number" id="mealPrice" placeholder="0" class="w-full px-3 py-2 border rounded-lg" min="0">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Ingredients</label>
+                    <input type="text" id="mealIngredients" placeholder="Comma separated ingredients" class="w-full px-3 py-2 border rounded-lg">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Available</label>
+                    <select id="mealAvailable" class="w-full px-3 py-2 border rounded-lg">
+                        <option value="yes">Yes</option>
+                        <option value="no">No</option>
+                    </select>
+                </div>
+                <button type="submit" class="w-full py-2.5 bg-[#003f87] text-white rounded-lg font-medium">Save Meal</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Order Modal -->
+    <div id="orderModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden modal">
+        <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-[#003f87]">New Order</h3>
+                <button onclick="closeOrderModal()" class="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <form id="orderForm" class="space-y-3">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Student *</label>
+                    <select id="orderStudent" class="w-full px-3 py-2 border rounded-lg" required>
+                        <option value="">Select Student</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Meal *</label>
+                    <select id="orderMeal" class="w-full px-3 py-2 border rounded-lg" required>
+                        <option value="">Select Meal</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
+                    <input type="number" id="orderQuantity" value="1" class="w-full px-3 py-2 border rounded-lg" min="1">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                    <select id="orderStatus" class="w-full px-3 py-2 border rounded-lg">
+                        <option value="pending">Pending</option>
+                        <option value="preparing">Preparing</option>
+                        <option value="ready">Ready</option>
+                        <option value="served">Served</option>
+                        <option value="cancelled">Cancelled</option>
+                    </select>
+                </div>
+                <button type="submit" class="w-full py-2.5 bg-[#003f87] text-white rounded-lg font-medium">Place Order</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Menu Modal -->
+    <div id="menuModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden modal">
+        <div class="bg-white rounded-2xl p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-[#003f87]">Add Weekly Menu</h3>
+                <button onclick="closeMenuModal()" class="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <form id="menuForm" class="space-y-3">
+                <input type="hidden" id="editMenuId">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Day *</label>
+                    <select id="menuDay" class="w-full px-3 py-2 border rounded-lg" required>
+                        <option>Monday</option>
+                        <option>Tuesday</option>
+                        <option>Wednesday</option>
+                        <option>Thursday</option>
+                        <option>Friday</option>
+                        <option>Saturday</option>
+                        <option>Sunday</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Breakfast</label>
+                    <input type="text" id="menuBreakfast" placeholder="Meal name" class="w-full px-3 py-2 border rounded-lg">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Lunch</label>
+                    <input type="text" id="menuLunch" placeholder="Meal name" class="w-full px-3 py-2 border rounded-lg">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Dinner</label>
+                    <input type="text" id="menuDinner" placeholder="Meal name" class="w-full px-3 py-2 border rounded-lg">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Snacks</label>
+                    <input type="text" id="menuSnacks" placeholder="Snack name" class="w-full px-3 py-2 border rounded-lg">
+                </div>
+                <button type="submit" class="w-full py-2.5 bg-[#003f87] text-white rounded-lg font-medium">Save Menu</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden modal">
+        <div class="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 text-center">
+            <div class="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span class="material-symbols-outlined text-red-600 text-3xl">delete</span>
+            </div>
+            <h3 class="text-xl font-bold text-gray-800 mb-2">Confirm Delete</h3>
+            <p class="text-gray-500 mb-5" id="deleteMessage">This action cannot be undone.</p>
+            <div class="flex gap-3">
+                <button id="confirmDeleteBtn" class="flex-1 py-2.5 bg-red-600 text-white rounded-lg font-medium">Delete</button>
+                <button onclick="closeDeleteModal()" class="flex-1 py-2.5 border border-gray-200 rounded-lg font-medium">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" style="display:none" class="toast"></div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyA4cm7chJXz90yOLWPtbdIW8KlEozG1lxo",
+            authDomain: "learnpro-kenya-erp.firebaseapp.com",
+            projectId: "learnpro-kenya-erp",
+            storageBucket: "learnpro-kenya-erp.firebasestorage.app",
+            messagingSenderId: "327168081514",
+            appId: "1:327168081514:web:13cdc8b827fa76d95a9413"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        let currentSchool = null;
+        let allMeals = [], allInventory = [], allOrders = [], allStudents = [], allMenus = [];
+        let deleteTargetId = null, deleteTargetType = null;
+        let mealChart = null, ordersChart = null;
+
+        function showToast(msg, isError = false) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.className = `toast ${isError ? 'toast-error' : 'toast-success'}`;
+            toast.style.display = 'block';
+            setTimeout(() => toast.style.display = 'none', 3000);
+        }
+
+        async function logout() {
+            await auth.signOut();
+            sessionStorage.clear();
+            window.location.href = 'index.html';
+        }
+
+        function showTab(tab) {
+            document.querySelectorAll('[id$="Tab"]').forEach(el => el.classList.add('hidden'));
+            document.getElementById(tab + 'Tab').classList.remove('hidden');
+            
+            document.querySelectorAll('.nav-tab').forEach(btn => {
+                btn.classList.remove('nav-tab-active');
+                btn.classList.add('nav-tab-inactive');
+            });
+            document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('nav-tab-active');
+            document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.remove('nav-tab-inactive');
+            
+            if (tab === 'overview') loadOverview();
+            else if (tab === 'meals') loadMeals();
+            else if (tab === 'inventory') loadInventory();
+            else if (tab === 'orders') { loadStudentsForOrder(); loadMealsForOrder(); loadOrders(); }
+            else if (tab === 'students') { loadStudentMeals(); }
+            else if (tab === 'menu') loadWeeklyMenu();
+        }
+
+        // ========== DATA LOADING ==========
+
+        async function loadAllData() {
+            if (!currentSchool) return;
+            
+            try {
+                const studentsSnap = await db.collection('schools').doc(currentSchool).collection('students').where('deleted', '==', false).get();
+                allStudents = [];
+                studentsSnap.forEach(doc => allStudents.push({ id: doc.id, ...doc.data() }));
+
+                const mealsSnap = await db.collection('schools').doc(currentSchool).collection('cafeteriaMeals').where('deleted', '==', false).get();
+                allMeals = [];
+                mealsSnap.forEach(doc => allMeals.push({ id: doc.id, ...doc.data() }));
+
+                const inventorySnap = await db.collection('schools').doc(currentSchool).collection('cafeteriaInventory').where('deleted', '==', false).get();
+                allInventory = [];
+                inventorySnap.forEach(doc => allInventory.push({ id: doc.id, ...doc.data() }));
+
+                const ordersSnap = await db.collection('schools').doc(currentSchool).collection('cafeteriaOrders').where('deleted', '==', false).get();
+                allOrders = [];
+                ordersSnap.forEach(doc => allOrders.push({ id: doc.id, ...doc.data() }));
+
+                const menusSnap = await db.collection('schools').doc(currentSchool).collection('cafeteriaMenus').where('deleted', '==', false).get();
+                allMenus = [];
+                menusSnap.forEach(doc => allMenus.push({ id: doc.id, ...doc.data() }));
+
+                // Update stats
+                document.getElementById('totalMeals').innerText = allMeals.length;
+                document.getElementById('todayOrders').innerText = allOrders.filter(o => new Date(o.createdAt).toDateString() === new Date().toDateString()).length;
+                document.getElementById('inventoryItems').innerText = allInventory.length;
+                const uniqueStudents = new Set(allOrders.map(o => o.studentId));
+                document.getElementById('studentsServed').innerText = uniqueStudents.size;
+                document.getElementById('lowStockItems').innerText = allInventory.filter(i => i.quantity <= (i.reorder || 5)).length;
+
+                loadOverview();
+            } catch (error) {
+                console.error("Error loading data:", error);
+                showToast("Error loading cafeteria data", true);
+            }
+        }
+
+        // ========== OVERVIEW ==========
+
+        function loadOverview() {
+            const recent = [...allOrders].sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 10);
+            
+            const container = document.getElementById('recentActivity');
+            if (recent.length === 0) {
+                container.innerHTML = '<div class="text-center py-6 text-gray-400">No recent activity</div>';
+            } else {
+                container.innerHTML = recent.map(o => {
+                    const student = allStudents.find(s => s.id === o.studentId);
+                    const meal = allMeals.find(m => m.id === o.mealId);
+                    return `
+                        <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                            <div>
+                                <p class="font-medium text-sm">🍽️ ${meal?.name || 'Unknown Meal'}</p>
+                                <p class="text-xs text-gray-600">${student?.name || 'Unknown'} • ${o.quantity}x</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-xs text-gray-500">${new Date(o.createdAt).toLocaleDateString()}</p>
+                                <span class="status-badge ${o.status === 'served' ? 'status-available' : o.status === 'preparing' ? 'status-low' : 'status-out'}">${o.status || 'Pending'}</span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            updateCharts();
+        }
+
+        function updateCharts() {
+            // Meal categories chart
+            const categoryCounts = {};
+            allMeals.forEach(m => {
+                const cat = m.category || 'Other';
+                categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
+            });
+
+            const ctx1 = document.getElementById('mealChart')?.getContext('2d');
+            if (ctx1) {
+                if (mealChart) mealChart.destroy();
+                mealChart = new Chart(ctx1, {
+                    type: 'doughnut',
+                    data: {
+                        labels: Object.keys(categoryCounts),
+                        datasets: [{ data: Object.values(categoryCounts), backgroundColor: ['#003f87', '#059669', '#d97706', '#6b7280', '#8b5cf6'], borderWidth: 0 }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } } }
+                });
+            }
+
+            // Orders trend
+            const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+            const orderData = new Array(7).fill(0);
+            allOrders.forEach(o => {
+                const day = new Date(o.createdAt).getDay();
+                if (day >= 1 && day <= 7) orderData[day % 7]++;
+            });
+
+            const ctx2 = document.getElementById('ordersChart')?.getContext('2d');
+            if (ctx2) {
+                if (ordersChart) ordersChart.destroy();
+                ordersChart = new Chart(ctx2, {
+                    type: 'line',
+                    data: {
+                        labels: days,
+                        datasets: [{ label: 'Orders', data: orderData, borderColor: '#003f87', backgroundColor: 'rgba(0,63,135,0.1)', fill: true, tension: 0.3 }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom' } }, scales: { y: { beginAtZero: true, stepSize: 1 } } }
+                });
+            }
+        }
+
+        // ========== MEALS CRUD ==========
+
+        async function loadMeals() {
+            const category = document.getElementById('mealCategoryFilter')?.value || 'all';
+            const search = document.getElementById('mealSearch')?.value.toLowerCase() || '';
+
+            let filtered = allMeals;
+            if (category !== 'all') filtered = filtered.filter(m => m.category === category);
+            if (search) filtered = filtered.filter(m => m.name?.toLowerCase().includes(search));
+
+            const grid = document.getElementById('mealsGrid');
+            if (filtered.length === 0) {
+                grid.innerHTML = '<div class="text-center py-10 text-gray-400 col-span-full">No meals found. Click "Add Meal" to get started.</div>';
+                return;
+            }
+
+            grid.innerHTML = filtered.map(m => `
+                <div class="meal-card p-4">
+                    <div class="flex justify-between items-start mb-2">
+                        <div>
+                            <h4 class="font-bold text-gray-800">${m.name}</h4>
+                            <p class="text-sm text-gray-500">${m.category || 'General'}</p>
+                        </div>
+                        <span class="status-badge ${m.available === 'yes' ? 'status-available' : 'status-out'}">${m.available === 'yes' ? 'Available' : 'Unavailable'}</span>
+                    </div>
+                    <p class="text-sm text-gray-600 mb-2">${m.description || 'No description'}</p>
+                    <div class="flex justify-between text-sm">
+                        <span class="font-bold text-[#003f87]">KSh ${m.price || 0}</span>
+                        <span class="text-xs text-gray-500">${m.ingredients || 'No ingredients listed'}</span>
+                    </div>
+                    <div class="flex gap-2 pt-2 border-t mt-2">
+                        <button onclick="editMeal('${m.id}')" class="flex-1 py-1 text-blue-600 border rounded text-sm">Edit</button>
+                        <button onclick="deleteMeal('${m.id}', '${m.name}')" class="flex-1 py-1 text-red-600 border rounded text-sm">Delete</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function openMealModal() {
+            document.getElementById('mealModalTitle').innerText = 'Add Meal';
+            document.getElementById('editMealId').value = '';
+            document.getElementById('mealForm').reset();
+            document.getElementById('mealModal').classList.remove('hidden');
+        }
+
+        function closeMealModal() {
+            document.getElementById('mealModal').classList.add('hidden');
+        }
+
+        function editMeal(id) {
+            const meal = allMeals.find(m => m.id === id);
+            if (meal) {
+                document.getElementById('mealModalTitle').innerText = 'Edit Meal';
+                document.getElementById('editMealId').value = id;
+                document.getElementById('mealName').value = meal.name || '';
+                document.getElementById('mealCategory').value = meal.category || 'Breakfast';
+                document.getElementById('mealDescription').value = meal.description || '';
+                document.getElementById('mealPrice').value = meal.price || '';
+                document.getElementById('mealIngredients').value = meal.ingredients || '';
+                document.getElementById('mealAvailable').value = meal.available || 'yes';
+                document.getElementById('mealModal').classList.remove('hidden');
+            }
+        }
+
+        document.getElementById('mealForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('editMealId').value;
+            const data = {
+                name: document.getElementById('mealName').value,
+                category: document.getElementById('mealCategory').value,
+                description: document.getElementById('mealDescription').value,
+                price: parseFloat(document.getElementById('mealPrice').value) || 0,
+                ingredients: document.getElementById('mealIngredients').value,
+                available: document.getElementById('mealAvailable').value,
+                updatedAt: new Date().toISOString()
+            };
+
+            try {
+                if (id) {
+                    await db.collection('schools').doc(currentSchool).collection('cafeteriaMeals').doc(id).update(data);
+                    showToast('Meal updated');
+                } else {
+                    data.createdAt = new Date().toISOString();
+                    data.deleted = false;
+                    await db.collection('schools').doc(currentSchool).collection('cafeteriaMeals').add(data);
+                    showToast('Meal added');
+                }
+                closeMealModal();
+                await loadAllData();
+                loadMeals();
+            } catch (error) {
+                showToast('Error: ' + error.message, true);
+            }
+        });
+
+        function deleteMeal(id, name) {
+            deleteTargetId = id;
+            deleteTargetType = 'meal';
+            document.getElementById('deleteMessage').innerHTML = `Delete meal "<strong>${name}</strong>"?`;
+            document.getElementById('deleteModal').classList.remove('hidden');
+        }
+
+        // ========== INVENTORY CRUD ==========
+
+        async function loadInventory() {
+            const container = document.getElementById('inventoryList');
+            if (allInventory.length === 0) {
+                container.innerHTML = '<div class="text-center py-6 text-gray-400">No inventory items</div>';
+                return;
+            }
+
+            container.innerHTML = allInventory.map(i => {
+                const isLow = i.quantity <= (i.reorder || 5);
+                return `
+                    <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                        <div>
+                            <p class="font-medium">${i.name}</p>
+                            <p class="text-xs text-gray-500">${i.category || 'Other'} • ${i.unit || 'unit'}</p>
+                            <p class="text-xs ${isLow ? 'text-red-600 font-bold' : 'text-gray-400'}">Stock: ${i.quantity} ${i.unit || ''}</p>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            ${isLow ? '<span class="status-badge status-low">Low Stock</span>' : '<span class="status-badge status-available">In Stock</span>'}
+                            <button onclick="editInventory('${i.id}')" class="text-blue-600 text-sm">Edit</button>
+                            <button onclick="deleteInventory('${i.id}', '${i.name}')" class="text-red-600 text-sm">Delete</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        document.getElementById('inventoryForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('editInventoryId').value;
+            const data = {
+                name: document.getElementById('invName').value,
+                category: document.getElementById('invCategory').value,
+                quantity: parseFloat(document.getElementById('invQuantity').value) || 0,
+                unit: document.getElementById('invUnit').value,
+                reorder: parseFloat(document.getElementById('invReorder').value) || 5,
+                supplier: document.getElementById('invSupplier').value,
+                updatedAt: new Date().toISOString()
+            };
+
+            try {
+                if (id) {
+                    await db.collection('schools').doc(currentSchool).collection('cafeteriaInventory').doc(id).update(data);
+                    showToast('Inventory updated');
+                } else {
+                    data.createdAt = new Date().toISOString();
+                    data.deleted = false;
+                    await db.collection('schools').doc(currentSchool).collection('cafeteriaInventory').add(data);
+                    showToast('Inventory item added');
+                }
+                document.getElementById('inventoryForm').reset();
+                document.getElementById('editInventoryId').value = '';
+                await loadAllData();
+                loadInventory();
+            } catch (error) {
+                showToast('Error: ' + error.message, true);
+            }
+        });
+
+        function editInventory(id) {
+            const item = allInventory.find(i => i.id === id);
+            if (item) {
+                document.getElementById('editInventoryId').value = id;
+                document.getElementById('invName').value = item.name || '';
+                document.getElementById('invCategory').value = item.category || 'Other';
+                document.getElementById('invQuantity').value = item.quantity || '';
+                document.getElementById('invUnit').value = item.unit || '';
+                document.getElementById('invReorder').value = item.reorder || 5;
+                document.getElementById('invSupplier').value = item.supplier || '';
+            }
+        }
+
+        function deleteInventory(id, name) {
+            if (confirm(`Delete inventory item "${name}"?`)) {
+                db.collection('schools').doc(currentSchool).collection('cafeteriaInventory').doc(id).update({
+                    deleted: true,
+                    deletedAt: new Date().toISOString()
+                }).then(() => {
+                    showToast('Inventory item deleted');
+                    loadAllData();
+                    loadInventory();
+                });
+            }
+        }
+
+        // ========== ORDERS ==========
+
+        function loadStudentsForOrder() {
+            const select = document.getElementById('orderStudent');
+            select.innerHTML = '<option value="">Select Student</option>' + 
+                allStudents.map(s => `<option value="${s.id}">${s.name} (${s.admNo})</option>`).join('');
+        }
+
+        function loadMealsForOrder() {
+            const select = document.getElementById('orderMeal');
+            const available = allMeals.filter(m => m.available === 'yes');
+            select.innerHTML = '<option value="">Select Meal</option>' + 
+                available.map(m => `<option value="${m.id}">${m.name} - KSh ${m.price || 0}</option>`).join('');
+        }
+
+        function openOrderModal() {
+            document.getElementById('orderModal').classList.remove('hidden');
+        }
+
+        function closeOrderModal() {
+            document.getElementById('orderModal').classList.add('hidden');
+        }
+
+        document.getElementById('orderForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const data = {
+                studentId: document.getElementById('orderStudent').value,
+                mealId: document.getElementById('orderMeal').value,
+                quantity: parseInt(document.getElementById('orderQuantity').value) || 1,
+                status: document.getElementById('orderStatus').value,
+                createdAt: new Date().toISOString(),
+                deleted: false
+            };
+
+            try {
+                await db.collection('schools').doc(currentSchool).collection('cafeteriaOrders').add(data);
+                showToast('Order placed successfully');
+                closeOrderModal();
+                document.getElementById('orderForm').reset();
+                await loadAllData();
+                loadOrders();
+            } catch (error) {
+                showToast('Error: ' + error.message, true);
+            }
+        });
+
+        async function loadOrders() {
+            const dateFilter = document.getElementById('orderDateFilter')?.value || '';
+            let filtered = allOrders;
+            if (dateFilter) filtered = filtered.filter(o => o.createdAt?.startsWith(dateFilter));
+
+            const tbody = document.getElementById('ordersList');
+            if (filtered.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center py-6 text-gray-400">No orders found</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = filtered.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt)).map(o => {
+                const student = allStudents.find(s => s.id === o.studentId);
+                const meal = allMeals.find(m => m.id === o.mealId);
+                const statusClass = o.status === 'served' ? 'status-available' : 
+                                   o.status === 'preparing' ? 'status-low' : 'status-out';
+                return `
+                    <tr class="border-b">
+                        <td class="p-2 text-sm">${student?.name || 'Unknown'}</td>
+                        <td class="p-2 text-sm">${meal?.name || 'Unknown'}</td>
+                        <td class="p-2 text-sm">${meal?.category || 'N/A'}</td>
+                        <td class="p-2 text-sm text-center">${o.quantity}</td>
+                        <td class="p-2"><span class="status-badge ${statusClass}">${o.status || 'Pending'}</span></td>
+                        <td class="p-2 text-center">
+                            <select onchange="updateOrderStatus('${o.id}', this.value)" class="px-2 py-1 border rounded text-xs">
+                                <option value="pending" ${o.status === 'pending' ? 'selected' : ''}>Pending</option>
+                                <option value="preparing" ${o.status === 'preparing' ? 'selected' : ''}>Preparing</option>
+                                <option value="ready" ${o.status === 'ready' ? 'selected' : ''}>Ready</option>
+                                <option value="served" ${o.status === 'served' ? 'selected' : ''}>Served</option>
+                                <option value="cancelled" ${o.status === 'cancelled' ? 'selected' : ''}>Cancel</option>
+                            </select>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        async function updateOrderStatus(id, status) {
+            await db.collection('schools').doc(currentSchool).collection('cafeteriaOrders').doc(id).update({ status });
+            showToast(`Order status updated to ${status}`);
+            await loadAllData();
+            loadOrders();
+        }
+
+        // ========== STUDENT MEALS ==========
+
+        async function loadStudentMeals() {
+            const search = document.getElementById('studentMealSearch')?.value.toLowerCase() || '';
+            
+            let students = allStudents;
+            if (search) students = students.filter(s => s.name?.toLowerCase().includes(search) || s.admNo?.toLowerCase().includes(search));
+
+            const container = document.getElementById('studentMealsList');
+            if (students.length === 0) {
+                container.innerHTML = '<div class="text-center py-10 text-gray-400 col-span-full">No students found</div>';
+                return;
+            }
+
+            container.innerHTML = students.map(s => {
+                const orders = allOrders.filter(o => o.studentId === s.id);
+                const totalOrders = orders.length;
+                const totalSpent = orders.reduce((sum, o) => {
+                    const meal = allMeals.find(m => m.id === o.mealId);
+                    return sum + (meal?.price || 0) * o.quantity;
+                }, 0);
+                const lastOrder = orders.length > 0 ? new Date(orders[0].createdAt).toLocaleDateString() : 'N/A';
+
+                return `
+                    <div class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-[#003f87]">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h4 class="font-bold text-gray-800">${s.name}</h4>
+                                <p class="text-xs text-gray-500">Adm: ${s.admNo} • ${s.grade}</p>
+                            </div>
+                            <span class="text-xs font-bold text-[#003f87]">${totalOrders} orders</span>
+                        </div>
+                        <div class="grid grid-cols-3 gap-2 mt-3 text-center text-xs">
+                            <div class="bg-blue-50 p-2 rounded">
+                                <div class="font-bold text-blue-600">${totalOrders}</div>
+                                <div>Total Orders</div>
+                            </div>
+                            <div class="bg-green-50 p-2 rounded">
+                                <div class="font-bold text-green-600">KSh ${totalSpent}</div>
+                                <div>Spent</div>
+                            </div>
+                            <div class="bg-gray-50 p-2 rounded">
+                                <div class="font-bold text-gray-600">${lastOrder}</div>
+                                <div>Last Order</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // ========== WEEKLY MENU ==========
+
+        async function loadWeeklyMenu() {
+            const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+            const tbody = document.getElementById('weeklyMenuBody');
+
+            if (allMenus.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="text-center py-6 text-gray-400">No weekly menu set. Add items to get started.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = days.map(day => {
+                const menu = allMenus.find(m => m.day === day);
+                return `
+                    <tr class="border-b">
+                        <td class="p-2 font-bold">${day}</td>
+                        <td class="p-2">${menu?.breakfast || '-'}</td>
+                        <td class="p-2">${menu?.lunch || '-'}</td>
+                        <td class="p-2">${menu?.dinner || '-'}</td>
+                        <td class="p-2">${menu?.snacks || '-'}</td>
+                        <td class="p-2 text-center">
+                            <button onclick="editMenu('${menu?.id || ''}', '${day}')" class="text-blue-600 text-sm mr-2">${menu ? 'Edit' : 'Add'}</button>
+                            ${menu ? `<button onclick="deleteMenu('${menu.id}')" class="text-red-600 text-sm">Delete</button>` : ''}
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function openMenuModal() {
+            document.getElementById('menuModal').classList.remove('hidden');
+        }
+
+        function closeMenuModal() {
+            document.getElementById('menuModal').classList.add('hidden');
+        }
+
+        function editMenu(id, day) {
+            const menu = allMenus.find(m => m.id === id);
+            document.getElementById('editMenuId').value = id || '';
+            document.getElementById('menuDay').value = day;
+            document.getElementById('menuBreakfast').value = menu?.breakfast || '';
+            document.getElementById('menuLunch').value = menu?.lunch || '';
+            document.getElementById('menuDinner').value = menu?.dinner || '';
+            document.getElementById('menuSnacks').value = menu?.snacks || '';
+            document.getElementById('menuModal').classList.remove('hidden');
+        }
+
+        document.getElementById('menuForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('editMenuId').value;
+            const data = {
+                day: document.getElementById('menuDay').value,
+                breakfast: document.getElementById('menuBreakfast').value,
+                lunch: document.getElementById('menuLunch').value,
+                dinner: document.getElementById('menuDinner').value,
+                snacks: document.getElementById('menuSnacks').value,
+                updatedAt: new Date().toISOString()
+            };
+
+            try {
+                if (id) {
+                    await db.collection('schools').doc(currentSchool).collection('cafeteriaMenus').doc(id).update(data);
+                    showToast('Menu updated');
+                } else {
+                    data.createdAt = new Date().toISOString();
+                    data.deleted = false;
+                    await db.collection('schools').doc(currentSchool).collection('cafeteriaMenus').add(data);
+                    showToast('Menu added');
+                }
+                closeMenuModal();
+                await loadAllData();
+                loadWeeklyMenu();
+            } catch (error) {
+                showToast('Error: ' + error.message, true);
+            }
+        });
+
+        function deleteMenu(id) {
+            if (confirm('Delete this menu item?')) {
+                db.collection('schools').doc(currentSchool).collection('cafeteriaMenus').doc(id).update({
+                    deleted: true,
+                    deletedAt: new Date().toISOString()
+                }).then(() => {
+                    showToast('Menu item deleted');
+                    loadAllData();
+                    loadWeeklyMenu();
+                });
+            }
+        }
+
+        // ========== EXPORT ==========
+
+        function exportCafeteriaData() {
+            const data = allOrders.map(o => {
+                const student = allStudents.find(s => s.id === o.studentId);
+                const meal = allMeals.find(m => m.id === o.mealId);
+                return {
+                    'Student': student?.name || 'Unknown',
+                    'Admission': student?.admNo || 'N/A',
+                    'Meal': meal?.name || 'Unknown',
+                    'Category': meal?.category || 'N/A',
+                    'Quantity': o.quantity,
+                    'Status': o.status || 'Pending',
+                    'Date': new Date(o.createdAt).toLocaleDateString()
+                };
+            });
+
+            if (data.length === 0) {
+                showToast('No data to export', true);
+                return;
+            }
+
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Cafeteria Orders');
+            XLSX.writeFile(wb, `cafeteria_${new Date().toISOString().split('T')[0]}.xlsx`);
+            showToast('Export complete!');
+        }
+
+        // ========== DELETE CONFIRMATION ==========
+
+        document.getElementById('confirmDeleteBtn').addEventListener('click', async () => {
+            if (!deleteTargetId) return;
+
+            try {
+                if (deleteTargetType === 'meal') {
+                    await db.collection('schools').doc(currentSchool).collection('cafeteriaMeals').doc(deleteTargetId).update({
+                        deleted: true,
+                        deletedAt: new Date().toISOString()
+                    });
+                    showToast('Meal deleted');
+                }
+                closeDeleteModal();
+                await loadAllData();
+                loadMeals();
+            } catch (error) {
+                showToast('Error deleting: ' + error.message, true);
+            }
+        });
+
+        function closeDeleteModal() {
+            document.getElementById('deleteModal').classList.add('hidden');
+            deleteTargetId = null;
+            deleteTargetType = null;
+        }
+
+        // ========== AUTH ==========
+
+        auth.onAuthStateChanged(async (user) => {
+            if (!user) {
+                window.location.href = 'index.html';
+                return;
+            }
+
+            currentSchool = sessionStorage.getItem('currentSchoolCode');
+            if (!currentSchool) {
+                try {
+                    const snap = await db.collection('schools').where('adminId', '==', user.uid).get();
+                    if (!snap.empty) {
+                        currentSchool = snap.docs[0].id;
+                        sessionStorage.setItem('currentSchoolCode', currentSchool);
+                        sessionStorage.setItem('currentSchoolName', snap.docs[0].data().schoolName);
+                    }
+                } catch (error) {
+                    console.error('Error fetching school:', error);
+                }
+            }
+
+            const schoolName = sessionStorage.getItem('currentSchoolName') || 'ELMOH HIGH SCHOOL';
+            document.getElementById('schoolNameDisplay').innerText = schoolName;
+
+            if (currentSchool) {
+                await loadAllData();
+            }
+        });
+
+        // Listen for theme changes
+        window.addEventListener('message', function(event) {
+            if (event.data && event.data.type === 'themeChange') {
+                const theme = event.data.theme;
+                document.body.className = '';
+                if (theme === 'dark') document.body.classList.add('theme-dark');
+                else if (theme === 'green') document.body.classList.add('theme-green');
+                else if (theme === 'grey') document.body.classList.add('theme-grey');
+            }
+        });
+
+        if (window.parent !== window) {
+            window.parent.postMessage({ type: 'iframeReady' }, '*');
+        }
+    </script>
+
+</body>
+</html>

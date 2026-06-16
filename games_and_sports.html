@@ -1,0 +1,1749 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Games & Sports | LearnPro Kenya ERP</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: #f0f2f5; }
+        
+        .stat-card { background: white; border-radius: 20px; transition: all 0.3s ease; border: 1px solid #eef2ff; cursor: pointer; }
+        .stat-card:hover { transform: translateY(-3px); box-shadow: 0 15px 30px -12px rgba(0,0,0,0.1); }
+        
+        .toast { position: fixed; bottom: 24px; right: 24px; background: #003f87; color: white; padding: 12px 24px; border-radius: 48px; z-index: 1000; font-weight: 500; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .toast-error { background: #dc2626; }
+        .toast-success { background: #059669; }
+        
+        .nav-tab { cursor: pointer; padding: 8px 20px; border-radius: 30px; font-size: 13px; font-weight: 500; transition: all 0.2s; }
+        .nav-tab-active { background: #003f87; color: white; }
+        .nav-tab-inactive { background: white; color: #4a5568; border: 1px solid #e2e8f0; }
+        .nav-tab-inactive:hover { background: #f1f5f9; border-color: #003f87; }
+        
+        .sport-card { background: white; border-radius: 20px; transition: all 0.3s ease; border: 1px solid #eef2ff; overflow: hidden; }
+        .sport-card:hover { transform: translateY(-4px); box-shadow: 0 20px 25px -12px rgba(0,63,135,0.15); }
+        
+        .team-badge { display: inline-flex; align-items: center; padding: 4px 12px; border-radius: 30px; font-size: 11px; font-weight: 600; }
+        .team-active { background: #dcfce7; color: #166534; }
+        .team-inactive { background: #fee2e2; color: #991b1b; }
+        .team-pending { background: #fef3c7; color: #92400e; }
+        
+        .match-status { display: inline-flex; align-items: center; padding: 4px 12px; border-radius: 30px; font-size: 11px; font-weight: 600; }
+        .match-upcoming { background: #dbeafe; color: #1e40af; }
+        .match-live { background: #fef3c7; color: #92400e; animation: pulse 2s infinite; }
+        .match-completed { background: #dcfce7; color: #166534; }
+        .match-cancelled { background: #fee2e2; color: #991b1b; }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+        
+        .fixture-card { background: white; border-radius: 16px; border: 1px solid #eef2ff; transition: all 0.3s ease; }
+        .fixture-card:hover { box-shadow: 0 8px 20px rgba(0,0,0,0.08); }
+        
+        .chart-container { height: 200px; position: relative; }
+        
+        .player-card { background: white; border-radius: 16px; border: 1px solid #eef2ff; transition: all 0.3s ease; }
+        .player-card:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.08); }
+        
+        .performance-bar { height: 6px; border-radius: 3px; background: #e2e8f0; overflow: hidden; }
+        .performance-fill { height: 100%; border-radius: 3px; transition: width 0.5s ease; }
+        
+        .rank-1 { background: linear-gradient(135deg, #ffd70020, #ffd70008); border-left: 4px solid #ffd700; }
+        .rank-2 { background: linear-gradient(135deg, #c0c0c020, #c0c0c008); border-left: 4px solid #c0c0c0; }
+        .rank-3 { background: linear-gradient(135deg, #cd7f3220, #cd7f3208); border-left: 4px solid #cd7f32; }
+        
+        .modal { z-index: 1000; }
+        
+        @media print { .no-print { display: none; } }
+    </style>
+</head>
+<body>
+
+    <!-- Top Bar -->
+    <div class="bg-white shadow-sm fixed top-0 left-0 right-0 z-40 border-b border-gray-100 no-print">
+        <div class="flex justify-between items-center px-6 py-2">
+            <div class="flex items-center gap-3">
+                <span class="text-sm font-bold text-[#003f87]" id="schoolNameDisplay">ELMOH HIGH SCHOOL</span>
+                <span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Sports Module</span>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="window.location.href='dashboard.html'" class="px-3 py-1 text-gray-600 hover:bg-gray-100 rounded-lg text-xs">Dashboard</button>
+                <button onclick="logout()" class="px-3 py-1 text-red-600 hover:bg-red-50 rounded-lg text-xs">Logout</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="pt-14 px-6 pb-6 max-w-7xl mx-auto">
+        
+        <!-- Page Header -->
+        <div class="mb-6 flex justify-between items-center flex-wrap gap-3">
+            <div>
+                <h2 class="text-2xl font-bold text-gray-800">🏆 Games & Sports</h2>
+                <p class="text-gray-500 text-sm">Manage extracurricular sports activities, teams, fixtures, and tournaments</p>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="openSportModal()" class="px-4 py-2 bg-[#003f87] text-white rounded-lg text-sm flex items-center gap-1">
+                    <span class="material-symbols-outlined text-sm">add</span> Add Sport
+                </button>
+                <button onclick="exportSportsData()" class="px-4 py-2 border border-gray-300 rounded-lg text-sm flex items-center gap-1">
+                    <span class="material-symbols-outlined text-sm">download</span> Export
+                </button>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="flex gap-1 mb-4 border-b pb-2 flex-wrap">
+            <button onclick="showTab('overview')" id="tabOverview" class="nav-tab nav-tab-active">📊 Overview</button>
+            <button onclick="showTab('sports')" id="tabSports" class="nav-tab nav-tab-inactive">⚽ Sports</button>
+            <button onclick="showTab('teams')" id="tabTeams" class="nav-tab nav-tab-inactive">👥 Teams</button>
+            <button onclick="showTab('fixtures')" id="tabFixtures" class="nav-tab nav-tab-inactive">📅 Fixtures</button>
+            <button onclick="showTab('players')" id="tabPlayers" class="nav-tab nav-tab-inactive">👤 Players</button>
+            <button onclick="showTab('tournaments')" id="tabTournaments" class="nav-tab nav-tab-inactive">🏅 Tournaments</button>
+            <button onclick="showTab('analytics')" id="tabAnalytics" class="nav-tab nav-tab-inactive">📈 Analytics</button>
+        </div>
+
+        <!-- ========== OVERVIEW TAB ========== -->
+        <div id="overviewTab">
+            <!-- Stats Cards -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <div class="stat-card p-4 text-center">
+                    <div class="text-3xl font-bold text-blue-600" id="totalSports">0</div>
+                    <p class="text-xs text-gray-500">Sports</p>
+                </div>
+                <div class="stat-card p-4 text-center">
+                    <div class="text-3xl font-bold text-green-600" id="totalTeams">0</div>
+                    <p class="text-xs text-gray-500">Teams</p>
+                </div>
+                <div class="stat-card p-4 text-center">
+                    <div class="text-3xl font-bold text-purple-600" id="totalPlayers">0</div>
+                    <p class="text-xs text-gray-500">Players</p>
+                </div>
+                <div class="stat-card p-4 text-center">
+                    <div class="text-3xl font-bold text-orange-600" id="upcomingMatches">0</div>
+                    <p class="text-xs text-gray-500">Upcoming Matches</p>
+                </div>
+            </div>
+
+            <!-- Recent Activity & Quick Actions -->
+            <div class="grid lg:grid-cols-3 gap-6 mb-6">
+                <div class="lg:col-span-2 bg-white rounded-xl p-5 shadow-sm">
+                    <h3 class="font-bold text-gray-800 mb-3">📋 Recent Fixtures</h3>
+                    <div id="recentFixtures" class="space-y-2">
+                        <div class="text-center py-6 text-gray-400">Loading fixtures...</div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl p-5 shadow-sm">
+                    <h3 class="font-bold text-gray-800 mb-3">⚡ Quick Actions</h3>
+                    <div class="space-y-2">
+                        <button onclick="showTab('fixtures')" class="w-full p-3 bg-blue-50 hover:bg-blue-100 rounded-lg text-left text-sm flex items-center gap-2">
+                            <span class="material-symbols-outlined text-blue-600">add_calendar</span> Schedule Match
+                        </button>
+                        <button onclick="showTab('teams')" class="w-full p-3 bg-green-50 hover:bg-green-100 rounded-lg text-left text-sm flex items-center gap-2">
+                            <span class="material-symbols-outlined text-green-600">group_add</span> Create Team
+                        </button>
+                        <button onclick="showTab('players')" class="w-full p-3 bg-purple-50 hover:bg-purple-100 rounded-lg text-left text-sm flex items-center gap-2">
+                            <span class="material-symbols-outlined text-purple-600">person_add</span> Register Player
+                        </button>
+                        <button onclick="showTab('tournaments')" class="w-full p-3 bg-orange-50 hover:bg-orange-100 rounded-lg text-left text-sm flex items-center gap-2">
+                            <span class="material-symbols-outlined text-orange-600">emoji_events</span> Start Tournament
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Upcoming Matches -->
+            <div class="bg-white rounded-xl p-5 shadow-sm">
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="font-bold text-gray-800">📅 Upcoming Matches</h3>
+                    <button onclick="showTab('fixtures')" class="text-xs text-[#003f87]">View All →</button>
+                </div>
+                <div id="upcomingMatchesList" class="space-y-2">
+                    <div class="text-center py-6 text-gray-400">No upcoming matches</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== SPORTS TAB ========== -->
+        <div id="sportsTab" class="hidden">
+            <div class="bg-white rounded-xl p-4 mb-4 flex flex-wrap gap-3 items-center">
+                <button onclick="openSportModal()" class="px-4 py-2 bg-[#003f87] text-white rounded-lg text-sm">+ Add Sport</button>
+                <input type="text" id="sportSearch" placeholder="Search sports..." class="px-3 py-2 border rounded-lg text-sm flex-1 min-w-[200px]" onkeyup="filterSports()">
+            </div>
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4" id="sportsGrid">
+                <div class="text-center py-10 text-gray-400 col-span-full">Loading sports...</div>
+            </div>
+        </div>
+
+        <!-- ========== TEAMS TAB ========== -->
+        <div id="teamsTab" class="hidden">
+            <div class="bg-white rounded-xl p-4 mb-4 flex flex-wrap gap-3 items-center">
+                <button onclick="openTeamModal()" class="px-4 py-2 bg-[#003f87] text-white rounded-lg text-sm">+ Create Team</button>
+                <select id="teamSportFilter" class="px-3 py-2 border rounded-lg text-sm" onchange="filterTeams()">
+                    <option value="all">All Sports</option>
+                </select>
+                <input type="text" id="teamSearch" placeholder="Search teams..." class="px-3 py-2 border rounded-lg text-sm flex-1 min-w-[200px]" onkeyup="filterTeams()">
+            </div>
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4" id="teamsGrid">
+                <div class="text-center py-10 text-gray-400 col-span-full">Loading teams...</div>
+            </div>
+        </div>
+
+        <!-- ========== FIXTURES TAB ========== -->
+        <div id="fixturesTab" class="hidden">
+            <div class="bg-white rounded-xl p-4 mb-4 flex flex-wrap gap-3 items-center">
+                <button onclick="openFixtureModal()" class="px-4 py-2 bg-[#003f87] text-white rounded-lg text-sm">+ Add Fixture</button>
+                <select id="fixtureSportFilter" class="px-3 py-2 border rounded-lg text-sm" onchange="loadFixtures()">
+                    <option value="all">All Sports</option>
+                </select>
+                <select id="fixtureStatusFilter" class="px-3 py-2 border rounded-lg text-sm" onchange="loadFixtures()">
+                    <option value="all">All Status</option>
+                    <option value="upcoming">Upcoming</option>
+                    <option value="live">Live</option>
+                    <option value="completed">Completed</option>
+                    <option value="cancelled">Cancelled</option>
+                </select>
+                <input type="date" id="fixtureDateFilter" class="px-3 py-2 border rounded-lg text-sm" onchange="loadFixtures()">
+                <button onclick="loadFixtures()" class="px-4 py-2 bg-gray-600 text-white rounded-lg text-sm">Apply Filters</button>
+            </div>
+            <div id="fixturesList" class="space-y-3">
+                <div class="text-center py-10 text-gray-400">Loading fixtures...</div>
+            </div>
+        </div>
+
+        <!-- ========== PLAYERS TAB ========== -->
+        <div id="playersTab" class="hidden">
+            <div class="bg-white rounded-xl p-4 mb-4 flex flex-wrap gap-3 items-center">
+                <button onclick="openPlayerModal()" class="px-4 py-2 bg-[#003f87] text-white rounded-lg text-sm">+ Register Player</button>
+                <select id="playerTeamFilter" class="px-3 py-2 border rounded-lg text-sm" onchange="loadPlayers()">
+                    <option value="all">All Teams</option>
+                </select>
+                <input type="text" id="playerSearch" placeholder="Search players..." class="px-3 py-2 border rounded-lg text-sm flex-1 min-w-[200px]" onkeyup="loadPlayers()">
+                <button onclick="bulkRegisterPlayers()" class="px-4 py-2 border rounded-lg text-sm">📎 Bulk Register</button>
+            </div>
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4" id="playersGrid">
+                <div class="text-center py-10 text-gray-400 col-span-full">Loading players...</div>
+            </div>
+        </div>
+
+        <!-- ========== TOURNAMENTS TAB ========== -->
+        <div id="tournamentsTab" class="hidden">
+            <div class="bg-white rounded-xl p-4 mb-4 flex flex-wrap gap-3 items-center">
+                <button onclick="openTournamentModal()" class="px-4 py-2 bg-[#003f87] text-white rounded-lg text-sm">+ Create Tournament</button>
+                <select id="tournamentSportFilter" class="px-3 py-2 border rounded-lg text-sm" onchange="loadTournaments()">
+                    <option value="all">All Sports</option>
+                </select>
+                <select id="tournamentStatusFilter" class="px-3 py-2 border rounded-lg text-sm" onchange="loadTournaments()">
+                    <option value="all">All Status</option>
+                    <option value="upcoming">Upcoming</option>
+                    <option value="ongoing">Ongoing</option>
+                    <option value="completed">Completed</option>
+                </select>
+            </div>
+            <div id="tournamentsList" class="space-y-4">
+                <div class="text-center py-10 text-gray-400">Loading tournaments...</div>
+            </div>
+        </div>
+
+        <!-- ========== ANALYTICS TAB ========== -->
+        <div id="analyticsTab" class="hidden">
+            <div class="grid lg:grid-cols-2 gap-6 mb-6">
+                <div class="bg-white rounded-xl p-5 shadow-sm">
+                    <h3 class="font-bold text-gray-800 mb-3">🏆 Sport Popularity</h3>
+                    <div class="chart-container"><canvas id="sportPopularityChart"></canvas></div>
+                </div>
+                <div class="bg-white rounded-xl p-5 shadow-sm">
+                    <h3 class="font-bold text-gray-800 mb-3">📊 Team Performance</h3>
+                    <div class="chart-container"><canvas id="teamPerformanceChart"></canvas></div>
+                </div>
+            </div>
+            <div class="bg-white rounded-xl p-5 shadow-sm">
+                <h3 class="font-bold text-gray-800 mb-3">🏅 Tournament Winners</h3>
+                <div id="tournamentWinners" class="space-y-2">
+                    <div class="text-center py-6 text-gray-400">No tournament data available</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== MODALS ========== -->
+
+    <!-- Sport Modal -->
+    <div id="sportModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden modal">
+        <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-[#003f87]" id="sportModalTitle">Add New Sport</h3>
+                <button onclick="closeSportModal()" class="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <form id="sportForm" class="space-y-4">
+                <input type="hidden" id="editSportId">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Sport Name *</label>
+                    <input type="text" id="sportName" placeholder="e.g., Football, Basketball" class="w-full px-3 py-2 border rounded-lg focus:border-[#003f87] focus:ring-2 focus:ring-[#003f87]/20" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                    <select id="sportCategory" class="w-full px-3 py-2 border rounded-lg">
+                        <option>Team Sport</option>
+                        <option>Individual Sport</option>
+                        <option>Aquatic</option>
+                        <option>Athletics</option>
+                        <option>Racket Sport</option>
+                        <option>Combat Sport</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                    <textarea id="sportDescription" rows="2" class="w-full px-3 py-2 border rounded-lg" placeholder="Brief description of the sport"></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                    <select id="sportStatus" class="w-full px-3 py-2 border rounded-lg">
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                    </select>
+                </div>
+                <div class="flex gap-3 pt-2">
+                    <button type="submit" class="flex-1 py-2.5 bg-[#003f87] text-white rounded-lg font-medium">Save Sport</button>
+                    <button type="button" onclick="closeSportModal()" class="flex-1 py-2.5 border border-gray-200 rounded-lg font-medium">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Team Modal -->
+    <div id="teamModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden modal">
+        <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-[#003f87]" id="teamModalTitle">Create New Team</h3>
+                <button onclick="closeTeamModal()" class="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <form id="teamForm" class="space-y-4">
+                <input type="hidden" id="editTeamId">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Team Name *</label>
+                    <input type="text" id="teamName" placeholder="e.g., Lions FC" class="w-full px-3 py-2 border rounded-lg" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Sport *</label>
+                    <select id="teamSport" class="w-full px-3 py-2 border rounded-lg" required></select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Coach</label>
+                    <input type="text" id="teamCoach" placeholder="Coach's name" class="w-full px-3 py-2 border rounded-lg">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Captain</label>
+                    <input type="text" id="teamCaptain" placeholder="Team captain's name" class="w-full px-3 py-2 border rounded-lg">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                    <select id="teamStatus" class="w-full px-3 py-2 border rounded-lg">
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                        <option value="pending">Pending</option>
+                    </select>
+                </div>
+                <div class="flex gap-3 pt-2">
+                    <button type="submit" class="flex-1 py-2.5 bg-[#003f87] text-white rounded-lg font-medium">Save Team</button>
+                    <button type="button" onclick="closeTeamModal()" class="flex-1 py-2.5 border border-gray-200 rounded-lg font-medium">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Fixture Modal -->
+    <div id="fixtureModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden modal">
+        <div class="bg-white rounded-2xl p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-[#003f87]" id="fixtureModalTitle">Schedule Match</h3>
+                <button onclick="closeFixtureModal()" class="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <form id="fixtureForm" class="space-y-4">
+                <input type="hidden" id="editFixtureId">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Sport *</label>
+                    <select id="fixtureSport" class="w-full px-3 py-2 border rounded-lg" required onchange="loadTeamsForFixture()"></select>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Home Team *</label>
+                        <select id="fixtureHomeTeam" class="w-full px-3 py-2 border rounded-lg" required></select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Away Team *</label>
+                        <select id="fixtureAwayTeam" class="w-full px-3 py-2 border rounded-lg" required></select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Date *</label>
+                        <input type="date" id="fixtureDate" class="w-full px-3 py-2 border rounded-lg" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Time</label>
+                        <input type="time" id="fixtureTime" class="w-full px-3 py-2 border rounded-lg">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Venue</label>
+                    <input type="text" id="fixtureVenue" placeholder="e.g., School Grounds" class="w-full px-3 py-2 border rounded-lg">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                    <select id="fixtureStatus" class="w-full px-3 py-2 border rounded-lg">
+                        <option value="upcoming">Upcoming</option>
+                        <option value="live">Live</option>
+                        <option value="completed">Completed</option>
+                        <option value="cancelled">Cancelled</option>
+                    </select>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Home Score</label>
+                        <input type="number" id="fixtureHomeScore" class="w-full px-3 py-2 border rounded-lg" min="0">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Away Score</label>
+                        <input type="number" id="fixtureAwayScore" class="w-full px-3 py-2 border rounded-lg" min="0">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                    <textarea id="fixtureNotes" rows="2" class="w-full px-3 py-2 border rounded-lg" placeholder="Any additional notes"></textarea>
+                </div>
+                <div class="flex gap-3 pt-2">
+                    <button type="submit" class="flex-1 py-2.5 bg-[#003f87] text-white rounded-lg font-medium">Save Fixture</button>
+                    <button type="button" onclick="closeFixtureModal()" class="flex-1 py-2.5 border border-gray-200 rounded-lg font-medium">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Player Modal -->
+    <div id="playerModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden modal">
+        <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-[#003f87]" id="playerModalTitle">Register Player</h3>
+                <button onclick="closePlayerModal()" class="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <form id="playerForm" class="space-y-4">
+                <input type="hidden" id="editPlayerId">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Student Name *</label>
+                    <input type="text" id="playerName" placeholder="Full name" class="w-full px-3 py-2 border rounded-lg" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Admission Number *</label>
+                    <input type="text" id="playerAdmNo" placeholder="e.g., 2024/001" class="w-full px-3 py-2 border rounded-lg" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Grade</label>
+                    <select id="playerGrade" class="w-full px-3 py-2 border rounded-lg">
+                        <option>Grade 1</option><option>Grade 2</option><option>Grade 3</option>
+                        <option>Grade 4</option><option>Grade 5</option><option>Grade 6</option>
+                        <option>Grade 7</option><option>Grade 8</option><option>Grade 9</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Sport *</label>
+                    <select id="playerSport" class="w-full px-3 py-2 border rounded-lg" required onchange="loadTeamsForPlayer()"></select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Team</label>
+                    <select id="playerTeam" class="w-full px-3 py-2 border rounded-lg">
+                        <option value="">Select Team</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Position/Role</label>
+                    <input type="text" id="playerPosition" placeholder="e.g., Forward, Goalkeeper" class="w-full px-3 py-2 border rounded-lg">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Jersey Number</label>
+                    <input type="number" id="playerJersey" placeholder="Jersey number" class="w-full px-3 py-2 border rounded-lg" min="1" max="99">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                    <select id="playerStatus" class="w-full px-3 py-2 border rounded-lg">
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                        <option value="injured">Injured</option>
+                        <option value="suspended">Suspended</option>
+                    </select>
+                </div>
+                <div class="flex gap-3 pt-2">
+                    <button type="submit" class="flex-1 py-2.5 bg-[#003f87] text-white rounded-lg font-medium">Register Player</button>
+                    <button type="button" onclick="closePlayerModal()" class="flex-1 py-2.5 border border-gray-200 rounded-lg font-medium">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tournament Modal -->
+    <div id="tournamentModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden modal">
+        <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-[#003f87]" id="tournamentModalTitle">Create Tournament</h3>
+                <button onclick="closeTournamentModal()" class="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <form id="tournamentForm" class="space-y-4">
+                <input type="hidden" id="editTournamentId">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Tournament Name *</label>
+                    <input type="text" id="tournamentName" placeholder="e.g., Inter-School Championship" class="w-full px-3 py-2 border rounded-lg" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Sport *</label>
+                    <select id="tournamentSport" class="w-full px-3 py-2 border rounded-lg" required></select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Format</label>
+                    <select id="tournamentFormat" class="w-full px-3 py-2 border rounded-lg">
+                        <option>Knockout</option>
+                        <option>League</option>
+                        <option>Group Stage + Knockout</option>
+                        <option>Round Robin</option>
+                    </select>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Start Date *</label>
+                        <input type="date" id="tournamentStartDate" class="w-full px-3 py-2 border rounded-lg" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                        <input type="date" id="tournamentEndDate" class="w-full px-3 py-2 border rounded-lg">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                    <select id="tournamentStatus" class="w-full px-3 py-2 border rounded-lg">
+                        <option value="upcoming">Upcoming</option>
+                        <option value="ongoing">Ongoing</option>
+                        <option value="completed">Completed</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                    <textarea id="tournamentDescription" rows="2" class="w-full px-3 py-2 border rounded-lg" placeholder="Tournament details"></textarea>
+                </div>
+                <div class="flex gap-3 pt-2">
+                    <button type="submit" class="flex-1 py-2.5 bg-[#003f87] text-white rounded-lg font-medium">Save Tournament</button>
+                    <button type="button" onclick="closeTournamentModal()" class="flex-1 py-2.5 border border-gray-200 rounded-lg font-medium">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden modal">
+        <div class="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 text-center">
+            <div class="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span class="material-symbols-outlined text-red-600 text-3xl">delete</span>
+            </div>
+            <h3 class="text-xl font-bold text-gray-800 mb-2">Confirm Delete</h3>
+            <p class="text-gray-500 mb-5" id="deleteMessage">This action cannot be undone.</p>
+            <div class="flex gap-3">
+                <button id="confirmDeleteBtn" class="flex-1 py-2.5 bg-red-600 text-white rounded-lg font-medium">Delete</button>
+                <button onclick="closeDeleteModal()" class="flex-1 py-2.5 border border-gray-200 rounded-lg font-medium">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bulk Register Players Modal -->
+    <div id="bulkPlayerModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden modal">
+        <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-[#003f87]">Bulk Register Players</h3>
+                <button onclick="closeBulkPlayerModal()" class="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <div class="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center cursor-pointer hover:border-[#003f87] transition" onclick="document.getElementById('bulkPlayerExcel').click()">
+                <span class="material-symbols-outlined text-4xl text-gray-400 mb-2">cloud_upload</span>
+                <p class="text-sm font-medium">Upload Excel/CSV with player list</p>
+                <p class="text-xs text-gray-400">Supported: .xlsx, .xls, .csv</p>
+                <input type="file" id="bulkPlayerExcel" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleBulkPlayerUpload(this)">
+            </div>
+            <div id="bulkPlayerPreview" class="mt-3 hidden"></div>
+            <button id="confirmBulkPlayerBtn" onclick="confirmBulkPlayerUpload()" class="hidden w-full mt-4 py-2.5 bg-green-600 text-white rounded-lg font-medium">Confirm Upload</button>
+            <button onclick="downloadBulkPlayerTemplate()" class="w-full mt-3 py-2 border rounded-lg text-sm">Download Template</button>
+        </div>
+    </div>
+
+    <div id="toast" style="display:none" class="toast"></div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyA4cm7chJXz90yOLWPtbdIW8KlEozG1lxo",
+            authDomain: "learnpro-kenya-erp.firebaseapp.com",
+            projectId: "learnpro-kenya-erp",
+            storageBucket: "learnpro-kenya-erp.firebasestorage.app",
+            messagingSenderId: "327168081514",
+            appId: "1:327168081514:web:13cdc8b827fa76d95a9413"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        let currentSchool = null;
+        let allSports = [], allTeams = [], allPlayers = [], allFixtures = [], allTournaments = [];
+        let deleteTargetId = null, deleteTargetType = null;
+        let bulkPlayerData = [];
+
+        // Chart instances
+        let sportPopularityChart = null;
+        let teamPerformanceChart = null;
+
+        // ========== UTILITY FUNCTIONS ==========
+
+        function showToast(msg, isError = false) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.className = `toast ${isError ? 'toast-error' : 'toast-success'}`;
+            toast.style.display = 'block';
+            setTimeout(() => toast.style.display = 'none', 3000);
+        }
+
+        async function logout() {
+            await auth.signOut();
+            sessionStorage.clear();
+            window.location.href = 'index.html';
+        }
+
+        function showTab(tab) {
+            document.querySelectorAll('[id$="Tab"]').forEach(el => el.classList.add('hidden'));
+            document.getElementById(tab + 'Tab').classList.remove('hidden');
+            
+            document.querySelectorAll('.nav-tab').forEach(btn => {
+                btn.classList.remove('nav-tab-active');
+                btn.classList.add('nav-tab-inactive');
+            });
+            document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('nav-tab-active');
+            document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.remove('nav-tab-inactive');
+            
+            if (tab === 'overview') loadOverview();
+            else if (tab === 'sports') loadSports();
+            else if (tab === 'teams') { loadSportsForDropdowns(); loadTeams(); }
+            else if (tab === 'fixtures') { loadSportsForDropdowns(); loadFixtures(); }
+            else if (tab === 'players') { loadSportsForDropdowns(); loadTeamsForPlayerDropdown(); loadPlayers(); }
+            else if (tab === 'tournaments') { loadSportsForDropdowns(); loadTournaments(); }
+            else if (tab === 'analytics') { loadAnalytics(); }
+        }
+
+        // ========== DATA LOADING FUNCTIONS ==========
+
+        async function loadAllData() {
+            if (!currentSchool) return;
+            
+            try {
+                const [sportsSnap, teamsSnap, playersSnap, fixturesSnap, tournamentsSnap] = await Promise.all([
+                    db.collection('schools').doc(currentSchool).collection('sports').where('deleted', '==', false).get(),
+                    db.collection('schools').doc(currentSchool).collection('sportsTeams').where('deleted', '==', false).get(),
+                    db.collection('schools').doc(currentSchool).collection('sportsPlayers').where('deleted', '==', false).get(),
+                    db.collection('schools').doc(currentSchool).collection('sportsFixtures').where('deleted', '==', false).get(),
+                    db.collection('schools').doc(currentSchool).collection('sportsTournaments').where('deleted', '==', false).get()
+                ]);
+
+                allSports = [];
+                sportsSnap.forEach(doc => allSports.push({ id: doc.id, ...doc.data() }));
+
+                allTeams = [];
+                teamsSnap.forEach(doc => allTeams.push({ id: doc.id, ...doc.data() }));
+
+                allPlayers = [];
+                playersSnap.forEach(doc => allPlayers.push({ id: doc.id, ...doc.data() }));
+
+                allFixtures = [];
+                fixturesSnap.forEach(doc => allFixtures.push({ id: doc.id, ...doc.data() }));
+
+                allTournaments = [];
+                tournamentsSnap.forEach(doc => allTournaments.push({ id: doc.id, ...doc.data() }));
+
+                // Update stats
+                document.getElementById('totalSports').innerText = allSports.length;
+                document.getElementById('totalTeams').innerText = allTeams.length;
+                document.getElementById('totalPlayers').innerText = allPlayers.length;
+                
+                const upcoming = allFixtures.filter(f => f.status === 'upcoming');
+                document.getElementById('upcomingMatches').innerText = upcoming.length;
+
+                // Load default tab
+                loadOverview();
+                
+            } catch (error) {
+                console.error("Error loading data:", error);
+                showToast("Error loading sports data", true);
+            }
+        }
+
+        // ========== OVERVIEW ==========
+
+        function loadOverview() {
+            // Recent fixtures
+            const recent = allFixtures
+                .filter(f => f.status !== 'cancelled')
+                .sort((a, b) => new Date(b.date) - new Date(a.date))
+                .slice(0, 5);
+            
+            const container = document.getElementById('recentFixtures');
+            if (recent.length === 0) {
+                container.innerHTML = '<div class="text-center py-6 text-gray-400">No recent fixtures</div>';
+            } else {
+                container.innerHTML = recent.map(f => {
+                    const homeTeam = allTeams.find(t => t.id === f.homeTeamId);
+                    const awayTeam = allTeams.find(t => t.id === f.awayTeamId);
+                    const sport = allSports.find(s => s.id === f.sportId);
+                    return `
+                        <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
+                            <div>
+                                <p class="font-medium text-sm">${homeTeam?.name || 'TBD'} vs ${awayTeam?.name || 'TBD'}</p>
+                                <p class="text-xs text-gray-500">${sport?.name || 'Unknown Sport'} • ${new Date(f.date).toLocaleDateString()}</p>
+                            </div>
+                            <span class="match-status match-${f.status || 'upcoming'}">${f.status || 'Upcoming'}</span>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            // Upcoming matches
+            const upcomingMatches = allFixtures
+                .filter(f => f.status === 'upcoming' || f.status === 'live')
+                .sort((a, b) => new Date(a.date) - new Date(b.date))
+                .slice(0, 5);
+            
+            const upcomingContainer = document.getElementById('upcomingMatchesList');
+            if (upcomingMatches.length === 0) {
+                upcomingContainer.innerHTML = '<div class="text-center py-6 text-gray-400">No upcoming matches</div>';
+            } else {
+                upcomingContainer.innerHTML = upcomingMatches.map(f => {
+                    const homeTeam = allTeams.find(t => t.id === f.homeTeamId);
+                    const awayTeam = allTeams.find(t => t.id === f.awayTeamId);
+                    return `
+                        <div class="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
+                            <div>
+                                <p class="font-medium text-sm">${homeTeam?.name || 'TBD'} vs ${awayTeam?.name || 'TBD'}</p>
+                                <p class="text-xs text-gray-500">${new Date(f.date).toLocaleDateString()} ${f.time || ''}</p>
+                            </div>
+                            <span class="match-status match-${f.status || 'upcoming'}">${f.status || 'Upcoming'}</span>
+                        </div>
+                    `;
+                }).join('');
+            }
+        }
+
+        // ========== SPORTS CRUD ==========
+
+        async function loadSports() {
+            const search = document.getElementById('sportSearch')?.value.toLowerCase() || '';
+            const filtered = allSports.filter(s => 
+                s.name?.toLowerCase().includes(search) || 
+                s.category?.toLowerCase().includes(search)
+            );
+
+            const grid = document.getElementById('sportsGrid');
+            if (filtered.length === 0) {
+                grid.innerHTML = '<div class="text-center py-10 text-gray-400 col-span-full">No sports found. Click "Add Sport" to get started.</div>';
+                return;
+            }
+
+            grid.innerHTML = filtered.map(s => `
+                <div class="sport-card p-4">
+                    <div class="flex justify-between items-start mb-2">
+                        <div>
+                            <h4 class="font-bold text-gray-800">${s.name}</h4>
+                            <p class="text-xs text-gray-500">${s.category || 'Team Sport'}</p>
+                        </div>
+                        <span class="team-badge ${s.status === 'active' ? 'team-active' : 'team-inactive'}">${s.status || 'Active'}</span>
+                    </div>
+                    <p class="text-sm text-gray-600 mb-3">${s.description || 'No description'}</p>
+                    <div class="flex gap-2 pt-2 border-t">
+                        <button onclick="editSport('${s.id}')" class="flex-1 py-1 text-blue-600 border rounded text-sm">Edit</button>
+                        <button onclick="deleteSport('${s.id}', '${s.name}')" class="flex-1 py-1 text-red-600 border rounded text-sm">Delete</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function filterSports() { loadSports(); }
+
+        function openSportModal() {
+            document.getElementById('sportModalTitle').innerText = 'Add New Sport';
+            document.getElementById('editSportId').value = '';
+            document.getElementById('sportForm').reset();
+            document.getElementById('sportModal').classList.remove('hidden');
+        }
+
+        function closeSportModal() {
+            document.getElementById('sportModal').classList.add('hidden');
+        }
+
+        function editSport(id) {
+            const sport = allSports.find(s => s.id === id);
+            if (sport) {
+                document.getElementById('sportModalTitle').innerText = 'Edit Sport';
+                document.getElementById('editSportId').value = id;
+                document.getElementById('sportName').value = sport.name || '';
+                document.getElementById('sportCategory').value = sport.category || 'Team Sport';
+                document.getElementById('sportDescription').value = sport.description || '';
+                document.getElementById('sportStatus').value = sport.status || 'active';
+                document.getElementById('sportModal').classList.remove('hidden');
+            }
+        }
+
+        document.getElementById('sportForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('editSportId').value;
+            const data = {
+                name: document.getElementById('sportName').value,
+                category: document.getElementById('sportCategory').value,
+                description: document.getElementById('sportDescription').value,
+                status: document.getElementById('sportStatus').value,
+                updatedAt: new Date().toISOString()
+            };
+
+            try {
+                if (id) {
+                    await db.collection('schools').doc(currentSchool).collection('sports').doc(id).update(data);
+                    showToast('Sport updated successfully');
+                } else {
+                    data.createdAt = new Date().toISOString();
+                    data.deleted = false;
+                    await db.collection('schools').doc(currentSchool).collection('sports').add(data);
+                    showToast('Sport added successfully');
+                }
+                closeSportModal();
+                await loadAllData();
+                loadSports();
+            } catch (error) {
+                showToast('Error saving sport: ' + error.message, true);
+            }
+        });
+
+        function deleteSport(id, name) {
+            deleteTargetId = id;
+            deleteTargetType = 'sport';
+            document.getElementById('deleteMessage').innerHTML = `Delete sport "<strong>${name}</strong>"? This will not delete associated teams or fixtures.`;
+            document.getElementById('deleteModal').classList.remove('hidden');
+        }
+
+        // ========== TEAMS CRUD ==========
+
+        async function loadTeams() {
+            const sportFilter = document.getElementById('teamSportFilter')?.value || 'all';
+            const search = document.getElementById('teamSearch')?.value.toLowerCase() || '';
+            
+            let filtered = allTeams;
+            if (sportFilter !== 'all') {
+                filtered = filtered.filter(t => t.sportId === sportFilter);
+            }
+            if (search) {
+                filtered = filtered.filter(t => 
+                    t.name?.toLowerCase().includes(search) || 
+                    t.coach?.toLowerCase().includes(search)
+                );
+            }
+
+            const grid = document.getElementById('teamsGrid');
+            if (filtered.length === 0) {
+                grid.innerHTML = '<div class="text-center py-10 text-gray-400 col-span-full">No teams found. Click "Create Team" to get started.</div>';
+                return;
+            }
+
+            grid.innerHTML = filtered.map(t => {
+                const sport = allSports.find(s => s.id === t.sportId);
+                const playerCount = allPlayers.filter(p => p.teamId === t.id && p.status === 'active').length;
+                return `
+                    <div class="player-card p-4">
+                        <div class="flex justify-between items-start mb-2">
+                            <div>
+                                <h4 class="font-bold text-gray-800">${t.name}</h4>
+                                <p class="text-xs text-gray-500">${sport?.name || 'Unknown Sport'}</p>
+                            </div>
+                            <span class="team-badge team-${t.status || 'active'}">${t.status || 'Active'}</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 text-sm mb-3">
+                            <div><span class="text-gray-500">Coach:</span> ${t.coach || 'Not assigned'}</div>
+                            <div><span class="text-gray-500">Captain:</span> ${t.captain || 'Not assigned'}</div>
+                            <div><span class="text-gray-500">Players:</span> ${playerCount}</div>
+                        </div>
+                        <div class="flex gap-2 pt-2 border-t">
+                            <button onclick="editTeam('${t.id}')" class="flex-1 py-1 text-blue-600 border rounded text-sm">Edit</button>
+                            <button onclick="deleteTeam('${t.id}', '${t.name}')" class="flex-1 py-1 text-red-600 border rounded text-sm">Delete</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function filterTeams() { loadTeams(); }
+
+        function openTeamModal() {
+            document.getElementById('teamModalTitle').innerText = 'Create New Team';
+            document.getElementById('editTeamId').value = '';
+            document.getElementById('teamForm').reset();
+            loadSportsForDropdown('teamSport');
+            document.getElementById('teamModal').classList.remove('hidden');
+        }
+
+        function closeTeamModal() {
+            document.getElementById('teamModal').classList.add('hidden');
+        }
+
+        function editTeam(id) {
+            const team = allTeams.find(t => t.id === id);
+            if (team) {
+                document.getElementById('teamModalTitle').innerText = 'Edit Team';
+                document.getElementById('editTeamId').value = id;
+                loadSportsForDropdown('teamSport');
+                setTimeout(() => {
+                    document.getElementById('teamName').value = team.name || '';
+                    document.getElementById('teamSport').value = team.sportId || '';
+                    document.getElementById('teamCoach').value = team.coach || '';
+                    document.getElementById('teamCaptain').value = team.captain || '';
+                    document.getElementById('teamStatus').value = team.status || 'active';
+                }, 100);
+                document.getElementById('teamModal').classList.remove('hidden');
+            }
+        }
+
+        document.getElementById('teamForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('editTeamId').value;
+            const data = {
+                name: document.getElementById('teamName').value,
+                sportId: document.getElementById('teamSport').value,
+                coach: document.getElementById('teamCoach').value,
+                captain: document.getElementById('teamCaptain').value,
+                status: document.getElementById('teamStatus').value,
+                updatedAt: new Date().toISOString()
+            };
+
+            try {
+                if (id) {
+                    await db.collection('schools').doc(currentSchool).collection('sportsTeams').doc(id).update(data);
+                    showToast('Team updated successfully');
+                } else {
+                    data.createdAt = new Date().toISOString();
+                    data.deleted = false;
+                    await db.collection('schools').doc(currentSchool).collection('sportsTeams').add(data);
+                    showToast('Team created successfully');
+                }
+                closeTeamModal();
+                await loadAllData();
+                loadTeams();
+            } catch (error) {
+                showToast('Error saving team: ' + error.message, true);
+            }
+        });
+
+        function deleteTeam(id, name) {
+            deleteTargetId = id;
+            deleteTargetType = 'team';
+            document.getElementById('deleteMessage').innerHTML = `Delete team "<strong>${name}</strong>"? This will not delete players or fixtures.`;
+            document.getElementById('deleteModal').classList.remove('hidden');
+        }
+
+        // ========== FIXTURES CRUD ==========
+
+        async function loadFixtures() {
+            const sportFilter = document.getElementById('fixtureSportFilter')?.value || 'all';
+            const statusFilter = document.getElementById('fixtureStatusFilter')?.value || 'all';
+            const dateFilter = document.getElementById('fixtureDateFilter')?.value || '';
+
+            let filtered = allFixtures;
+            if (sportFilter !== 'all') {
+                filtered = filtered.filter(f => f.sportId === sportFilter);
+            }
+            if (statusFilter !== 'all') {
+                filtered = filtered.filter(f => f.status === statusFilter);
+            }
+            if (dateFilter) {
+                filtered = filtered.filter(f => f.date === dateFilter);
+            }
+
+            filtered.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+            const container = document.getElementById('fixturesList');
+            if (filtered.length === 0) {
+                container.innerHTML = '<div class="text-center py-10 text-gray-400">No fixtures found</div>';
+                return;
+            }
+
+            container.innerHTML = filtered.map(f => {
+                const homeTeam = allTeams.find(t => t.id === f.homeTeamId);
+                const awayTeam = allTeams.find(t => t.id === f.awayTeamId);
+                const sport = allSports.find(s => s.id === f.sportId);
+                const isCompleted = f.status === 'completed';
+                const scoreDisplay = isCompleted ? `${f.homeScore || 0} - ${f.awayScore || 0}` : 'vs';
+
+                return `
+                    <div class="fixture-card p-4">
+                        <div class="flex flex-wrap justify-between items-center gap-3">
+                            <div class="flex-1 min-w-[200px]">
+                                <div class="flex items-center gap-3">
+                                    <div class="text-right">
+                                        <p class="font-bold text-gray-800">${homeTeam?.name || 'TBD'}</p>
+                                        <p class="text-xs text-gray-500">Home</p>
+                                    </div>
+                                    <div class="text-center">
+                                        <p class="text-xl font-bold text-[#003f87]">${scoreDisplay}</p>
+                                        <p class="text-xs text-gray-400">${sport?.name || ''}</p>
+                                    </div>
+                                    <div class="text-left">
+                                        <p class="font-bold text-gray-800">${awayTeam?.name || 'TBD'}</p>
+                                        <p class="text-xs text-gray-500">Away</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-4">
+                                <div>
+                                    <p class="text-sm font-medium">${new Date(f.date).toLocaleDateString()}</p>
+                                    <p class="text-xs text-gray-500">${f.time || 'TBD'}</p>
+                                    <p class="text-xs text-gray-400">${f.venue || 'No venue'}</p>
+                                </div>
+                                <span class="match-status match-${f.status || 'upcoming'}">${f.status || 'Upcoming'}</span>
+                                <div class="flex gap-1">
+                                    <button onclick="editFixture('${f.id}')" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded">✏️</button>
+                                    <button onclick="deleteFixture('${f.id}')" class="p-1.5 text-red-600 hover:bg-red-50 rounded">🗑️</button>
+                                </div>
+                            </div>
+                        </div>
+                        ${f.notes ? `<p class="text-xs text-gray-500 mt-2">📝 ${f.notes}</p>` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function openFixtureModal() {
+            document.getElementById('fixtureModalTitle').innerText = 'Schedule Match';
+            document.getElementById('editFixtureId').value = '';
+            document.getElementById('fixtureForm').reset();
+            loadSportsForDropdown('fixtureSport');
+            document.getElementById('fixtureModal').classList.remove('hidden');
+        }
+
+        function closeFixtureModal() {
+            document.getElementById('fixtureModal').classList.add('hidden');
+        }
+
+        function loadTeamsForFixture() {
+            const sportId = document.getElementById('fixtureSport').value;
+            const homeSelect = document.getElementById('fixtureHomeTeam');
+            const awaySelect = document.getElementById('fixtureAwayTeam');
+            
+            const teams = allTeams.filter(t => t.sportId === sportId && t.status === 'active');
+            const options = '<option value="">Select Team</option>' + teams.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+            homeSelect.innerHTML = options;
+            awaySelect.innerHTML = options;
+        }
+
+        function editFixture(id) {
+            const fixture = allFixtures.find(f => f.id === id);
+            if (fixture) {
+                document.getElementById('fixtureModalTitle').innerText = 'Edit Fixture';
+                document.getElementById('editFixtureId').value = id;
+                loadSportsForDropdown('fixtureSport');
+                setTimeout(() => {
+                    document.getElementById('fixtureSport').value = fixture.sportId || '';
+                    loadTeamsForFixture();
+                    setTimeout(() => {
+                        document.getElementById('fixtureHomeTeam').value = fixture.homeTeamId || '';
+                        document.getElementById('fixtureAwayTeam').value = fixture.awayTeamId || '';
+                    }, 100);
+                    document.getElementById('fixtureDate').value = fixture.date || '';
+                    document.getElementById('fixtureTime').value = fixture.time || '';
+                    document.getElementById('fixtureVenue').value = fixture.venue || '';
+                    document.getElementById('fixtureStatus').value = fixture.status || 'upcoming';
+                    document.getElementById('fixtureHomeScore').value = fixture.homeScore || '';
+                    document.getElementById('fixtureAwayScore').value = fixture.awayScore || '';
+                    document.getElementById('fixtureNotes').value = fixture.notes || '';
+                }, 200);
+                document.getElementById('fixtureModal').classList.remove('hidden');
+            }
+        }
+
+        document.getElementById('fixtureForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('editFixtureId').value;
+            const data = {
+                sportId: document.getElementById('fixtureSport').value,
+                homeTeamId: document.getElementById('fixtureHomeTeam').value,
+                awayTeamId: document.getElementById('fixtureAwayTeam').value,
+                date: document.getElementById('fixtureDate').value,
+                time: document.getElementById('fixtureTime').value,
+                venue: document.getElementById('fixtureVenue').value,
+                status: document.getElementById('fixtureStatus').value,
+                homeScore: parseInt(document.getElementById('fixtureHomeScore').value) || 0,
+                awayScore: parseInt(document.getElementById('fixtureAwayScore').value) || 0,
+                notes: document.getElementById('fixtureNotes').value,
+                updatedAt: new Date().toISOString()
+            };
+
+            try {
+                if (id) {
+                    await db.collection('schools').doc(currentSchool).collection('sportsFixtures').doc(id).update(data);
+                    showToast('Fixture updated successfully');
+                } else {
+                    data.createdAt = new Date().toISOString();
+                    data.deleted = false;
+                    await db.collection('schools').doc(currentSchool).collection('sportsFixtures').add(data);
+                    showToast('Fixture scheduled successfully');
+                }
+                closeFixtureModal();
+                await loadAllData();
+                loadFixtures();
+            } catch (error) {
+                showToast('Error saving fixture: ' + error.message, true);
+            }
+        });
+
+        function deleteFixture(id) {
+            deleteTargetId = id;
+            deleteTargetType = 'fixture';
+            document.getElementById('deleteMessage').innerHTML = `Delete this fixture?`;
+            document.getElementById('deleteModal').classList.remove('hidden');
+        }
+
+        // ========== PLAYERS CRUD ==========
+
+        async function loadPlayers() {
+            const teamFilter = document.getElementById('playerTeamFilter')?.value || 'all';
+            const search = document.getElementById('playerSearch')?.value.toLowerCase() || '';
+
+            let filtered = allPlayers;
+            if (teamFilter !== 'all') {
+                filtered = filtered.filter(p => p.teamId === teamFilter);
+            }
+            if (search) {
+                filtered = filtered.filter(p => 
+                    p.name?.toLowerCase().includes(search) || 
+                    p.admNo?.toLowerCase().includes(search)
+                );
+            }
+
+            const grid = document.getElementById('playersGrid');
+            if (filtered.length === 0) {
+                grid.innerHTML = '<div class="text-center py-10 text-gray-400 col-span-full">No players found. Click "Register Player" to get started.</div>';
+                return;
+            }
+
+            grid.innerHTML = filtered.map(p => {
+                const team = allTeams.find(t => t.id === p.teamId);
+                const sport = allSports.find(s => s.id === p.sportId);
+                const statusClass = p.status === 'active' ? 'team-active' : p.status === 'injured' ? 'team-pending' : 'team-inactive';
+                return `
+                    <div class="player-card p-4">
+                        <div class="flex justify-between items-start mb-2">
+                            <div>
+                                <h4 class="font-bold text-gray-800">${p.name}</h4>
+                                <p class="text-xs text-gray-500">Adm: ${p.admNo} • ${p.grade || ''}</p>
+                            </div>
+                            <span class="team-badge ${statusClass}">${p.status || 'Active'}</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 text-sm mb-3">
+                            <div><span class="text-gray-500">Sport:</span> ${sport?.name || 'N/A'}</div>
+                            <div><span class="text-gray-500">Team:</span> ${team?.name || 'Not assigned'}</div>
+                            <div><span class="text-gray-500">Position:</span> ${p.position || 'N/A'}</div>
+                            <div><span class="text-gray-500">Jersey:</span> ${p.jersey || 'N/A'}</div>
+                        </div>
+                        <div class="flex gap-2 pt-2 border-t">
+                            <button onclick="editPlayer('${p.id}')" class="flex-1 py-1 text-blue-600 border rounded text-sm">Edit</button>
+                            <button onclick="deletePlayer('${p.id}', '${p.name}')" class="flex-1 py-1 text-red-600 border rounded text-sm">Delete</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function openPlayerModal() {
+            document.getElementById('playerModalTitle').innerText = 'Register Player';
+            document.getElementById('editPlayerId').value = '';
+            document.getElementById('playerForm').reset();
+            loadSportsForDropdown('playerSport');
+            document.getElementById('playerModal').classList.remove('hidden');
+        }
+
+        function closePlayerModal() {
+            document.getElementById('playerModal').classList.add('hidden');
+        }
+
+        function loadTeamsForPlayer() {
+            const sportId = document.getElementById('playerSport').value;
+            const teamSelect = document.getElementById('playerTeam');
+            const teams = allTeams.filter(t => t.sportId === sportId && t.status === 'active');
+            teamSelect.innerHTML = '<option value="">Select Team</option>' + teams.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+        }
+
+        function editPlayer(id) {
+            const player = allPlayers.find(p => p.id === id);
+            if (player) {
+                document.getElementById('playerModalTitle').innerText = 'Edit Player';
+                document.getElementById('editPlayerId').value = id;
+                loadSportsForDropdown('playerSport');
+                setTimeout(() => {
+                    document.getElementById('playerName').value = player.name || '';
+                    document.getElementById('playerAdmNo').value = player.admNo || '';
+                    document.getElementById('playerGrade').value = player.grade || 'Grade 1';
+                    document.getElementById('playerSport').value = player.sportId || '';
+                    loadTeamsForPlayer();
+                    setTimeout(() => {
+                        document.getElementById('playerTeam').value = player.teamId || '';
+                    }, 100);
+                    document.getElementById('playerPosition').value = player.position || '';
+                    document.getElementById('playerJersey').value = player.jersey || '';
+                    document.getElementById('playerStatus').value = player.status || 'active';
+                }, 200);
+                document.getElementById('playerModal').classList.remove('hidden');
+            }
+        }
+
+        document.getElementById('playerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('editPlayerId').value;
+            const data = {
+                name: document.getElementById('playerName').value,
+                admNo: document.getElementById('playerAdmNo').value,
+                grade: document.getElementById('playerGrade').value,
+                sportId: document.getElementById('playerSport').value,
+                teamId: document.getElementById('playerTeam').value,
+                position: document.getElementById('playerPosition').value,
+                jersey: parseInt(document.getElementById('playerJersey').value) || null,
+                status: document.getElementById('playerStatus').value,
+                updatedAt: new Date().toISOString()
+            };
+
+            try {
+                if (id) {
+                    await db.collection('schools').doc(currentSchool).collection('sportsPlayers').doc(id).update(data);
+                    showToast('Player updated successfully');
+                } else {
+                    data.createdAt = new Date().toISOString();
+                    data.deleted = false;
+                    await db.collection('schools').doc(currentSchool).collection('sportsPlayers').add(data);
+                    showToast('Player registered successfully');
+                }
+                closePlayerModal();
+                await loadAllData();
+                loadPlayers();
+            } catch (error) {
+                showToast('Error saving player: ' + error.message, true);
+            }
+        });
+
+        function deletePlayer(id, name) {
+            deleteTargetId = id;
+            deleteTargetType = 'player';
+            document.getElementById('deleteMessage').innerHTML = `Delete player "<strong>${name}</strong>"?`;
+            document.getElementById('deleteModal').classList.remove('hidden');
+        }
+
+        // ========== TOURNAMENTS CRUD ==========
+
+        async function loadTournaments() {
+            const sportFilter = document.getElementById('tournamentSportFilter')?.value || 'all';
+            const statusFilter = document.getElementById('tournamentStatusFilter')?.value || 'all';
+
+            let filtered = allTournaments;
+            if (sportFilter !== 'all') filtered = filtered.filter(t => t.sportId === sportFilter);
+            if (statusFilter !== 'all') filtered = filtered.filter(t => t.status === statusFilter);
+
+            const container = document.getElementById('tournamentsList');
+            if (filtered.length === 0) {
+                container.innerHTML = '<div class="text-center py-10 text-gray-400">No tournaments found</div>';
+                return;
+            }
+
+            container.innerHTML = filtered.map(t => {
+                const sport = allSports.find(s => s.id === t.sportId);
+                const statusClass = t.status === 'ongoing' ? 'match-live' : t.status === 'completed' ? 'match-completed' : 'match-upcoming';
+                return `
+                    <div class="fixture-card p-4">
+                        <div class="flex flex-wrap justify-between items-start gap-3">
+                            <div>
+                                <h4 class="text-lg font-bold text-gray-800">🏅 ${t.name}</h4>
+                                <p class="text-sm text-gray-500">${sport?.name || 'Unknown Sport'} • ${t.format || 'Knockout'}</p>
+                                <p class="text-xs text-gray-400">${new Date(t.startDate).toLocaleDateString()} - ${t.endDate ? new Date(t.endDate).toLocaleDateString() : 'Ongoing'}</p>
+                                <p class="text-sm text-gray-600 mt-1">${t.description || ''}</p>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span class="match-status ${statusClass}">${t.status || 'Upcoming'}</span>
+                                <button onclick="editTournament('${t.id}')" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded">✏️</button>
+                                <button onclick="deleteTournament('${t.id}', '${t.name}')" class="p-1.5 text-red-600 hover:bg-red-50 rounded">🗑️</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function openTournamentModal() {
+            document.getElementById('tournamentModalTitle').innerText = 'Create Tournament';
+            document.getElementById('editTournamentId').value = '';
+            document.getElementById('tournamentForm').reset();
+            loadSportsForDropdown('tournamentSport');
+            document.getElementById('tournamentModal').classList.remove('hidden');
+        }
+
+        function closeTournamentModal() {
+            document.getElementById('tournamentModal').classList.add('hidden');
+        }
+
+        function editTournament(id) {
+            const tournament = allTournaments.find(t => t.id === id);
+            if (tournament) {
+                document.getElementById('tournamentModalTitle').innerText = 'Edit Tournament';
+                document.getElementById('editTournamentId').value = id;
+                loadSportsForDropdown('tournamentSport');
+                setTimeout(() => {
+                    document.getElementById('tournamentName').value = tournament.name || '';
+                    document.getElementById('tournamentSport').value = tournament.sportId || '';
+                    document.getElementById('tournamentFormat').value = tournament.format || 'Knockout';
+                    document.getElementById('tournamentStartDate').value = tournament.startDate || '';
+                    document.getElementById('tournamentEndDate').value = tournament.endDate || '';
+                    document.getElementById('tournamentStatus').value = tournament.status || 'upcoming';
+                    document.getElementById('tournamentDescription').value = tournament.description || '';
+                }, 200);
+                document.getElementById('tournamentModal').classList.remove('hidden');
+            }
+        }
+
+        document.getElementById('tournamentForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('editTournamentId').value;
+            const data = {
+                name: document.getElementById('tournamentName').value,
+                sportId: document.getElementById('tournamentSport').value,
+                format: document.getElementById('tournamentFormat').value,
+                startDate: document.getElementById('tournamentStartDate').value,
+                endDate: document.getElementById('tournamentEndDate').value,
+                status: document.getElementById('tournamentStatus').value,
+                description: document.getElementById('tournamentDescription').value,
+                updatedAt: new Date().toISOString()
+            };
+
+            try {
+                if (id) {
+                    await db.collection('schools').doc(currentSchool).collection('sportsTournaments').doc(id).update(data);
+                    showToast('Tournament updated successfully');
+                } else {
+                    data.createdAt = new Date().toISOString();
+                    data.deleted = false;
+                    await db.collection('schools').doc(currentSchool).collection('sportsTournaments').add(data);
+                    showToast('Tournament created successfully');
+                }
+                closeTournamentModal();
+                await loadAllData();
+                loadTournaments();
+            } catch (error) {
+                showToast('Error saving tournament: ' + error.message, true);
+            }
+        });
+
+        function deleteTournament(id, name) {
+            deleteTargetId = id;
+            deleteTargetType = 'tournament';
+            document.getElementById('deleteMessage').innerHTML = `Delete tournament "<strong>${name}</strong>"?`;
+            document.getElementById('deleteModal').classList.remove('hidden');
+        }
+
+        // ========== BULK PLAYER REGISTRATION ==========
+
+        function openBulkPlayerModal() {
+            document.getElementById('bulkPlayerModal').classList.remove('hidden');
+        }
+
+        function closeBulkPlayerModal() {
+            document.getElementById('bulkPlayerModal').classList.add('hidden');
+        }
+
+        function bulkRegisterPlayers() {
+            openBulkPlayerModal();
+        }
+
+        function handleBulkPlayerUpload(input) {
+            const file = input.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const workbook = XLSX.read(e.target.result, { type: 'array' });
+                    const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+                    bulkPlayerData = rows;
+                    document.getElementById('bulkPlayerPreview').innerHTML = `
+                        <div class="p-3 bg-green-50 rounded-lg">
+                            <p class="text-sm font-medium">✅ ${rows.length} players ready to register</p>
+                            <p class="text-xs text-gray-500 mt-1">First: ${JSON.stringify(rows[0])}</p>
+                        </div>
+                    `;
+                    document.getElementById('bulkPlayerPreview').classList.remove('hidden');
+                    document.getElementById('confirmBulkPlayerBtn').classList.remove('hidden');
+                } catch (error) {
+                    showToast('Error reading file: ' + error.message, true);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function downloadBulkPlayerTemplate() {
+            const template = [
+                { name: "John Doe", admNo: "2024/001", grade: "Grade 4", sport: "Football", team: "Lions FC", position: "Forward", jersey: 10 }
+            ];
+            const ws = XLSX.utils.json_to_sheet(template);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Players");
+            XLSX.writeFile(wb, "bulk_player_template.xlsx");
+            showToast('Template downloaded');
+        }
+
+        async function confirmBulkPlayerUpload() {
+            let success = 0;
+            let errors = 0;
+
+            for (const row of bulkPlayerData) {
+                try {
+                    // Find or create sport
+                    let sportId = null;
+                    if (row.sport) {
+                        const existingSport = allSports.find(s => s.name.toLowerCase() === row.sport.toLowerCase());
+                        if (existingSport) {
+                            sportId = existingSport.id;
+                        } else {
+                            const sportRef = await db.collection('schools').doc(currentSchool).collection('sports').add({
+                                name: row.sport,
+                                category: 'Team Sport',
+                                status: 'active',
+                                deleted: false,
+                                createdAt: new Date().toISOString()
+                            });
+                            sportId = sportRef.id;
+                        }
+                    }
+
+                    // Find or create team
+                    let teamId = null;
+                    if (row.team && sportId) {
+                        const existingTeam = allTeams.find(t => t.name.toLowerCase() === row.team.toLowerCase() && t.sportId === sportId);
+                        if (existingTeam) {
+                            teamId = existingTeam.id;
+                        } else {
+                            const teamRef = await db.collection('schools').doc(currentSchool).collection('sportsTeams').add({
+                                name: row.team,
+                                sportId: sportId,
+                                status: 'active',
+                                deleted: false,
+                                createdAt: new Date().toISOString()
+                            });
+                            teamId = teamRef.id;
+                        }
+                    }
+
+                    // Register player
+                    await db.collection('schools').doc(currentSchool).collection('sportsPlayers').add({
+                        name: row.name,
+                        admNo: row.admNo || '',
+                        grade: row.grade || 'Grade 1',
+                        sportId: sportId || '',
+                        teamId: teamId || '',
+                        position: row.position || '',
+                        jersey: parseInt(row.jersey) || null,
+                        status: 'active',
+                        deleted: false,
+                        createdAt: new Date().toISOString()
+                    });
+                    success++;
+                } catch (error) {
+                    errors++;
+                    console.error('Error registering player:', error);
+                }
+            }
+
+            showToast(`✅ ${success} players registered, ${errors} errors`);
+            closeBulkPlayerModal();
+            document.getElementById('bulkPlayerPreview').classList.add('hidden');
+            document.getElementById('confirmBulkPlayerBtn').classList.add('hidden');
+            document.getElementById('bulkPlayerExcel').value = '';
+            await loadAllData();
+            loadPlayers();
+        }
+
+        // ========== ANALYTICS ==========
+
+        function loadAnalytics() {
+            // Sport popularity chart
+            const sportCounts = {};
+            allPlayers.forEach(p => {
+                const sport = allSports.find(s => s.id === p.sportId);
+                if (sport) {
+                    sportCounts[sport.name] = (sportCounts[sport.name] || 0) + 1;
+                }
+            });
+
+            const ctx1 = document.getElementById('sportPopularityChart')?.getContext('2d');
+            if (ctx1) {
+                if (sportPopularityChart) sportPopularityChart.destroy();
+                sportPopularityChart = new Chart(ctx1, {
+                    type: 'bar',
+                    data: {
+                        labels: Object.keys(sportCounts),
+                        datasets: [{
+                            label: 'Number of Players',
+                            data: Object.values(sportCounts),
+                            backgroundColor: '#003f87',
+                            borderRadius: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: { legend: { position: 'bottom' } },
+                        scales: { y: { beginAtZero: true } }
+                    }
+                });
+            }
+
+            // Team performance chart
+            const teamStats = {};
+            allFixtures.forEach(f => {
+                if (f.status === 'completed') {
+                    if (!teamStats[f.homeTeamId]) teamStats[f.homeTeamId] = { wins: 0, losses: 0, draws: 0 };
+                    if (!teamStats[f.awayTeamId]) teamStats[f.awayTeamId] = { wins: 0, losses: 0, draws: 0 };
+                    
+                    if (f.homeScore > f.awayScore) {
+                        teamStats[f.homeTeamId].wins++;
+                        teamStats[f.awayTeamId].losses++;
+                    } else if (f.homeScore < f.awayScore) {
+                        teamStats[f.awayTeamId].wins++;
+                        teamStats[f.homeTeamId].losses++;
+                    } else {
+                        teamStats[f.homeTeamId].draws++;
+                        teamStats[f.awayTeamId].draws++;
+                    }
+                }
+            });
+
+            const topTeams = Object.entries(teamStats)
+                .map(([id, stats]) => {
+                    const team = allTeams.find(t => t.id === id);
+                    const total = stats.wins + stats.losses + stats.draws;
+                    const winRate = total > 0 ? Math.round((stats.wins / total) * 100) : 0;
+                    return { name: team?.name || 'Unknown', wins: stats.wins, losses: stats.losses, draws: stats.draws, winRate };
+                })
+                .sort((a, b) => b.winRate - a.winRate)
+                .slice(0, 5);
+
+            const ctx2 = document.getElementById('teamPerformanceChart')?.getContext('2d');
+            if (ctx2) {
+                if (teamPerformanceChart) teamPerformanceChart.destroy();
+                teamPerformanceChart = new Chart(ctx2, {
+                    type: 'bar',
+                    data: {
+                        labels: topTeams.map(t => t.name),
+                        datasets: [
+                            { label: 'Wins', data: topTeams.map(t => t.wins), backgroundColor: '#059669' },
+                            { label: 'Losses', data: topTeams.map(t => t.losses), backgroundColor: '#dc2626' },
+                            { label: 'Draws', data: topTeams.map(t => t.draws), backgroundColor: '#d97706' }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: { legend: { position: 'bottom' } },
+                        scales: { y: { beginAtZero: true } }
+                    }
+                });
+            }
+
+            // Tournament winners
+            const winnersContainer = document.getElementById('tournamentWinners');
+            const completedTournaments = allTournaments.filter(t => t.status === 'completed');
+            if (completedTournaments.length === 0) {
+                winnersContainer.innerHTML = '<div class="text-center py-6 text-gray-400">No completed tournaments</div>';
+            } else {
+                winnersContainer.innerHTML = completedTournaments.map(t => `
+                    <div class="flex justify-between items-center p-3 bg-green-50 rounded-lg">
+                        <div>
+                            <p class="font-medium">🏅 ${t.name}</p>
+                            <p class="text-xs text-gray-500">${t.format || 'Knockout'} • ${new Date(t.startDate).toLocaleDateString()}</p>
+                        </div>
+                        <span class="team-badge team-active">Champion: TBD</span>
+                    </div>
+                `).join('');
+            }
+        }
+
+        // ========== HELPER FUNCTIONS ==========
+
+        function loadSportsForDropdown(dropdownId) {
+            const select = document.getElementById(dropdownId);
+            if (!select) return;
+            const currentValue = select.value;
+            select.innerHTML = '<option value="">Select Sport</option>' + 
+                allSports.filter(s => s.status === 'active').map(s => 
+                    `<option value="${s.id}">${s.name}</option>`
+                ).join('');
+            if (currentValue) select.value = currentValue;
+        }
+
+        function loadSportsForDropdowns() {
+            ['teamSportFilter', 'fixtureSportFilter', 'tournamentSportFilter', 'playerTeamFilter'].forEach(id => {
+                const select = document.getElementById(id);
+                if (select) {
+                    const currentValue = select.value;
+                    select.innerHTML = '<option value="all">All Sports</option>' + 
+                        allSports.filter(s => s.status === 'active').map(s => 
+                            `<option value="${s.id}">${s.name}</option>`
+                        ).join('');
+                    if (currentValue) select.value = currentValue;
+                }
+            });
+        }
+
+        function loadTeamsForPlayerDropdown() {
+            const select = document.getElementById('playerTeamFilter');
+            if (select) {
+                const currentValue = select.value;
+                select.innerHTML = '<option value="all">All Teams</option>' + 
+                    allTeams.filter(t => t.status === 'active').map(t => 
+                        `<option value="${t.id}">${t.name}</option>`
+                    ).join('');
+                if (currentValue) select.value = currentValue;
+            }
+        }
+
+        // ========== DELETE CONFIRMATION ==========
+
+        document.getElementById('confirmDeleteBtn').addEventListener('click', async () => {
+            if (!deleteTargetId) return;
+
+            try {
+                let collection = '';
+                if (deleteTargetType === 'sport') collection = 'sports';
+                else if (deleteTargetType === 'team') collection = 'sportsTeams';
+                else if (deleteTargetType === 'player') collection = 'sportsPlayers';
+                else if (deleteTargetType === 'fixture') collection = 'sportsFixtures';
+                else if (deleteTargetType === 'tournament') collection = 'sportsTournaments';
+
+                await db.collection('schools').doc(currentSchool).collection(collection).doc(deleteTargetId).update({
+                    deleted: true,
+                    deletedAt: new Date().toISOString()
+                });
+
+                showToast('Item deleted successfully');
+                closeDeleteModal();
+                await loadAllData();
+                
+                // Refresh current tab
+                const activeTab = document.querySelector('.nav-tab-active');
+                if (activeTab) {
+                    const tabText = activeTab.textContent.trim();
+                    if (tabText.includes('Sports')) loadSports();
+                    else if (tabText.includes('Teams')) loadTeams();
+                    else if (tabText.includes('Fixtures')) loadFixtures();
+                    else if (tabText.includes('Players')) loadPlayers();
+                    else if (tabText.includes('Tournaments')) loadTournaments();
+                    else if (tabText.includes('Overview')) loadOverview();
+                    else if (tabText.includes('Analytics')) loadAnalytics();
+                }
+            } catch (error) {
+                showToast('Error deleting: ' + error.message, true);
+            }
+        });
+
+        function closeDeleteModal() {
+            document.getElementById('deleteModal').classList.add('hidden');
+            deleteTargetId = null;
+            deleteTargetType = null;
+        }
+
+        // ========== EXPORT ==========
+
+        function exportSportsData() {
+            const data = allPlayers.map(p => {
+                const sport = allSports.find(s => s.id === p.sportId);
+                const team = allTeams.find(t => t.id === p.teamId);
+                return {
+                    'Student Name': p.name,
+                    'Admission No': p.admNo,
+                    'Grade': p.grade,
+                    'Sport': sport?.name || 'N/A',
+                    'Team': team?.name || 'N/A',
+                    'Position': p.position || 'N/A',
+                    'Jersey': p.jersey || 'N/A',
+                    'Status': p.status || 'Active'
+                };
+            });
+
+            if (data.length === 0) {
+                showToast('No data to export', true);
+                return;
+            }
+
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Sports Players');
+            XLSX.writeFile(wb, `sports_players_${new Date().toISOString().split('T')[0]}.xlsx`);
+            showToast('Export complete!');
+        }
+
+        // ========== AUTH ==========
+
+        auth.onAuthStateChanged(async (user) => {
+            if (!user) {
+                window.location.href = 'index.html';
+                return;
+            }
+
+            currentSchool = sessionStorage.getItem('currentSchoolCode');
+            if (!currentSchool) {
+                try {
+                    const snap = await db.collection('schools').where('adminId', '==', user.uid).get();
+                    if (!snap.empty) {
+                        currentSchool = snap.docs[0].id;
+                        sessionStorage.setItem('currentSchoolCode', currentSchool);
+                        sessionStorage.setItem('currentSchoolName', snap.docs[0].data().schoolName);
+                    }
+                } catch (error) {
+                    console.error('Error fetching school:', error);
+                }
+            }
+
+            const schoolName = sessionStorage.getItem('currentSchoolName') || 'ELMOH HIGH SCHOOL';
+            document.getElementById('schoolNameDisplay').innerText = schoolName;
+
+            if (currentSchool) {
+                await loadAllData();
+            }
+        });
+
+        // Listen for theme changes from parent iframe
+        window.addEventListener('message', function(event) {
+            if (event.data && event.data.type === 'themeChange') {
+                const theme = event.data.theme;
+                document.body.className = '';
+                if (theme === 'dark') document.body.classList.add('theme-dark');
+                else if (theme === 'green') document.body.classList.add('theme-green');
+                else if (theme === 'grey') document.body.classList.add('theme-grey');
+            }
+        });
+
+        // Notify parent that iframe is ready
+        if (window.parent !== window) {
+            window.parent.postMessage({ type: 'iframeReady' }, '*');
+        }
+    </script>
+
+</body>
+</html>
