@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Message Center | LearnPro Kenya</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: #f0f2f5; }
+        .conversation-item { transition: all 0.2s ease; cursor: pointer; }
+        .conversation-item:hover { background: #f8fafc; transform: translateX(4px); }
+        .conversation-active { background: #eef2ff; border-left: 4px solid #003f87; }
+        .message-bubble { background: white; border-radius: 18px; padding: 10px 16px; max-width: 70%; }
+        .message-bubble-sent { background: #003f87; color: white; border-radius: 18px; margin-left: auto; }
+        .toast { position: fixed; bottom: 24px; right: 24px; background: #003f87; color: white; padding: 12px 24px; border-radius: 48px; z-index: 1000; font-weight: 600; }
+        .toast-error { background: #dc2626; }
+        .toast-success { background: #059669; }
+        .nav-item { transition: all 0.2s ease; cursor: pointer; }
+        .nav-item:hover { background: rgba(0,63,135,0.1); transform: translateX(5px); }
+        .nav-active { background: #003f87; color: white; border-radius: 12px; }
+        .unread-dot { width: 8px; height: 8px; background: #003f87; border-radius: 50%; display: inline-block; }
+    </style>
+</head>
+<body>
+    <!-- Main Content - Two Column Layout -->
+    <div class="pt-[72px] px-6 pb-8 max-w-7xl mx-auto">
+        <div class="grid lg:grid-cols-3 gap-6">
+            <!-- Conversation List Panel -->
+            <div class="lg:col-span-1 bg-white rounded-2xl shadow-sm overflow-hidden">
+                <div class="p-4 border-b border-gray-100">
+                    <div class="flex gap-3">
+                        <div class="relative flex-1"><span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xl">search</span><input type="text" id="searchConversations" onkeyup="filterConversations()" placeholder="Search teachers or subjects..." class="w-full pl-10 pr-4 py-2 border rounded-xl text-sm"></div>
+                        <button onclick="openNewThreadModal()" class="px-4 py-2 bg-[#003f87] text-white rounded-xl text-sm flex items-center gap-1"><span class="material-symbols-outlined text-sm">add</span> New</button>
+                    </div>
+                </div>
+                <div id="conversationsList" class="divide-y divide-gray-100 max-h-[calc(100vh-200px)] overflow-y-auto">
+                    <div class="p-6 text-center text-gray-400">Loading conversations...</div>
+                </div>
+            </div>
+
+            <!-- Chat Panel -->
+            <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm flex flex-col h-[calc(100vh-120px)]">
+                <div id="chatHeader" class="p-4 border-b border-gray-100 flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-[#003f87]/20 to-[#0056b3]/20 flex items-center justify-center"><span class="text-xl font-bold text-[#003f87]">?</span></div>
+                    <div><h3 id="chatTeacherName" class="font-bold text-gray-800">Select a conversation</h3><p id="chatTeacherInfo" class="text-xs text-gray-500">-</p></div>
+                </div>
+                <div id="chatMessages" class="flex-1 overflow-y-auto p-4 space-y-3">
+                    <div class="text-center text-gray-400 py-8">Select a conversation to start messaging</div>
+                </div>
+                <div class="p-4 border-t border-gray-100">
+                    <form id="messageForm" class="flex gap-3">
+                        <input id="messageInput" type="text" placeholder="Type your message..." class="flex-1 p-3 border rounded-xl focus:border-[#003f87] focus:ring-2 focus:ring-[#003f87]/20" disabled>
+                        <button type="submit" id="sendBtn" class="px-6 py-3 bg-[#003f87] text-white rounded-xl flex items-center gap-2" disabled><span class="material-symbols-outlined text-sm">send</span> Send</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Thread Modal -->
+    <div id="newThreadModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-2xl p-8 max-w-md w-full mx-4"><h3 class="text-xl font-bold text-[#003f87] mb-4">New Conversation</h3>
+        <form id="newThreadForm" class="space-y-4"><select id="recipientTeacher" class="w-full p-3 border rounded-xl" required><option value="">Select Teacher</option><option>Mr. David Kamau</option><option>Ms. Amina Juma</option><option>Mr. Peter Ochieng</option><option>Ms. Sarah Nyambura</option></select><textarea id="initialMessage" rows="3" placeholder="Type your message..." class="w-full p-3 border rounded-xl" required></textarea><button type="submit" class="w-full py-3 bg-[#003f87] text-white rounded-xl">Start Conversation</button><button type="button" onclick="closeNewThreadModal()" class="w-full py-3 border border-gray-200 rounded-xl">Cancel</button></form></div>
+    </div>
+
+    <div id="toast" style="display:none" class="toast"></div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyA4cm7chJXz90yOLWPtbdIW8KlEozG1lxo",
+            authDomain: "learnpro-kenya-erp.firebaseapp.com",
+            projectId: "learnpro-kenya-erp",
+            storageBucket: "learnpro-kenya-erp.firebasestorage.app",
+            messagingSenderId: "327168081514",
+            appId: "1:327168081514:web:13cdc8b827fa76d95a9413"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        let currentSchoolCode = null;
+        let currentConversationId = null;
+        let allConversations = [];
+
+        const conversationsData = [
+            { id: 1, teacher: "Mr. David Kamau", subject: "Mathematics", grade: "Grade 4", lastMessage: "The assessment for the CBE project has been uploaded...", time: "2m ago", unread: true, replied: false, messages: [{ sender: "teacher", text: "The assessment for the CBE project has been uploaded to the portal. Please review by Friday.", time: "2m ago" }, { sender: "admin", text: "Thank you, I will review it today.", time: "1m ago" }] },
+            { id: 2, teacher: "Ms. Amina Juma", subject: "English Literacy", grade: "Grade 2", lastMessage: "Thank you for the update on the reading club timetable.", time: "45m ago", unread: false, replied: true, messages: [{ sender: "teacher", text: "The reading club timetable has been updated. Please check the new schedule.", time: "1h ago" }, { sender: "admin", text: "Thank you for the update on the reading club timetable.", time: "45m ago" }] },
+            { id: 3, teacher: "Mr. Peter Ochieng", subject: "Science & Tech", grade: "Grade 5", lastMessage: "Please ensure the students have their lab materials for...", time: "Yesterday", unread: false, replied: false, messages: [{ sender: "teacher", text: "Please ensure the students have their lab materials for tomorrow's practical session.", time: "Yesterday" }] },
+            { id: 4, teacher: "Ms. Sarah Nyambura", subject: "Creative Arts", grade: "Grade 3", lastMessage: "The art exhibition details have been finalized and shared.", time: "Tuesday", unread: false, replied: false, messages: [{ sender: "teacher", text: "The art exhibition details have been finalized and shared with all parents.", time: "Tuesday" }] }
+        ];
+
+        function showToast(msg, isError = false) { const toast = document.getElementById('toast'); toast.textContent = msg; toast.className = `toast ${isError ? 'toast-error' : 'toast-success'}`; toast.style.display = 'block'; setTimeout(() => toast.style.display = 'none', 3000); }
+        function goToDashboard() { window.location.href = 'dashboard.html'; }
+        async function logout() { await auth.signOut(); sessionStorage.clear(); window.location.href = 'index.html'; }
+        function openNewThreadModal() { document.getElementById('newThreadModal').classList.remove('hidden'); }
+        function closeNewThreadModal() { document.getElementById('newThreadModal').classList.add('hidden'); }
+
+        function loadConversations() {
+            allConversations = conversationsData;
+            renderConversations(allConversations);
+        }
+
+        function renderConversations(conversations) {
+            let html = '';
+            conversations.forEach(c => {
+                html += `<div class="conversation-item p-4 ${currentConversationId === c.id ? 'conversation-active' : ''}" onclick="selectConversation(${c.id})">
+                    <div class="flex gap-3"><div class="relative"><div class="w-12 h-12 rounded-full bg-gradient-to-br from-[#003f87]/20 to-[#0056b3]/20 flex items-center justify-center"><span class="text-lg font-bold text-[#003f87]">${c.teacher.charAt(0)}</span></div>${c.unread ? '<div class="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>' : ''}</div>
+                    <div class="flex-1 min-w-0"><div class="flex justify-between items-start"><h4 class="font-bold text-gray-800 truncate">${c.teacher}</h4><span class="text-xs text-gray-400 whitespace-nowrap ml-2">${c.time}</span></div>
+                    <p class="text-xs text-gray-500 mb-1">${c.grade} • ${c.subject}</p><p class="text-sm text-gray-600 truncate">${c.lastMessage}</p></div>
+                    <div class="ml-2">${c.unread ? '<span class="unread-dot"></span>' : (c.replied ? '<span class="material-symbols-outlined text-green-500 text-sm">check_circle</span>' : '<span class="material-symbols-outlined text-gray-400 text-sm">done_all</span>')}</div></div>`;
+            });
+            document.getElementById('conversationsList').innerHTML = html || '<div class="p-6 text-center text-gray-400">No conversations found</div>';
+        }
+
+        window.selectConversation = (id) => {
+            currentConversationId = id;
+            const conv = allConversations.find(c => c.id === id);
+            if (conv) {
+                document.getElementById('chatTeacherName').innerText = conv.teacher;
+                document.getElementById('chatTeacherInfo').innerText = `${conv.grade} • ${conv.subject}`;
+                renderMessages(conv.messages);
+                document.getElementById('messageInput').disabled = false;
+                document.getElementById('sendBtn').disabled = false;
+                renderConversations(allConversations);
+            }
+        };
+
+        function renderMessages(messages) {
+            let html = '';
+            messages.forEach(m => {
+                if (m.sender === 'teacher') {
+                    html += `<div class="flex items-start gap-2"><div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center"><span class="text-xs font-bold">T</span></div><div class="message-bubble bg-gray-100"><p class="text-sm">${m.text}</p><p class="text-xs text-gray-400 mt-1">${m.time}</p></div></div>`;
+                } else {
+                    html += `<div class="flex items-start gap-2 justify-end"><div class="message-bubble-sent p-2"><p class="text-sm">${m.text}</p><p class="text-xs text-white/70 mt-1 text-right">${m.time}</p></div><div class="w-8 h-8 rounded-full bg-[#003f87]/20 flex items-center justify-center"><span class="text-xs font-bold text-[#003f87]">A</span></div></div>`;
+                }
+            });
+            document.getElementById('chatMessages').innerHTML = html || '<div class="text-center text-gray-400 py-8">No messages yet</div>';
+            const container = document.getElementById('chatMessages');
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function filterConversations() {
+            const search = document.getElementById('searchConversations').value.toLowerCase();
+            const filtered = allConversations.filter(c => c.teacher.toLowerCase().includes(search) || c.subject.toLowerCase().includes(search));
+            renderConversations(filtered);
+        }
+
+        document.getElementById('messageForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const msg = document.getElementById('messageInput').value.trim();
+            if (!msg || !currentConversationId) return;
+            const conv = allConversations.find(c => c.id === currentConversationId);
+            if (conv) {
+                conv.messages.push({ sender: "admin", text: msg, time: "Just now" });
+                conv.lastMessage = msg;
+                conv.time = "Just now";
+                conv.unread = false;
+                conv.replied = true;
+                renderMessages(conv.messages);
+                document.getElementById('messageInput').value = '';
+                renderConversations(allConversations);
+                showToast('Message sent successfully!');
+            }
+        });
+
+        document.getElementById('newThreadForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const teacher = document.getElementById('recipientTeacher').value;
+            const message = document.getElementById('initialMessage').value;
+            if (teacher && message) {
+                showToast(`Conversation started with ${teacher}`);
+                closeNewThreadModal();
+                document.getElementById('newThreadForm').reset();
+            }
+        });
+
+        auth.onAuthStateChanged(async (user) => {
+            if (!user) { window.location.href = 'index.html'; return; }
+            currentSchoolCode = sessionStorage.getItem('currentSchoolCode');
+            if (!currentSchoolCode) { const schoolsSnap = await db.collection('schools').where('adminId', '==', user.uid).get(); if (!schoolsSnap.empty) { currentSchoolCode = schoolsSnap.docs[0].id; sessionStorage.setItem('currentSchoolCode', currentSchoolCode); sessionStorage.setItem('currentSchoolName', schoolsSnap.docs[0].data().schoolName); } }
+            document.getElementById('schoolBadge').innerText = sessionStorage.getItem('currentSchoolName') || currentSchoolCode;
+            loadConversations();
+        });
+    </script>
+</body>
+</html>

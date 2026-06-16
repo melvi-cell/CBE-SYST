@@ -1,0 +1,1135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hostel Management | LearnPro Kenya ERP</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: #f0f2f5; }
+        .stat-card { background: white; border-radius: 20px; transition: all 0.3s ease; border: 1px solid #eef2ff; cursor: pointer; }
+        .stat-card:hover { transform: translateY(-3px); box-shadow: 0 15px 30px -12px rgba(0,0,0,0.1); }
+        .toast { position: fixed; bottom: 24px; right: 24px; background: #003f87; color: white; padding: 12px 24px; border-radius: 48px; z-index: 1000; font-weight: 500; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .toast-error { background: #dc2626; }
+        .toast-success { background: #059669; }
+        .nav-tab { cursor: pointer; padding: 8px 20px; border-radius: 30px; font-size: 13px; font-weight: 500; transition: all 0.2s; }
+        .nav-tab-active { background: #003f87; color: white; }
+        .nav-tab-inactive { background: white; color: #4a5568; border: 1px solid #e2e8f0; }
+        .status-badge { display: inline-flex; align-items: center; padding: 4px 12px; border-radius: 30px; font-size: 11px; font-weight: 600; }
+        .status-available { background: #dcfce7; color: #166534; }
+        .status-occupied { background: #fef3c7; color: #92400e; }
+        .status-maintenance { background: #fee2e2; color: #991b1b; }
+        .status-reserved { background: #dbeafe; color: #1e40af; }
+        .modal { z-index: 1000; }
+        .chart-container { height: 200px; position: relative; }
+        .hostel-card { background: white; border-radius: 16px; border: 1px solid #eef2ff; transition: all 0.3s ease; }
+        .hostel-card:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.08); }
+        @media print { .no-print { display: none; } }
+    </style>
+</head>
+<body>
+
+    <!-- Top Bar -->
+    <div class="bg-white shadow-sm fixed top-0 left-0 right-0 z-40 border-b border-gray-100 no-print">
+        <div class="flex justify-between items-center px-6 py-2">
+            <div class="flex items-center gap-3">
+                <span class="text-sm font-bold text-[#003f87]" id="schoolNameDisplay">ELMOH HIGH SCHOOL</span>
+                <span class="text-xs bg-cyan-100 text-cyan-700 px-2 py-0.5 rounded-full">Hostel </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="pt-14 px-6 pb-6 max-w-7xl mx-auto">
+        
+        <div class="mb-6 flex justify-between items-center flex-wrap gap-3">
+            <div>
+                <h2 class="text-2xl font-bold text-gray-800">🏠 Hostel Management</h2>
+                <p class="text-gray-500 text-sm">Manage hostels, rooms, bed allocation, and student accommodation</p>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="openHostelModal()" class="px-4 py-2 bg-[#003f87] text-white rounded-lg text-sm flex items-center gap-1">
+                    <span class="material-symbols-outlined text-sm">add_home</span> Add Hostel
+                </button>
+                <button onclick="exportHostelData()" class="px-4 py-2 border border-gray-300 rounded-lg text-sm flex items-center gap-1">
+                    <span class="material-symbols-outlined text-sm">download</span> Export
+                </button>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="flex gap-1 mb-4 border-b pb-2 flex-wrap">
+            <button onclick="showTab('overview')" id="tabOverview" class="nav-tab nav-tab-active">📊 Overview</button>
+            <button onclick="showTab('hostels')" id="tabHostels" class="nav-tab nav-tab-inactive">🏢 Hostels</button>
+            <button onclick="showTab('rooms')" id="tabRooms" class="nav-tab nav-tab-inactive">🛏️ Rooms</button>
+            <button onclick="showTab('allocation')" id="tabAllocation" class="nav-tab nav-tab-inactive">📋 Allocation</button>
+            <button onclick="showTab('students')" id="tabStudents" class="nav-tab nav-tab-inactive">👨‍🎓 Boarding Students</button>
+            <button onclick="showTab('attendance')" id="tabAttendance" class="nav-tab nav-tab-inactive">📅 Attendance</button>
+        </div>
+
+        <!-- ========== OVERVIEW TAB ========== -->
+        <div id="overviewTab">
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+                <div class="stat-card p-4 text-center">
+                    <div class="text-3xl font-bold text-blue-600" id="totalHostels">0</div>
+                    <p class="text-xs text-gray-500">Total Hostels</p>
+                </div>
+                <div class="stat-card p-4 text-center">
+                    <div class="text-3xl font-bold text-green-600" id="totalRooms">0</div>
+                    <p class="text-xs text-gray-500">Total Rooms</p>
+                </div>
+                <div class="stat-card p-4 text-center">
+                    <div class="text-3xl font-bold text-orange-600" id="occupiedBeds">0</div>
+                    <p class="text-xs text-gray-500">Occupied Beds</p>
+                </div>
+                <div class="stat-card p-4 text-center">
+                    <div class="text-3xl font-bold text-purple-600" id="availableBeds">0</div>
+                    <p class="text-xs text-gray-500">Available Beds</p>
+                </div>
+                <div class="stat-card p-4 text-center">
+                    <div class="text-3xl font-bold text-red-600" id="boardingStudents">0</div>
+                    <p class="text-xs text-gray-500">Boarding Students</p>
+                </div>
+            </div>
+
+            <div class="grid lg:grid-cols-2 gap-6 mb-6">
+                <div class="bg-white rounded-xl p-5 shadow-sm">
+                    <h3 class="font-bold text-gray-800 mb-3">📊 Hostel Capacity</h3>
+                    <div class="chart-container"><canvas id="capacityChart"></canvas></div>
+                </div>
+                <div class="bg-white rounded-xl p-5 shadow-sm">
+                    <h3 class="font-bold text-gray-800 mb-3">📈 Room Occupancy</h3>
+                    <div class="chart-container"><canvas id="occupancyChart"></canvas></div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl p-5 shadow-sm">
+                <h3 class="font-bold text-gray-800 mb-3">🔄 Recent Activity</h3>
+                <div id="recentActivity" class="space-y-2">
+                    <div class="text-center py-6 text-gray-400">Loading activity...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== HOSTELS TAB ========== -->
+        <div id="hostelsTab" class="hidden">
+            <div class="bg-white rounded-xl p-4 mb-4 flex flex-wrap gap-3 items-center">
+                <button onclick="openHostelModal()" class="px-4 py-2 bg-[#003f87] text-white rounded-lg text-sm">+ Add Hostel</button>
+                <select id="hostelFilter" class="px-3 py-2 border rounded-lg text-sm" onchange="loadHostels()">
+                    <option value="all">All Types</option>
+                    <option>Boys</option>
+                    <option>Girls</option>
+                    <option>Mixed</option>
+                </select>
+                <input type="text" id="hostelSearch" placeholder="Search hostels..." class="px-3 py-2 border rounded-lg text-sm flex-1 min-w-[200px]" onkeyup="loadHostels()">
+            </div>
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4" id="hostelsGrid">
+                <div class="text-center py-10 text-gray-400 col-span-full">Loading hostels...</div>
+            </div>
+        </div>
+
+        <!-- ========== ROOMS TAB ========== -->
+        <div id="roomsTab" class="hidden">
+            <div class="bg-white rounded-xl p-4 mb-4 flex flex-wrap gap-3 items-center">
+                <button onclick="openRoomModal()" class="px-4 py-2 bg-[#003f87] text-white rounded-lg text-sm">+ Add Room</button>
+                <select id="roomHostelFilter" class="px-3 py-2 border rounded-lg text-sm" onchange="loadRooms()">
+                    <option value="all">All Hostels</option>
+                </select>
+                <select id="roomStatusFilter" class="px-3 py-2 border rounded-lg text-sm" onchange="loadRooms()">
+                    <option value="all">All Status</option>
+                    <option value="available">Available</option>
+                    <option value="occupied">Occupied</option>
+                    <option value="maintenance">Maintenance</option>
+                    <option value="reserved">Reserved</option>
+                </select>
+                <input type="text" id="roomSearch" placeholder="Search rooms..." class="px-3 py-2 border rounded-lg text-sm flex-1 min-w-[200px]" onkeyup="loadRooms()">
+            </div>
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4" id="roomsGrid">
+                <div class="text-center py-10 text-gray-400 col-span-full">Loading rooms...</div>
+            </div>
+        </div>
+
+        <!-- ========== ALLOCATION TAB ========== -->
+        <div id="allocationTab" class="hidden">
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="bg-white rounded-xl p-5 shadow-sm">
+                    <h3 class="font-bold text-gray-800 mb-3">📋 Allocate Room</h3>
+                    <form id="allocationForm" class="space-y-3">
+                        <input type="hidden" id="editAllocationId">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Student *</label>
+                            <select id="allocStudent" class="w-full px-3 py-2 border rounded-lg" required>
+                                <option value="">Select Student</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Hostel *</label>
+                            <select id="allocHostel" class="w-full px-3 py-2 border rounded-lg" required onchange="loadRoomsForAllocation()">
+                                <option value="">Select Hostel</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Room *</label>
+                            <select id="allocRoom" class="w-full px-3 py-2 border rounded-lg" required>
+                                <option value="">Select Room</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Bed Number</label>
+                            <input type="text" id="allocBed" placeholder="e.g., Bed 1" class="w-full px-3 py-2 border rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Check-in Date *</label>
+                            <input type="date" id="allocCheckIn" class="w-full px-3 py-2 border rounded-lg" required>
+                        </div>
+                        <button type="submit" class="w-full py-2.5 bg-[#003f87] text-white rounded-lg font-medium">Allocate Room</button>
+                    </form>
+                </div>
+                <div class="bg-white rounded-xl p-5 shadow-sm">
+                    <h3 class="font-bold text-gray-800 mb-3">📋 Allocations</h3>
+                    <div id="allocationsList" class="space-y-2 max-h-96 overflow-y-auto">
+                        <div class="text-center py-6 text-gray-400">Loading allocations...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== BOARDING STUDENTS TAB ========== -->
+        <div id="studentsTab" class="hidden">
+            <div class="bg-white rounded-xl p-4 mb-4 flex flex-wrap gap-3 items-center">
+                <select id="boardingHostelFilter" class="px-3 py-2 border rounded-lg text-sm" onchange="loadBoardingStudents()">
+                    <option value="all">All Hostels</option>
+                </select>
+                <input type="text" id="boardingSearch" placeholder="Search students..." class="px-3 py-2 border rounded-lg text-sm flex-1 min-w-[200px]" onkeyup="loadBoardingStudents()">
+                <button onclick="loadBoardingStudents()" class="px-4 py-2 bg-[#003f87] text-white rounded-lg text-sm">Load</button>
+            </div>
+            <div id="boardingStudentsList" class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div class="text-center py-10 text-gray-400 col-span-full">Loading boarding students...</div>
+            </div>
+        </div>
+
+        <!-- ========== ATTENDANCE TAB ========== -->
+        <div id="attendanceTab" class="hidden">
+            <div class="bg-white rounded-xl p-5 shadow-sm">
+                <h3 class="font-bold text-gray-800 mb-3">📅 Hostel Attendance</h3>
+                <div class="grid md:grid-cols-3 gap-3 mb-4">
+                    <input type="date" id="attendanceDate" class="px-3 py-2 border rounded-lg text-sm">
+                    <select id="attendanceHostel" class="px-3 py-2 border rounded-lg text-sm" onchange="loadAttendance()">
+                        <option value="all">All Hostels</option>
+                    </select>
+                    <button onclick="loadAttendance()" class="px-4 py-2 bg-[#003f87] text-white rounded-lg text-sm">Load Attendance</button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="p-2 text-left text-xs">Student</th>
+                                <th class="p-2 text-left text-xs">Room</th>
+                                <th class="p-2 text-left text-xs">Status</th>
+                                <th class="p-2 text-left text-xs">Check In</th>
+                                <th class="p-2 text-left text-xs">Check Out</th>
+                                <th class="p-2 text-center text-xs">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="attendanceBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== MODALS ========== -->
+
+    <!-- Hostel Modal -->
+    <div id="hostelModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden modal">
+        <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-[#003f87]" id="hostelModalTitle">Add Hostel</h3>
+                <button onclick="closeHostelModal()" class="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <form id="hostelForm" class="space-y-3">
+                <input type="hidden" id="editHostelId">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Hostel Name *</label>
+                    <input type="text" id="hostelName" placeholder="e.g., Kennedy House" class="w-full px-3 py-2 border rounded-lg" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Type *</label>
+                    <select id="hostelType" class="w-full px-3 py-2 border rounded-lg" required>
+                        <option>Boys</option>
+                        <option>Girls</option>
+                        <option>Mixed</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Total Rooms</label>
+                    <input type="number" id="hostelRooms" placeholder="Number of rooms" class="w-full px-3 py-2 border rounded-lg" min="1">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Capacity</label>
+                    <input type="number" id="hostelCapacity" placeholder="Total capacity" class="w-full px-3 py-2 border rounded-lg" min="1">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Warden</label>
+                    <input type="text" id="hostelWarden" placeholder="Warden's name" class="w-full px-3 py-2 border rounded-lg">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                    <input type="text" id="hostelLocation" placeholder="Physical location" class="w-full px-3 py-2 border rounded-lg">
+                </div>
+                <button type="submit" class="w-full py-2.5 bg-[#003f87] text-white rounded-lg font-medium">Save Hostel</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Room Modal -->
+    <div id="roomModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden modal">
+        <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-[#003f87]" id="roomModalTitle">Add Room</h3>
+                <button onclick="closeRoomModal()" class="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <form id="roomForm" class="space-y-3">
+                <input type="hidden" id="editRoomId">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Hostel *</label>
+                    <select id="roomHostel" class="w-full px-3 py-2 border rounded-lg" required>
+                        <option value="">Select Hostel</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Room Number *</label>
+                    <input type="text" id="roomNumber" placeholder="e.g., 101, A1" class="w-full px-3 py-2 border rounded-lg" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Floor</label>
+                    <input type="text" id="roomFloor" placeholder="e.g., 1st Floor" class="w-full px-3 py-2 border rounded-lg">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Beds</label>
+                    <input type="number" id="roomBeds" placeholder="Number of beds" class="w-full px-3 py-2 border rounded-lg" min="1">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                    <select id="roomStatus" class="w-full px-3 py-2 border rounded-lg">
+                        <option value="available">Available</option>
+                        <option value="occupied">Occupied</option>
+                        <option value="maintenance">Maintenance</option>
+                        <option value="reserved">Reserved</option>
+                    </select>
+                </div>
+                <button type="submit" class="w-full py-2.5 bg-[#003f87] text-white rounded-lg font-medium">Save Room</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden modal">
+        <div class="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 text-center">
+            <div class="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span class="material-symbols-outlined text-red-600 text-3xl">delete</span>
+            </div>
+            <h3 class="text-xl font-bold text-gray-800 mb-2">Confirm Delete</h3>
+            <p class="text-gray-500 mb-5" id="deleteMessage">This action cannot be undone.</p>
+            <div class="flex gap-3">
+                <button id="confirmDeleteBtn" class="flex-1 py-2.5 bg-red-600 text-white rounded-lg font-medium">Delete</button>
+                <button onclick="closeDeleteModal()" class="flex-1 py-2.5 border border-gray-200 rounded-lg font-medium">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" style="display:none" class="toast"></div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyA4cm7chJXz90yOLWPtbdIW8KlEozG1lxo",
+            authDomain: "learnpro-kenya-erp.firebaseapp.com",
+            projectId: "learnpro-kenya-erp",
+            storageBucket: "learnpro-kenya-erp.firebasestorage.app",
+            messagingSenderId: "327168081514",
+            appId: "1:327168081514:web:13cdc8b827fa76d95a9413"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        let currentSchool = null;
+        let allHostels = [], allRooms = [], allAllocations = [], allStudents = [];
+        let deleteTargetId = null, deleteTargetType = null;
+        let capacityChart = null, occupancyChart = null;
+
+        function showToast(msg, isError = false) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.className = `toast ${isError ? 'toast-error' : 'toast-success'}`;
+            toast.style.display = 'block';
+            setTimeout(() => toast.style.display = 'none', 3000);
+        }
+
+        async function logout() {
+            await auth.signOut();
+            sessionStorage.clear();
+            window.location.href = 'index.html';
+        }
+
+        function showTab(tab) {
+            document.querySelectorAll('[id$="Tab"]').forEach(el => el.classList.add('hidden'));
+            document.getElementById(tab + 'Tab').classList.remove('hidden');
+            
+            document.querySelectorAll('.nav-tab').forEach(btn => {
+                btn.classList.remove('nav-tab-active');
+                btn.classList.add('nav-tab-inactive');
+            });
+            document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('nav-tab-active');
+            document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.remove('nav-tab-inactive');
+            
+            if (tab === 'overview') loadOverview();
+            else if (tab === 'hostels') loadHostels();
+            else if (tab === 'rooms') { loadHostelsForRoom(); loadRooms(); }
+            else if (tab === 'allocation') { loadStudentsForAllocation(); loadHostelsForAllocation(); loadAllocations(); }
+            else if (tab === 'students') { loadHostelsForBoarding(); loadBoardingStudents(); }
+            else if (tab === 'attendance') { loadHostelsForAttendance(); loadAttendance(); }
+        }
+
+        // ========== DATA LOADING ==========
+
+        async function loadAllData() {
+            if (!currentSchool) return;
+            
+            try {
+                const studentsSnap = await db.collection('schools').doc(currentSchool).collection('students').where('deleted', '==', false).get();
+                allStudents = [];
+                studentsSnap.forEach(doc => allStudents.push({ id: doc.id, ...doc.data() }));
+
+                const hostelsSnap = await db.collection('schools').doc(currentSchool).collection('hostels').where('deleted', '==', false).get();
+                allHostels = [];
+                hostelsSnap.forEach(doc => allHostels.push({ id: doc.id, ...doc.data() }));
+
+                const roomsSnap = await db.collection('schools').doc(currentSchool).collection('hostelRooms').where('deleted', '==', false).get();
+                allRooms = [];
+                roomsSnap.forEach(doc => allRooms.push({ id: doc.id, ...doc.data() }));
+
+                const allocationsSnap = await db.collection('schools').doc(currentSchool).collection('hostelAllocations').where('deleted', '==', false).get();
+                allAllocations = [];
+                allocationsSnap.forEach(doc => allAllocations.push({ id: doc.id, ...doc.data() }));
+
+                // Update stats
+                const totalBeds = allRooms.reduce((sum, r) => sum + (r.beds || 0), 0);
+                const occupiedBeds = allAllocations.filter(a => a.status === 'active').length;
+                const boardingStudents = new Set(allAllocations.filter(a => a.status === 'active').map(a => a.studentId)).size;
+
+                document.getElementById('totalHostels').innerText = allHostels.length;
+                document.getElementById('totalRooms').innerText = allRooms.length;
+                document.getElementById('occupiedBeds').innerText = occupiedBeds;
+                document.getElementById('availableBeds').innerText = totalBeds - occupiedBeds;
+                document.getElementById('boardingStudents').innerText = boardingStudents;
+
+                // Populate filters
+                populateFilters();
+
+                loadOverview();
+            } catch (error) {
+                console.error("Error loading data:", error);
+                showToast("Error loading hostel data", true);
+            }
+        }
+
+        function populateFilters() {
+            // Hostel filters for rooms
+            const roomHostelSelect = document.getElementById('roomHostelFilter');
+            roomHostelSelect.innerHTML = '<option value="all">All Hostels</option>' + 
+                allHostels.map(h => `<option value="${h.id}">${h.name}</option>`).join('');
+
+            // Hostel filters for allocation
+            const allocHostelSelect = document.getElementById('allocHostel');
+            allocHostelSelect.innerHTML = '<option value="">Select Hostel</option>' + 
+                allHostels.map(h => `<option value="${h.id}">${h.name}</option>`).join('');
+
+            // Hostel filters for boarding students
+            const boardingHostelSelect = document.getElementById('boardingHostelFilter');
+            boardingHostelSelect.innerHTML = '<option value="all">All Hostels</option>' + 
+                allHostels.map(h => `<option value="${h.id}">${h.name}</option>`).join('');
+
+            // Hostel filters for attendance
+            const attendanceHostelSelect = document.getElementById('attendanceHostel');
+            attendanceHostelSelect.innerHTML = '<option value="all">All Hostels</option>' + 
+                allHostels.map(h => `<option value="${h.id}">${h.name}</option>`).join('');
+        }
+
+        // ========== OVERVIEW ==========
+
+        function loadOverview() {
+            const recent = [...allAllocations].sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 10);
+            
+            const container = document.getElementById('recentActivity');
+            if (recent.length === 0) {
+                container.innerHTML = '<div class="text-center py-6 text-gray-400">No hostel activity yet</div>';
+            } else {
+                container.innerHTML = recent.map(a => {
+                    const student = allStudents.find(s => s.id === a.studentId);
+                    const room = allRooms.find(r => r.id === a.roomId);
+                    const hostel = allHostels.find(h => h.id === a.hostelId);
+                    return `
+                        <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                            <div>
+                                <p class="font-medium text-sm">🏠 ${student?.name || 'Unknown'}</p>
+                                <p class="text-xs text-gray-600">${hostel?.name || 'N/A'} • Room ${room?.number || 'N/A'} • ${a.bed || 'No bed'}</p>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span class="status-badge ${a.status === 'active' ? 'status-available' : 'status-maintenance'}">${a.status || 'Active'}</span>
+                                <span class="text-xs text-gray-400">${new Date(a.createdAt).toLocaleDateString()}</span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            updateCharts();
+        }
+
+        function updateCharts() {
+            // Capacity chart
+            const hostelData = allHostels.map(h => {
+                const rooms = allRooms.filter(r => r.hostelId === h.id);
+                const totalBeds = rooms.reduce((sum, r) => sum + (r.beds || 0), 0);
+                const occupied = allAllocations.filter(a => a.hostelId === h.id && a.status === 'active').length;
+                return { name: h.name, capacity: totalBeds, occupied: occupied };
+            });
+
+            const ctx1 = document.getElementById('capacityChart')?.getContext('2d');
+            if (ctx1) {
+                if (capacityChart) capacityChart.destroy();
+                capacityChart = new Chart(ctx1, {
+                    type: 'bar',
+                    data: {
+                        labels: hostelData.map(h => h.name),
+                        datasets: [
+                            { label: 'Capacity', data: hostelData.map(h => h.capacity), backgroundColor: '#003f87', borderRadius: 4 },
+                            { label: 'Occupied', data: hostelData.map(h => h.occupied), backgroundColor: '#d97706', borderRadius: 4 }
+                        ]
+                    },
+                    options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } }, scales: { y: { beginAtZero: true, stepSize: 1 } } }
+                });
+            }
+
+            // Occupancy chart
+            const statusCounts = {
+                'Available': allRooms.filter(r => r.status === 'available').length,
+                'Occupied': allRooms.filter(r => r.status === 'occupied').length,
+                'Maintenance': allRooms.filter(r => r.status === 'maintenance').length,
+                'Reserved': allRooms.filter(r => r.status === 'reserved').length
+            };
+
+            const ctx2 = document.getElementById('occupancyChart')?.getContext('2d');
+            if (ctx2) {
+                if (occupancyChart) occupancyChart.destroy();
+                occupancyChart = new Chart(ctx2, {
+                    type: 'doughnut',
+                    data: {
+                        labels: Object.keys(statusCounts),
+                        datasets: [{ data: Object.values(statusCounts), backgroundColor: ['#059669', '#d97706', '#dc2626', '#3b82f6'], borderWidth: 0 }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } } }
+                });
+            }
+        }
+
+        // ========== HOSTELS CRUD ==========
+
+        async function loadHostels() {
+            const type = document.getElementById('hostelFilter')?.value || 'all';
+            const search = document.getElementById('hostelSearch')?.value.toLowerCase() || '';
+
+            let filtered = allHostels;
+            if (type !== 'all') filtered = filtered.filter(h => h.type === type);
+            if (search) filtered = filtered.filter(h => h.name?.toLowerCase().includes(search));
+
+            const grid = document.getElementById('hostelsGrid');
+            if (filtered.length === 0) {
+                grid.innerHTML = '<div class="text-center py-10 text-gray-400 col-span-full">No hostels found</div>';
+                return;
+            }
+
+            grid.innerHTML = filtered.map(h => {
+                const rooms = allRooms.filter(r => r.hostelId === h.id);
+                const totalBeds = rooms.reduce((sum, r) => sum + (r.beds || 0), 0);
+                const occupied = allAllocations.filter(a => a.hostelId === h.id && a.status === 'active').length;
+                const percent = totalBeds > 0 ? Math.round((occupied / totalBeds) * 100) : 0;
+                return `
+                    <div class="hostel-card p-4">
+                        <div class="flex justify-between items-start mb-2">
+                            <div>
+                                <h4 class="font-bold text-gray-800">${h.name}</h4>
+                                <p class="text-sm text-gray-500">${h.type}</p>
+                            </div>
+                            <span class="status-badge ${percent < 80 ? 'status-available' : 'status-occupied'}">${percent}% Full</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 text-sm">
+                            <div><span class="text-gray-500">Rooms:</span> ${rooms.length}</div>
+                            <div><span class="text-gray-500">Beds:</span> ${totalBeds}</div>
+                            <div><span class="text-gray-500">Occupied:</span> ${occupied}</div>
+                            <div><span class="text-gray-500">Warden:</span> ${h.warden || 'N/A'}</div>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
+                            <div class="bg-[#003f87] h-2 rounded-full" style="width: ${percent}%"></div>
+                        </div>
+                        <div class="flex gap-2 pt-2 border-t mt-2">
+                            <button onclick="editHostel('${h.id}')" class="flex-1 py-1 text-blue-600 border rounded text-sm">Edit</button>
+                            <button onclick="deleteHostel('${h.id}', '${h.name}')" class="flex-1 py-1 text-red-600 border rounded text-sm">Delete</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function openHostelModal() {
+            document.getElementById('hostelModalTitle').innerText = 'Add Hostel';
+            document.getElementById('editHostelId').value = '';
+            document.getElementById('hostelForm').reset();
+            document.getElementById('hostelModal').classList.remove('hidden');
+        }
+
+        function closeHostelModal() {
+            document.getElementById('hostelModal').classList.add('hidden');
+        }
+
+        function editHostel(id) {
+            const hostel = allHostels.find(h => h.id === id);
+            if (hostel) {
+                document.getElementById('hostelModalTitle').innerText = 'Edit Hostel';
+                document.getElementById('editHostelId').value = id;
+                document.getElementById('hostelName').value = hostel.name || '';
+                document.getElementById('hostelType').value = hostel.type || 'Boys';
+                document.getElementById('hostelRooms').value = hostel.rooms || '';
+                document.getElementById('hostelCapacity').value = hostel.capacity || '';
+                document.getElementById('hostelWarden').value = hostel.warden || '';
+                document.getElementById('hostelLocation').value = hostel.location || '';
+                document.getElementById('hostelModal').classList.remove('hidden');
+            }
+        }
+
+        document.getElementById('hostelForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('editHostelId').value;
+            const data = {
+                name: document.getElementById('hostelName').value,
+                type: document.getElementById('hostelType').value,
+                rooms: parseInt(document.getElementById('hostelRooms').value) || 0,
+                capacity: parseInt(document.getElementById('hostelCapacity').value) || 0,
+                warden: document.getElementById('hostelWarden').value,
+                location: document.getElementById('hostelLocation').value,
+                updatedAt: new Date().toISOString()
+            };
+
+            try {
+                if (id) {
+                    await db.collection('schools').doc(currentSchool).collection('hostels').doc(id).update(data);
+                    showToast('Hostel updated');
+                } else {
+                    data.createdAt = new Date().toISOString();
+                    data.deleted = false;
+                    await db.collection('schools').doc(currentSchool).collection('hostels').add(data);
+                    showToast('Hostel added');
+                }
+                closeHostelModal();
+                await loadAllData();
+                loadHostels();
+            } catch (error) {
+                showToast('Error: ' + error.message, true);
+            }
+        });
+
+        function deleteHostel(id, name) {
+            deleteTargetId = id;
+            deleteTargetType = 'hostel';
+            document.getElementById('deleteMessage').innerHTML = `Delete hostel "<strong>${name}</strong>"? This will also delete all rooms.`;
+            document.getElementById('deleteModal').classList.remove('hidden');
+        }
+
+        // ========== ROOMS CRUD ==========
+
+        function loadHostelsForRoom() {
+            const select = document.getElementById('roomHostel');
+            select.innerHTML = '<option value="">Select Hostel</option>' + 
+                allHostels.map(h => `<option value="${h.id}">${h.name}</option>`).join('');
+        }
+
+        async function loadRooms() {
+            const hostelId = document.getElementById('roomHostelFilter')?.value || 'all';
+            const status = document.getElementById('roomStatusFilter')?.value || 'all';
+            const search = document.getElementById('roomSearch')?.value.toLowerCase() || '';
+
+            let filtered = allRooms;
+            if (hostelId !== 'all') filtered = filtered.filter(r => r.hostelId === hostelId);
+            if (status !== 'all') filtered = filtered.filter(r => r.status === status);
+            if (search) filtered = filtered.filter(r => r.number?.toLowerCase().includes(search));
+
+            const grid = document.getElementById('roomsGrid');
+            if (filtered.length === 0) {
+                grid.innerHTML = '<div class="text-center py-10 text-gray-400 col-span-full">No rooms found</div>';
+                return;
+            }
+
+            grid.innerHTML = filtered.map(r => {
+                const hostel = allHostels.find(h => h.id === r.hostelId);
+                const occupied = allAllocations.filter(a => a.roomId === r.id && a.status === 'active').length;
+                const statusClass = r.status === 'available' ? 'status-available' : 
+                                   r.status === 'occupied' ? 'status-occupied' : 
+                                   r.status === 'reserved' ? 'status-reserved' : 'status-maintenance';
+                return `
+                    <div class="hostel-card p-4">
+                        <div class="flex justify-between items-start mb-2">
+                            <div>
+                                <h4 class="font-bold text-gray-800">Room ${r.number}</h4>
+                                <p class="text-sm text-gray-500">${hostel?.name || 'N/A'}</p>
+                            </div>
+                            <span class="status-badge ${statusClass}">${r.status || 'Available'}</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 text-sm">
+                            <div><span class="text-gray-500">Floor:</span> ${r.floor || 'N/A'}</div>
+                            <div><span class="text-gray-500">Beds:</span> ${r.beds || 0}</div>
+                            <div><span class="text-gray-500">Occupied:</span> ${occupied}</div>
+                            <div><span class="text-gray-500">Available:</span> ${(r.beds || 0) - occupied}</div>
+                        </div>
+                        <div class="flex gap-2 pt-2 border-t mt-2">
+                            <button onclick="editRoom('${r.id}')" class="flex-1 py-1 text-blue-600 border rounded text-sm">Edit</button>
+                            <button onclick="deleteRoom('${r.id}', '${r.number}')" class="flex-1 py-1 text-red-600 border rounded text-sm">Delete</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function openRoomModal() {
+            document.getElementById('roomModalTitle').innerText = 'Add Room';
+            document.getElementById('editRoomId').value = '';
+            document.getElementById('roomForm').reset();
+            loadHostelsForRoom();
+            document.getElementById('roomModal').classList.remove('hidden');
+        }
+
+        function closeRoomModal() {
+            document.getElementById('roomModal').classList.add('hidden');
+        }
+
+        function editRoom(id) {
+            const room = allRooms.find(r => r.id === id);
+            if (room) {
+                document.getElementById('roomModalTitle').innerText = 'Edit Room';
+                document.getElementById('editRoomId').value = id;
+                loadHostelsForRoom();
+                setTimeout(() => {
+                    document.getElementById('roomHostel').value = room.hostelId || '';
+                }, 100);
+                document.getElementById('roomNumber').value = room.number || '';
+                document.getElementById('roomFloor').value = room.floor || '';
+                document.getElementById('roomBeds').value = room.beds || '';
+                document.getElementById('roomStatus').value = room.status || 'available';
+                document.getElementById('roomModal').classList.remove('hidden');
+            }
+        }
+
+        document.getElementById('roomForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('editRoomId').value;
+            const data = {
+                hostelId: document.getElementById('roomHostel').value,
+                number: document.getElementById('roomNumber').value,
+                floor: document.getElementById('roomFloor').value,
+                beds: parseInt(document.getElementById('roomBeds').value) || 0,
+                status: document.getElementById('roomStatus').value,
+                updatedAt: new Date().toISOString()
+            };
+
+            try {
+                if (id) {
+                    await db.collection('schools').doc(currentSchool).collection('hostelRooms').doc(id).update(data);
+                    showToast('Room updated');
+                } else {
+                    data.createdAt = new Date().toISOString();
+                    data.deleted = false;
+                    await db.collection('schools').doc(currentSchool).collection('hostelRooms').add(data);
+                    showToast('Room added');
+                }
+                closeRoomModal();
+                await loadAllData();
+                loadRooms();
+            } catch (error) {
+                showToast('Error: ' + error.message, true);
+            }
+        });
+
+        function deleteRoom(id, number) {
+            deleteTargetId = id;
+            deleteTargetType = 'room';
+            document.getElementById('deleteMessage').innerHTML = `Delete room "<strong>${number}</strong>"?`;
+            document.getElementById('deleteModal').classList.remove('hidden');
+        }
+
+        // ========== ALLOCATIONS ==========
+
+        function loadStudentsForAllocation() {
+            // Get students not yet allocated
+            const allocatedIds = new Set(allAllocations.filter(a => a.status === 'active').map(a => a.studentId));
+            const availableStudents = allStudents.filter(s => !allocatedIds.has(s.id));
+            
+            const select = document.getElementById('allocStudent');
+            select.innerHTML = '<option value="">Select Student</option>' + 
+                availableStudents.map(s => `<option value="${s.id}">${s.name} (${s.admNo})</option>`).join('');
+        }
+
+        function loadHostelsForAllocation() {
+            const select = document.getElementById('allocHostel');
+            select.innerHTML = '<option value="">Select Hostel</option>' + 
+                allHostels.map(h => `<option value="${h.id}">${h.name}</option>`).join('');
+        }
+
+        function loadRoomsForAllocation() {
+            const hostelId = document.getElementById('allocHostel').value;
+            const select = document.getElementById('allocRoom');
+            
+            if (!hostelId) {
+                select.innerHTML = '<option value="">Select Room</option>';
+                return;
+            }
+            
+            const availableRooms = allRooms.filter(r => r.hostelId === hostelId && (r.status === 'available' || r.status === 'reserved'));
+            select.innerHTML = '<option value="">Select Room</option>' + 
+                availableRooms.map(r => `<option value="${r.id}">Room ${r.number} (${r.beds - allAllocations.filter(a => a.roomId === r.id && a.status === 'active').length} beds available)</option>`).join('');
+        }
+
+        async function loadAllocations() {
+            const container = document.getElementById('allocationsList');
+            if (allAllocations.length === 0) {
+                container.innerHTML = '<div class="text-center py-6 text-gray-400">No allocations</div>';
+                return;
+            }
+
+            const active = allAllocations.filter(a => a.status === 'active');
+            container.innerHTML = active.map(a => {
+                const student = allStudents.find(s => s.id === a.studentId);
+                const room = allRooms.find(r => r.id === a.roomId);
+                const hostel = allHostels.find(h => h.id === a.hostelId);
+                return `
+                    <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                        <div>
+                            <p class="font-medium">${student?.name || 'Unknown'}</p>
+                            <p class="text-xs text-gray-500">${hostel?.name || 'N/A'} • Room ${room?.number || 'N/A'} • ${a.bed || 'No bed'}</p>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <span class="status-badge status-available">Active</span>
+                            <button onclick="deallocate('${a.id}', '${student?.name || 'Unknown'}')" class="text-red-600 text-sm">Deallocate</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        document.getElementById('allocationForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const data = {
+                studentId: document.getElementById('allocStudent').value,
+                hostelId: document.getElementById('allocHostel').value,
+                roomId: document.getElementById('allocRoom').value,
+                bed: document.getElementById('allocBed').value,
+                checkIn: document.getElementById('allocCheckIn').value,
+                status: 'active',
+                createdAt: new Date().toISOString(),
+                deleted: false
+            };
+
+            try {
+                await db.collection('schools').doc(currentSchool).collection('hostelAllocations').add(data);
+                
+                // Update room status to occupied if fully occupied
+                const room = allRooms.find(r => r.id === data.roomId);
+                if (room) {
+                    const occupied = allAllocations.filter(a => a.roomId === room.id && a.status === 'active').length + 1;
+                    if (occupied >= (room.beds || 1)) {
+                        await db.collection('schools').doc(currentSchool).collection('hostelRooms').doc(room.id).update({ status: 'occupied' });
+                    }
+                }
+                
+                showToast('Room allocated successfully');
+                document.getElementById('allocationForm').reset();
+                await loadAllData();
+                loadAllocations();
+                loadStudentsForAllocation();
+            } catch (error) {
+                showToast('Error: ' + error.message, true);
+            }
+        });
+
+        async function deallocate(id, name) {
+            if (confirm(`Deallocate ${name}?`)) {
+                const allocation = allAllocations.find(a => a.id === id);
+                if (allocation) {
+                    await db.collection('schools').doc(currentSchool).collection('hostelAllocations').doc(id).update({
+                        status: 'inactive',
+                        checkOut: new Date().toISOString().split('T')[0],
+                        updatedAt: new Date().toISOString()
+                    });
+                    
+                    // Update room status if it was occupied
+                    const room = allRooms.find(r => r.id === allocation.roomId);
+                    if (room) {
+                        const occupied = allAllocations.filter(a => a.roomId === room.id && a.status === 'active').length - 1;
+                        if (occupied <= 0) {
+                            await db.collection('schools').doc(currentSchool).collection('hostelRooms').doc(room.id).update({ status: 'available' });
+                        }
+                    }
+                    
+                    showToast(`${name} deallocated`);
+                    await loadAllData();
+                    loadAllocations();
+                    loadStudentsForAllocation();
+                }
+            }
+        }
+
+        // ========== BOARDING STUDENTS ==========
+
+        function loadHostelsForBoarding() {
+            const select = document.getElementById('boardingHostelFilter');
+            // Already populated
+        }
+
+        async function loadBoardingStudents() {
+            const hostelId = document.getElementById('boardingHostelFilter')?.value || 'all';
+            const search = document.getElementById('boardingSearch')?.value.toLowerCase() || '';
+
+            let allocations = allAllocations.filter(a => a.status === 'active');
+            if (hostelId !== 'all') allocations = allocations.filter(a => a.hostelId === hostelId);
+
+            const studentIds = new Set(allocations.map(a => a.studentId));
+            let students = allStudents.filter(s => studentIds.has(s.id));
+            if (search) students = students.filter(s => s.name?.toLowerCase().includes(search) || s.admNo?.toLowerCase().includes(search));
+
+            const container = document.getElementById('boardingStudentsList');
+            if (students.length === 0) {
+                container.innerHTML = '<div class="text-center py-10 text-gray-400 col-span-full">No boarding students found</div>';
+                return;
+            }
+
+            container.innerHTML = students.map(s => {
+                const alloc = allocations.find(a => a.studentId === s.id);
+                const room = allRooms.find(r => r.id === alloc?.roomId);
+                const hostel = allHostels.find(h => h.id === alloc?.hostelId);
+                return `
+                    <div class="bg-white rounded-xl p-4 shadow-sm border-l-4 border-[#003f87]">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h4 class="font-bold text-gray-800">${s.name}</h4>
+                                <p class="text-xs text-gray-500">Adm: ${s.admNo} • ${s.grade}</p>
+                            </div>
+                            <span class="status-badge status-available">Boarding</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 mt-3 text-sm">
+                            <div><span class="text-gray-500">Hostel:</span> ${hostel?.name || 'N/A'}</div>
+                            <div><span class="text-gray-500">Room:</span> ${room?.number || 'N/A'}</div>
+                            <div><span class="text-gray-500">Bed:</span> ${alloc?.bed || 'N/A'}</div>
+                            <div><span class="text-gray-500">Check-in:</span> ${alloc?.checkIn || 'N/A'}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // ========== ATTENDANCE ==========
+
+        function loadHostelsForAttendance() {
+            // Already populated
+        }
+
+        async function loadAttendance() {
+            const date = document.getElementById('attendanceDate')?.value || new Date().toISOString().split('T')[0];
+            const hostelId = document.getElementById('attendanceHostel')?.value || 'all';
+
+            document.getElementById('attendanceDate').value = date;
+
+            let allocations = allAllocations.filter(a => a.status === 'active');
+            if (hostelId !== 'all') allocations = allocations.filter(a => a.hostelId === hostelId);
+
+            const tbody = document.getElementById('attendanceBody');
+            if (allocations.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center py-6 text-gray-400">No boarding students found</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = allocations.map(a => {
+                const student = allStudents.find(s => s.id === a.studentId);
+                const room = allRooms.find(r => r.id === a.roomId);
+                return `
+                    <tr class="border-b">
+                        <td class="p-2 text-sm font-medium">${student?.name || 'Unknown'}</td>
+                        <td class="p-2 text-sm">Room ${room?.number || 'N/A'}</td>
+                        <td class="p-2">
+                            <select class="px-2 py-1 border rounded text-xs" onchange="updateAttendance('${a.id}', this.value)">
+                                <option value="present">Present</option>
+                                <option value="absent">Absent</option>
+                                <option value="late">Late</option>
+                                <option value="leave">On Leave</option>
+                            </select>
+                        </td>
+                        <td class="p-2 text-sm"><input type="time" class="px-2 py-1 border rounded text-xs" value="07:30"></td>
+                        <td class="p-2 text-sm"><input type="time" class="px-2 py-1 border rounded text-xs" value="21:00"></td>
+                        <td class="p-2 text-center">
+                            <button onclick="saveAttendance('${a.id}', '${date}')" class="px-2 py-1 bg-[#003f87] text-white rounded text-xs">Save</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        async function updateAttendance(id, status) {
+            // Store in a temp map - will be saved with save button
+            window.tempAttendance = window.tempAttendance || {};
+            window.tempAttendance[id] = status;
+            showToast(`Status updated to ${status}`);
+        }
+
+        async function saveAttendance(allocationId, date) {
+            const status = window.tempAttendance?.[allocationId] || 'present';
+            try {
+                await db.collection('schools').doc(currentSchool).collection('hostelAttendance').add({
+                    allocationId: allocationId,
+                    date: date,
+                    status: status,
+                    recordedAt: new Date().toISOString()
+                });
+                showToast('Attendance saved');
+                delete window.tempAttendance?.[allocationId];
+            } catch (error) {
+                showToast('Error: ' + error.message, true);
+            }
+        }
+
+        // ========== EXPORT ==========
+
+        function exportHostelData() {
+            const data = allAllocations.filter(a => a.status === 'active').map(a => {
+                const student = allStudents.find(s => s.id === a.studentId);
+                const room = allRooms.find(r => r.id === a.roomId);
+                const hostel = allHostels.find(h => h.id === a.hostelId);
+                return {
+                    'Student': student?.name || 'Unknown',
+                    'Admission': student?.admNo || 'N/A',
+                    'Hostel': hostel?.name || 'N/A',
+                    'Room': room?.number || 'N/A',
+                    'Bed': a.bed || 'N/A',
+                    'Check In': a.checkIn || 'N/A',
+                    'Status': a.status || 'Active'
+                };
+            });
+
+            if (data.length === 0) {
+                showToast('No data to export', true);
+                return;
+            }
+
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Hostel');
+            XLSX.writeFile(wb, `hostel_${new Date().toISOString().split('T')[0]}.xlsx`);
+            showToast('Export complete!');
+        }
+
+        // ========== DELETE CONFIRMATION ==========
+
+        document.getElementById('confirmDeleteBtn').addEventListener('click', async () => {
+            if (!deleteTargetId) return;
+
+            try {
+                if (deleteTargetType === 'hostel') {
+                    // Delete hostel
+                    await db.collection('schools').doc(currentSchool).collection('hostels').doc(deleteTargetId).update({
+                        deleted: true,
+                        deletedAt: new Date().toISOString()
+                    });
+                    // Also delete associated rooms
+                    const rooms = allRooms.filter(r => r.hostelId === deleteTargetId);
+                    for (const room of rooms) {
+                        await db.collection('schools').doc(currentSchool).collection('hostelRooms').doc(room.id).update({
+                            deleted: true,
+                            deletedAt: new Date().toISOString()
+                        });
+                    }
+                    showToast(`Hostel and ${rooms.length} rooms deleted`);
+                } else if (deleteTargetType === 'room') {
+                    await db.collection('schools').doc(currentSchool).collection('hostelRooms').doc(deleteTargetId).update({
+                        deleted: true,
+                        deletedAt: new Date().toISOString()
+                    });
+                    showToast('Room deleted');
+                }
+                closeDeleteModal();
+                await loadAllData();
+                loadHostels();
+                loadRooms();
+            } catch (error) {
+                showToast('Error deleting: ' + error.message, true);
+            }
+        });
+
+        function closeDeleteModal() {
+            document.getElementById('deleteModal').classList.add('hidden');
+            deleteTargetId = null;
+            deleteTargetType = null;
+        }
+
+        // ========== AUTH ==========
+
+        auth.onAuthStateChanged(async (user) => {
+            if (!user) {
+                window.location.href = 'index.html';
+                return;
+            }
+
+            currentSchool = sessionStorage.getItem('currentSchoolCode');
+            if (!currentSchool) {
+                try {
+                    const snap = await db.collection('schools').where('adminId', '==', user.uid).get();
+                    if (!snap.empty) {
+                        currentSchool = snap.docs[0].id;
+                        sessionStorage.setItem('currentSchoolCode', currentSchool);
+                        sessionStorage.setItem('currentSchoolName', snap.docs[0].data().schoolName);
+                    }
+                } catch (error) {
+                    console.error('Error fetching school:', error);
+                }
+            }
+
+            const schoolName = sessionStorage.getItem('currentSchoolName') || 'ELMOH HIGH SCHOOL';
+            document.getElementById('schoolNameDisplay').innerText = schoolName;
+
+            if (currentSchool) {
+                await loadAllData();
+            }
+        });
+
+        window.addEventListener('message', function(event) {
+            if (event.data && event.data.type === 'themeChange') {
+                const theme = event.data.theme;
+                document.body.className = '';
+                if (theme === 'dark') document.body.classList.add('theme-dark');
+                else if (theme === 'green') document.body.classList.add('theme-green');
+                else if (theme === 'grey') document.body.classList.add('theme-grey');
+            }
+        });
+
+        if (window.parent !== window) {
+            window.parent.postMessage({ type: 'iframeReady' }, '*');
+        }
+    </script>
+
+</body>
+</html>
