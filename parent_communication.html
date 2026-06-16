@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parent Communication | LearnPro Kenya</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: #f0f2f5; }
+        .glass-card { background: rgba(255,255,255,0.7); backdrop-filter: blur(20px); border-radius: 24px; border: 1px solid rgba(255,255,255,0.3); }
+        .feed-card { background: white; border-radius: 20px; transition: all 0.3s ease; border: 1px solid #eef2ff; }
+        .feed-card:hover { transform: translateY(-2px); box-shadow: 0 10px 20px -12px rgba(0,63,135,0.15); }
+        .toast { position: fixed; bottom: 24px; right: 24px; background: #003f87; color: white; padding: 12px 24px; border-radius: 48px; z-index: 1000; font-weight: 600; }
+        .toast-error { background: #dc2626; }
+        .toast-success { background: #059669; }
+        .nav-item { transition: all 0.2s ease; cursor: pointer; }
+        .nav-item:hover { background: rgba(0,63,135,0.1); transform: translateX(5px); }
+        .nav-active { background: #003f87; color: white; border-radius: 12px; }
+        .animate-pulse-slow { animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+    </style>
+</head>
+<body>
+
+    <!-- Main Content -->
+    <div class="pt-[72px] px-6 pb-8 max-w-7xl mx-auto">
+        <!-- Emergency Alert Banner -->
+        <div class="bg-red-50 border-l-4 border-red-500 rounded-xl p-4 mb-6 flex items-start gap-3 animate-pulse-slow">
+            <span class="material-symbols-outlined text-red-500" style="font-variation-settings: 'FILL' 1;">warning</span>
+            <div><h3 class="font-bold text-red-700">Emergency Weather Alert</h3><p class="text-sm text-red-600">Heavy rains expected this afternoon. School buses will depart 30 minutes earlier at 3:00 PM for all Grade 1-6 students. Please ensure someone is at the pickup point.</p></div>
+        </div>
+
+        <!-- Quick Actions Grid -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <div class="glass-card p-4 text-center cursor-pointer hover:bg-white transition"><div class="w-12 h-12 bg-[#003f87]/10 rounded-full flex items-center justify-center mx-auto mb-2"><span class="material-symbols-outlined text-[#003f87]">send</span></div><p class="text-sm font-medium">Message Teacher</p></div>
+            <div class="glass-card p-4 text-center cursor-pointer hover:bg-white transition"><div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-2"><span class="material-symbols-outlined text-green-700">menu_book</span></div><p class="text-sm font-medium">View Newsletter</p></div>
+            <div class="glass-card p-4 text-center cursor-pointer hover:bg-white transition"><div class="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-2"><span class="material-symbols-outlined text-yellow-700">event_busy</span></div><p class="text-sm font-medium">Report Absence</p></div>
+            <div class="glass-card p-4 text-center cursor-pointer hover:bg-white transition"><div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-2"><span class="material-symbols-outlined text-red-700">payments</span></div><p class="text-sm font-medium">Fee Statement</p></div>
+        </div>
+
+        <!-- Two Column Layout -->
+        <div class="grid lg:grid-cols-3 gap-6">
+            <!-- Communication Feed (Left - 2 cols) -->
+            <div class="lg:col-span-2">
+                <div class="flex justify-between items-center mb-4"><h3 class="text-xl font-bold text-gray-800">Communication Feed</h3><button class="text-[#003f87] text-sm font-medium">Filter Feed</button></div>
+                <div class="space-y-4">
+                    <!-- Teacher Message Card -->
+                    <div class="feed-card p-5 relative"><div class="absolute left-0 top-0 bottom-0 w-1 bg-[#003f87] rounded-l-2xl"></div>
+                        <div class="flex gap-4"><div class="w-12 h-12 rounded-full bg-[#003f87]/10 flex items-center justify-center shrink-0"><span class="material-symbols-outlined text-[#003f87]">chat_bubble</span></div>
+                        <div class="flex-1"><div class="flex justify-between items-start mb-1"><span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase">Teacher Message</span><span class="text-gray-400 text-xs">10 mins ago</span></div>
+                        <h4 class="font-bold text-gray-800">Mrs. Anyango - Grade 4 Blue</h4><p class="text-sm text-gray-600 mt-1">The science project materials for next Tuesday are now listed in the student portal. Please ensure students bring a recycled plastic bottle and some sand.</p>
+                        <div class="flex gap-2 mt-3"><button class="px-4 py-1.5 bg-[#003f87] text-white text-xs rounded-lg">Reply</button><button class="px-4 py-1.5 border border-gray-300 text-gray-600 text-xs rounded-lg">Mark as Read</button></div></div></div>
+                    </div>
+                    <!-- Announcement Card -->
+                    <div class="feed-card p-5"><div class="flex gap-4"><div class="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center shrink-0"><span class="material-symbols-outlined text-green-700">campaign</span></div>
+                        <div class="flex-1"><div class="flex justify-between items-start mb-1"><span class="bg-green-100 text-green-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase">Announcement</span><span class="text-gray-400 text-xs">2 hours ago</span></div>
+                        <h4 class="font-bold text-gray-800">Half-Term Break Dates</h4><p class="text-sm text-gray-600 mt-1">School will close for half-term on Friday, 20th October and reopen on Tuesday, 24th October. We wish all students a safe and restful break.</p>
+                        <div class="mt-3"><img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100%25' height='120'%3E%3Crect width='100%25' height='120' fill='%23e2e8f0'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%2394a3b8' font-size='12'%3EAnnouncement Image%3C/text%3E%3C/svg%3E" class="w-full h-24 object-cover rounded-lg"></div></div></div>
+                    </div>
+                    <!-- Event Card -->
+                    <div class="feed-card p-5"><div class="flex gap-4"><div class="w-12 h-12 rounded-full bg-yellow-100 flex items-center justify-center shrink-0"><span class="material-symbols-outlined text-yellow-700">calendar_today</span></div>
+                        <div class="flex-1"><div class="flex justify-between items-start mb-1"><span class="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase">Upcoming Event</span><span class="text-gray-400 text-xs">In 3 days</span></div>
+                        <h4 class="font-bold text-gray-800">Parent-Teacher Conference</h4><p class="text-sm text-gray-500 italic">Thursday, Oct 19 • 2:00 PM - 5:00 PM</p><p class="text-sm text-gray-600 mt-1">Book your 10-minute slot now via the calendar link.</p>
+                        <div class="flex gap-2 mt-3"><button class="px-4 py-1.5 bg-[#003f87] text-white text-xs rounded-lg">Book Slot</button><button class="px-4 py-1.5 border border-gray-300 text-gray-600 text-xs rounded-lg">Remind Me</button></div></div></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Rail -->
+            <div class="space-y-6">
+                <!-- Linked Students -->
+                <div class="glass-card p-5 rounded-xl"><h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">Linked Students</h4>
+                    <div class="space-y-3"><div class="flex items-center gap-3 p-2 rounded-lg bg-gray-50 cursor-pointer"><div class="w-10 h-10 rounded-full bg-[#003f87] text-white flex items-center justify-center font-bold">JK</div><div><p class="font-medium text-gray-800">Juma Kamau</p><p class="text-xs text-gray-500">Grade 4 Blue</p></div><span class="material-symbols-outlined text-[#003f87] text-sm ml-auto">check_circle</span></div>
+                    <div class="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 cursor-pointer"><div class="w-10 h-10 rounded-full bg-green-100 text-green-700 flex items-center justify-center font-bold">MK</div><div><p class="font-medium text-gray-800">Muthoni Kamau</p><p class="text-xs text-gray-500">Grade 1 Green</p></div></div></div>
+                </div>
+
+                <!-- Calendar Widget -->
+                <div class="glass-card p-5 rounded-xl"><div class="flex justify-between items-center mb-4"><h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider">Calendar</h4><span class="material-symbols-outlined text-[#003f87] text-sm">event</span></div>
+                    <ul class="space-y-3"><li class="flex gap-3"><div class="flex flex-col items-center justify-center w-10 h-10 bg-gray-100 rounded-lg"><span class="text-[10px] font-bold text-[#003f87]">OCT</span><span class="text-base font-bold text-gray-800 leading-none">19</span></div><div><p class="text-sm font-medium text-gray-800">Parent Conference</p><p class="text-xs text-gray-400">2:00 PM • Main Hall</p></div></li>
+                    <li class="flex gap-3"><div class="flex flex-col items-center justify-center w-10 h-10 bg-gray-100 rounded-lg"><span class="text-[10px] font-bold text-[#003f87]">OCT</span><span class="text-base font-bold text-gray-800 leading-none">20</span></div><div><p class="text-sm font-medium text-gray-800">Half Term Begins</p><p class="text-xs text-gray-400">All Day</p></div></li>
+                    <li class="flex gap-3 opacity-60"><div class="flex flex-col items-center justify-center w-10 h-10 bg-gray-100 rounded-lg"><span class="text-[10px] font-bold text-[#003f87]">OCT</span><span class="text-base font-bold text-gray-800 leading-none">24</span></div><div><p class="text-sm font-medium text-gray-800">School Reopens</p><p class="text-xs text-gray-400">8:00 AM</p></div></li></ul>
+                    <button class="w-full mt-4 py-2 border border-gray-300 rounded-lg text-sm font-medium">Full Calendar</button>
+                </div>
+
+                <!-- Contact School -->
+                <div class="bg-[#003f87] rounded-2xl p-5 text-white relative overflow-hidden"><div class="absolute -right-4 -bottom-4 opacity-10"><span class="material-symbols-outlined text-7xl" style="font-variation-settings: 'FILL' 1;">help</span></div>
+                    <h4 class="font-bold text-lg mb-1">Need Help?</h4><p class="text-sm text-white/80 mb-4">Contact the school administration office for urgent queries.</p>
+                    <a href="tel:+254700000000" class="flex items-center gap-2 font-bold"><span class="material-symbols-outlined text-sm">call</span> +254 700 000 000</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" style="display:none" class="toast"></div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyA4cm7chJXz90yOLWPtbdIW8KlEozG1lxo",
+            authDomain: "learnpro-kenya-erp.firebaseapp.com",
+            projectId: "learnpro-kenya-erp",
+            storageBucket: "learnpro-kenya-erp.firebasestorage.app",
+            messagingSenderId: "327168081514",
+            appId: "1:327168081514:web:13cdc8b827fa76d95a9413"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        let currentSchoolCode = null;
+
+        function showToast(msg, isError = false) { const toast = document.getElementById('toast'); toast.textContent = msg; toast.className = `toast ${isError ? 'toast-error' : 'toast-success'}`; toast.style.display = 'block'; setTimeout(() => toast.style.display = 'none', 3000); }
+        function goToDashboard() { window.location.href = 'dashboard.html'; }
+        async function logout() { await auth.signOut(); sessionStorage.clear(); window.location.href = 'index.html'; }
+
+        auth.onAuthStateChanged(async (user) => {
+            if (!user) { window.location.href = 'index.html'; return; }
+            currentSchoolCode = sessionStorage.getItem('currentSchoolCode');
+            if (!currentSchoolCode) { const schoolsSnap = await db.collection('schools').where('adminId', '==', user.uid).get(); if (!schoolsSnap.empty) { currentSchoolCode = schoolsSnap.docs[0].id; sessionStorage.setItem('currentSchoolCode', currentSchoolCode); sessionStorage.setItem('currentSchoolName', schoolsSnap.docs[0].data().schoolName); } }
+            document.getElementById('schoolBadge').innerText = sessionStorage.getItem('currentSchoolName') || currentSchoolCode;
+        });
+    </script>
+</body>
+</html>
