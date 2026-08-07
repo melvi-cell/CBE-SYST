@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LearnPro Kenya | Login</title>
+    <link rel="icon" type="image/png" href="favK.png">
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #f0f4ff 0%, #e8edf8 100%); min-height: 100vh; }
+        .login-card { background: rgba(255,255,255,0.98); backdrop-filter: blur(10px); border-radius: 32px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.15); }
+        .school-card { transition: all 0.3s ease; cursor: pointer; }
+        .school-card:hover { transform: translateY(-4px); box-shadow: 0 20px 25px -12px rgba(0,63,135,0.15); }
+        .toast { position: fixed; bottom: 24px; right: 24px; background: #003f87; color: white; padding: 12px 24px; border-radius: 48px; z-index: 1000; font-weight: 600; }
+        .toast-error { background: #dc2626; }
+        .toast-success { background: #059669; }
+        input:focus { outline: none; border-color: #003f87; box-shadow: 0 0 0 3px rgba(0,63,135,0.1); }
+        .loading-spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid white; border-radius: 50%; border-top-color: transparent; animation: spin 0.6s linear infinite; margin-right: 8px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+    <nav class="bg-white/90 backdrop-blur-md fixed w-full z-50 border-b border-gray-100 shadow-sm">
+        <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-gradient-to-br from-[#003f87] to-[#0056b3] rounded-xl flex items-center justify-center shadow-md">
+                    <span class="material-symbols-outlined text-white text-2xl">school</span>
+                </div>
+                <div>
+                    <span class="text-xl font-black text-[#003f87] tracking-tight">LEARNPRO <span class="text-[#0056b3]">KENYA</span></span>
+                    <p class="text-[10px] text-gray-500 -mt-1">CBE Compliant ERP</p>
+                </div>
+            </div>
+            <div class="hidden md:flex gap-6 text-sm text-gray-500">
+                <a href="#" class="hover:text-[#003f87] transition">Features</a>
+                <a href="#" class="hover:text-[#003f87] transition">Support</a>
+                <a href="#" class="hover:text-[#003f87] transition">Contact</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-6 pt-28 pb-16">
+        <div class="grid lg:grid-cols-2 gap-12 items-start">
+            <!-- Left Column -->
+            <div>
+                <div class="mb-10">
+                    <h2 class="text-4xl md:text-5xl font-bold text-[#003f87] mb-4">Empowering Kenyan Schools with CBE Excellence</h2>
+                    <p class="text-gray-600 text-lg">Access your specialized portal to manage CBE assessments, financial records, and student progression with our unified ERP system.</p>
+                </div>
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div class="school-card bg-white/60 rounded-xl p-6 border border-gray-100" onclick="autoFillSchool('Mountain View School', 'LP-254-MV')">
+                        <div class="w-full h-32 bg-gradient-to-br from-[#003f87]/10 to-[#0056b3]/10 rounded-lg flex items-center justify-center mb-3">
+                            <span class="material-symbols-outlined text-5xl text-[#003f87]/40">school</span>
+                        </div>
+                        <h3 class="text-xl font-semibold text-[#003f87]">Mountain View School</h3>
+                        <p class="text-gray-500 text-sm">Nairobi, Kenya</p>
+                        <span class="inline-block mt-2 text-xs bg-[#006d40] text-white px-2 py-1 rounded-full">Secondary</span>
+                    </div>
+                    <div class="school-card bg-white/60 rounded-xl p-6 border border-gray-100" onclick="autoFillSchool('Elmoh High', 'LP-ELM-01')">
+                        <div class="w-full h-32 bg-gradient-to-br from-[#006d40]/10 to-[#8af5b4]/10 rounded-lg flex items-center justify-center mb-3">
+                            <span class="material-symbols-outlined text-5xl text-[#006d40]/40">school</span>
+                        </div>
+                        <h3 class="text-xl font-semibold text-[#003f87]">Elmoh High</h3>
+                        <p class="text-gray-500 text-sm">Kiambu, Kenya</p>
+                        <span class="inline-block mt-2 text-xs bg-[#583d00] text-white px-2 py-1 rounded-full">High School</span>
+                    </div>
+                    <div class="md:col-span-2 bg-dashed border-2 border-dashed border-[#003f87]/20 rounded-xl p-6 text-center cursor-pointer hover:bg-[#003f87]/5 transition" onclick="document.getElementById('showRegisterBtn').click()">
+                        <div class="w-14 h-14 bg-[#003f87] rounded-full flex items-center justify-center mx-auto mb-3">
+                            <span class="material-symbols-outlined text-white text-2xl">add_business</span>
+                        </div>
+                        <h4 class="text-xl font-semibold text-[#003f87]">Register New School</h4>
+                        <p class="text-gray-500 text-sm">Onboard your institution to the LEARNPRO ecosystem in minutes.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column - Login Form -->
+            <div>
+                <div class="login-card p-8">
+                    <div class="text-center mb-6">
+                        <div class="w-16 h-16 bg-gradient-to-br from-[#003f87] to-[#0056b3] rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+                            <span class="material-symbols-outlined text-white text-2xl">admin_panel_settings</span>
+                        </div>
+                        <h2 class="text-2xl font-bold text-gray-800">Admin Access</h2>
+                        <p class="text-gray-500 text-sm">Enter credentials to manage your school</p>
+                    </div>
+                    <form id="loginForm" class="space-y-5">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">SCHOOL CODE</label>
+                            <div class="relative">
+                                <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xl">pin</span>
+                                <input id="schoolCode" type="text" class="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:border-[#003f87] transition" placeholder="e.g., LP-254-MV" required>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">EMAIL ADDRESS</label>
+                            <div class="relative">
+                                <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xl">person</span>
+                                <input id="email" type="email" class="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:border-[#003f87] transition" placeholder="admin@school.com" required>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">PASSWORD</label>
+                            <div class="relative">
+                                <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xl">key</span>
+                                <input id="password" type="password" class="w-full pl-10 pr-12 py-3 border border-gray-200 rounded-xl focus:border-[#003f87] transition" placeholder="••••••••" required>
+                                <button type="button" onclick="togglePassword()" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#003f87]">
+                                    <span class="material-symbols-outlined text-xl">visibility</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" class="w-4 h-4 rounded text-[#003f87] border-gray-300"> <span class="text-sm text-gray-600">Remember Me</span>
+                            </label>
+                            <a href="#" class="text-sm text-[#003f87] hover:underline">Forgot?</a>
+                        </div>
+                        <button type="submit" id="loginBtn" class="w-full py-3.5 bg-gradient-to-r from-[#003f87] to-[#0056b3] text-white font-semibold rounded-xl hover:shadow-lg transition-all flex items-center justify-center gap-2">
+                            <span class="material-symbols-outlined">login</span> Sign Into Portal
+                        </button>
+                    </form>
+                    <div class="mt-6 pt-5 border-t border-gray-100 text-center">
+                        <p class="text-sm text-gray-500">Don't have a code? <a href="#" id="showRegisterBtn" class="text-[#003f87] font-semibold hover:underline">Contact Support</a></p>
+                    </div>
+                    <div class="mt-4 p-3 bg-gray-50 rounded-xl flex items-center gap-2">
+                        <span class="material-symbols-outlined text-[#006d40] text-sm">verified_user</span>
+                        <p class="text-xs text-gray-500">Compliant with Kenya's CBE Data Privacy Standards v2.0</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Registration Modal -->
+    <div id="regModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-2xl p-8 max-w-md w-full mx-4">
+            <div class="text-center mb-6">
+                <div class="w-16 h-16 bg-gradient-to-br from-green-600 to-green-700 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <span class="material-symbols-outlined text-white text-2xl">add_business</span>
+                </div>
+                <h3 class="text-xl font-bold text-gray-800">Register New School</h3>
+                <p class="text-gray-500 text-sm mt-1">Create your institution's admin account</p>
+            </div>
+            <form id="registerForm" class="space-y-4">
+                <input id="regSchoolName" type="text" placeholder="School Name" class="w-full px-4 py-3 border border-gray-200 rounded-xl" required>
+                <input id="regSchoolCode" type="text" placeholder="School Code (e.g., LP-001)" class="w-full px-4 py-3 border border-gray-200 rounded-xl" required>
+                <input id="regEmail" type="email" placeholder="Admin Email" class="w-full px-4 py-3 border border-gray-200 rounded-xl" required>
+                <input id="regPassword" type="password" placeholder="Password (min 6 characters)" class="w-full px-4 py-3 border border-gray-200 rounded-xl" required>
+                <button type="submit" id="registerBtn" class="w-full py-3 bg-gradient-to-r from-[#003f87] to-[#0056b3] text-white font-semibold rounded-xl">Register School</button>
+                <button type="button" id="closeModalBtn" class="w-full py-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition">Cancel</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="toast" style="display:none" class="toast"></div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyA4cm7chJXz90yOLWPtbdIW8KlEozG1lxo",
+            authDomain: "learnpro-kenya-erp.firebaseapp.com",
+            projectId: "learnpro-kenya-erp",
+            storageBucket: "learnpro-kenya-erp.firebasestorage.app",
+            messagingSenderId: "327168081514",
+            appId: "1:327168081514:web:13cdc8b827fa76d95a9413"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        
+        function showToast(msg, isError = false) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.className = `toast ${isError ? 'toast-error' : 'toast-success'}`;
+            toast.style.display = 'block';
+            setTimeout(() => toast.style.display = 'none', 4000);
+        }
+
+        function autoFillSchool(name, code) {
+            document.getElementById('schoolCode').value = code;
+            showToast(`School code set to ${code}`);
+        }
+
+        function togglePassword() {
+            const pwd = document.getElementById('password');
+            pwd.type = pwd.type === 'password' ? 'text' : 'password';
+        }
+
+        // Auto redirect if already logged in
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                const schoolsSnap = await db.collection('schools').where('adminId', '==', user.uid).get();
+                if (!schoolsSnap.empty) {
+                    const schoolData = schoolsSnap.docs[0].data();
+                    sessionStorage.setItem('currentSchoolCode', schoolData.schoolCode);
+                    sessionStorage.setItem('currentSchoolName', schoolData.schoolName);
+                    window.location.href = 'dashboard.html';
+                }
+            }
+        });
+
+        // LOGIN
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+            const schoolCode = document.getElementById('schoolCode').value.trim().toUpperCase();
+
+            const btn = document.getElementById('loginBtn');
+            btn.innerHTML = '<span class="loading-spinner"></span> Signing in...';
+            btn.disabled = true;
+
+            try {
+                const schoolDoc = await db.collection('schools').doc(schoolCode).get();
+                if (!schoolDoc.exists) throw new Error('School code not found');
+
+                const userCred = await auth.signInWithEmailAndPassword(email, password);
+                const schoolData = schoolDoc.data();
+                
+                if (schoolData.adminId !== userCred.user.uid) {
+                    await auth.signOut();
+                    throw new Error('Invalid credentials');
+                }
+
+                sessionStorage.setItem('currentSchoolCode', schoolCode);
+                sessionStorage.setItem('currentSchoolName', schoolData.schoolName);
+                showToast('Login successful! Redirecting...');
+                setTimeout(() => window.location.href = 'dashboard.html', 1000);
+            } catch (error) {
+                showToast('Invalid credentials', true);
+                btn.innerHTML = '<span class="material-symbols-outlined">login</span> Sign Into Portal';
+                btn.disabled = false;
+            }
+        });
+
+        // REGISTRATION
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const schoolName = document.getElementById('regSchoolName').value.trim();
+            const schoolCode = document.getElementById('regSchoolCode').value.trim().toUpperCase();
+            const email = document.getElementById('regEmail').value.trim();
+            const password = document.getElementById('regPassword').value;
+
+            const btn = document.getElementById('registerBtn');
+            btn.innerHTML = '<span class="loading-spinner"></span> Registering...';
+            btn.disabled = true;
+
+            try {
+                const existing = await db.collection('schools').doc(schoolCode).get();
+                if (existing.exists) throw new Error('School code exists');
+                
+                const userCred = await auth.createUserWithEmailAndPassword(email, password);
+                await db.collection('schools').doc(schoolCode).set({
+                    schoolCode, schoolName, adminId: userCred.user.uid, adminEmail: email,
+                    status: 'active', createdAt: new Date().toISOString()
+                });
+                
+                const collections = ['students', 'teachers', 'registrations', 'fees', 'assessments', 'timetable', 'parents'];
+                for (const coll of collections) {
+                    await db.collection('schools').doc(schoolCode).collection(coll).doc('_init').set({ initialized: true });
+                }
+                
+                sessionStorage.setItem('currentSchoolCode', schoolCode);
+                sessionStorage.setItem('currentSchoolName', schoolName);
+                showToast('School registered! Redirecting...');
+                document.getElementById('regModal').classList.add('hidden');
+                setTimeout(() => window.location.href = 'dashboard.html', 1500);
+            } catch (error) {
+                showToast(error.message, true);
+                btn.innerHTML = 'Register School';
+                btn.disabled = false;
+            }
+        });
+
+        // Modal controls
+        const modal = document.getElementById('regModal');
+        document.getElementById('showRegisterBtn').onclick = () => modal.classList.remove('hidden');
+        document.getElementById('closeModalBtn').onclick = () => modal.classList.add('hidden');
+        modal.onclick = (e) => { if (e.target === modal) modal.classList.add('hidden'); };
+    </script>
+</body>
+</html>
