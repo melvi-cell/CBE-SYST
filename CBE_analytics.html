@@ -1,0 +1,1860 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CBE Analytics | LearnPro Kenya</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: #f0f2f5; }
+
+        /* ===== CBE KENYAN CURRICULUM THEME ===== */
+        :root {
+            --cbe-primary: #003f87;
+            --cbe-secondary: #006d40;
+            --cbe-accent: #f5a623;
+            --cbe-light: #e8f0fe;
+        }
+
+        .stat-card { background: white; border-radius: 20px; transition: all 0.3s ease; border: 1px solid #eef2ff; }
+        .stat-card:hover { transform: translateY(-5px); box-shadow: 0 20px 25px -12px rgba(0,63,135,0.15); }
+
+        .toast { position: fixed; bottom: 24px; right: 24px; background: #003f87; color: white; padding: 12px 24px; border-radius: 48px; z-index: 1000; font-weight: 600; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .toast-error { background: #dc2626; }
+        .toast-success { background: #059669; }
+
+        .nav-tab {
+            cursor: pointer;
+            padding: 10px 24px;
+            border-radius: 30px;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+        .nav-tab-active { background: #003f87; color: white; border-color: #003f87; }
+        .nav-tab-inactive { background: white; color: #4a5568; border: 1px solid #e2e8f0; }
+        .nav-tab-inactive:hover { background: #f1f5f9; border-color: #003f87; }
+
+        .grade-badge { display: inline-flex; padding: 4px 12px; border-radius: 30px; font-size: 11px; font-weight: 600; }
+        .grade-EE { background: #003f87; color: white; }
+        .grade-ME { background: #059669; color: white; }
+        .grade-AE { background: #d97706; color: white; }
+        .grade-BE { background: #dc2626; color: white; }
+
+        .deleted-row { background-color: #fef2f2; opacity: 0.7; }
+        .modal { z-index: 1000; }
+        .btn-primary { background-color: #003f87; }
+        .btn-primary:hover { background-color: #002a5c; }
+
+        .chart-container { height: 260px; position: relative; }
+        .sync-btn { animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+        .loading-spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid #e2e8f0; border-radius: 50%; border-top-color: #003f87; animation: spin 0.6s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        @media print { .no-print { display: none; } }
+
+        /* ===== System confirm modal animations ===== */
+        #systemConfirmModal { animation: fadeIn 0.15s ease-out; }
+        #systemConfirmModal .confirm-card { animation: popIn 0.2s cubic-bezier(0.2, 0.8, 0.3, 1.05); }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes popIn { from { opacity: 0; transform: scale(0.92) translateY(8px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+
+        /* ===== CBE Strand Badges ===== */
+        .strand-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 10px;
+            border-radius: 20px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        .strand-literacy { background: #e0e7ff; color: #3730a3; }
+        .strand-numeracy { background: #dbeafe; color: #1e40af; }
+        .strand-environmental { background: #d1fae5; color: #065f46; }
+        .strand-hygiene { background: #fce7f3; color: #9d174d; }
+        .strand-creative { background: #fef3c7; color: #92400e; }
+        .strand-physical { background: #e0f2fe; color: #0c4a6e; }
+        .strand-religious { background: #ede9fe; color: #5b21b6; }
+        .strand-english { background: #dbeafe; color: #1e40af; }
+        .strand-kiswahili { background: #d1fae5; color: #065f46; }
+        .strand-mathematics { background: #fef3c7; color: #92400e; }
+        .strand-science { background: #e0f2fe; color: #0c4a6e; }
+        .strand-social { background: #ede9fe; color: #5b21b6; }
+        .strand-technical { background: #fce7f3; color: #9d174d; }
+        .strand-business { background: #d1fae5; color: #065f46; }
+        .strand-agriculture { background: #fef3c7; color: #92400e; }
+        .strand-life { background: #ede9fe; color: #5b21b6; }
+        .strand-sports { background: #e0f2fe; color: #0c4a6e; }
+
+        /* ===== CBC Performance Level Indicator ===== */
+        .cbc-level {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .cbc-level-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        /* ===== CBE Assessment Card ===== */
+        .cbe-card {
+            background: white;
+            border-radius: 16px;
+            padding: 16px;
+            border-left: 4px solid #003f87;
+            transition: all 0.2s;
+        }
+        .cbe-card:hover { box-shadow: 0 4px 12px rgba(0,63,135,0.1); }
+        .cbe-card-ee { border-left-color: #003f87; }
+        .cbe-card-me { border-left-color: #059669; }
+        .cbe-card-ae { border-left-color: #d97706; }
+        .cbe-card-be { border-left-color: #dc2626; }
+
+        /* ===== CBE Core Competency Tags ===== */
+        .competency-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 500;
+            background: #f1f5f9;
+            color: #475569;
+        }
+
+        /* ===== Responsive Grid ===== */
+        @media (max-width: 640px) {
+            .cbe-card { padding: 12px; }
+            .stat-card { padding: 12px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Main Content -->
+    <div class="pt-4 px-6 pb-6 max-w-7xl mx-auto">
+        
+        <!-- Page Header -->
+        <div class="mb-6 flex justify-between items-center flex-wrap gap-3">
+            <div>
+                <h2 class="text-2xl font-bold text-gray-800" id="overviewTitle">CBE Analytics Dashboard</h2>
+                <p class="text-gray-500 text-sm">Competency-Based Education Analytics &amp; Reporting — <span class="font-semibold text-[#003f87]">Kenyan CBE Curriculum</span></p>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="refreshAllData()" class="px-4 py-2 border rounded-lg text-sm hover:bg-gray-50 transition flex items-center gap-1">
+                    <span class="material-symbols-outlined text-sm">refresh</span> Refresh
+                </button>
+                <button onclick="syncCBEData()" id="syncBtn" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm flex items-center gap-1 sync-btn">
+                    <span class="material-symbols-outlined text-sm">sync</span> <span id="syncText">Sync</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Top Navigation Tabs -->
+        <div class="flex gap-2 mb-6 border-b pb-3 flex-wrap">
+            <button onclick="showSection('overview')" id="navOverview" class="nav-tab nav-tab-active">📊 Overview</button>
+            <button onclick="showSection('subjects')" id="navSubjects" class="nav-tab nav-tab-inactive">📚 Subject Performance</button>
+            <button onclick="showSection('students')" id="navStudents" class="nav-tab nav-tab-inactive">👨‍🎓 Student Progress</button>
+            <button onclick="showSection('record')" id="navRecord" class="nav-tab nav-tab-inactive">✏️ Record Assessment</button>
+            <button onclick="showSection('trash')" id="navTrash" class="nav-tab nav-tab-inactive">🗑️ Trash <span id="trashBadge" class="ml-1 text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full">0</span></button>
+        </div>
+
+        <!-- ========== OVERVIEW SECTION ========== -->
+        <div id="overviewSection">
+            <div class="bg-white rounded-xl p-4 mb-6 flex flex-wrap gap-3 items-center">
+                <select id="gradeFilter" class="px-4 py-2 border rounded-xl bg-white text-sm">
+                    <option value="all">All Grades</option>
+                </select>
+                <select id="streamFilter" class="px-4 py-2 border rounded-xl bg-white text-sm">
+                    <option value="all">All Streams</option>
+                </select>
+                <select id="termFilter" class="px-4 py-2 border rounded-xl bg-white text-sm">
+                    <option value="Term 1">Term 1</option>
+                    <option value="Term 2" selected>Term 2</option>
+                    <option value="Term 3">Term 3</option>
+                </select>
+                <button onclick="applyFilters()" class="px-4 py-2 bg-[#003f87] text-white rounded-xl text-sm hover:bg-[#002a5c] transition">Apply</button>
+            </div>
+
+            <!-- CBE Core Competency Summary -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <div class="stat-card p-4 text-center">
+                    <div class="text-2xl font-bold text-blue-600" id="totalAssessments">0</div>
+                    <p class="text-xs text-gray-500">Assessments</p>
+                </div>
+                <div class="stat-card p-4 text-center">
+                    <div class="text-2xl font-bold text-green-600" id="passRateDisplay">0%</div>
+                    <p class="text-xs text-gray-500">Pass Rate</p>
+                </div>
+                <div class="stat-card p-4 text-center">
+                    <div class="text-2xl font-bold text-purple-600" id="totalStudentsDisplay">0</div>
+                    <p class="text-xs text-gray-500">Students</p>
+                </div>
+                <div class="stat-card p-4 text-center">
+                    <div class="text-2xl font-bold text-orange-600" id="totalSubjectsDisplay">0</div>
+                    <p class="text-xs text-gray-500">Subjects</p>
+                </div>
+            </div>
+
+            <!-- CBE Core Competencies & Grade Distribution -->
+            <div class="grid lg:grid-cols-2 gap-6 mb-8">
+                <div class="bg-white rounded-2xl p-6 shadow-sm">
+                    <div class="flex justify-between items-start mb-6">
+                        <div>
+                            <h3 class="text-xl font-bold text-[#003f87]">CBE Core Competencies</h3>
+                            <p class="text-gray-500 text-sm" id="competencySubtitle">Average mastery levels across all grades</p>
+                        </div>
+                        <span class="material-symbols-outlined text-[#003f87]">psychology</span>
+                    </div>
+                    <div class="relative h-80 flex items-center justify-center">
+                        <canvas id="radarChart" width="250" height="250" style="max-width:100%; height:auto;"></canvas>
+                    </div>
+                    <!-- CBE Core Competency Legend -->
+                    <div class="mt-4 flex flex-wrap gap-2 justify-center">
+                        <span class="competency-tag"><span class="material-symbols-outlined text-xs">record_voice_over</span> Communication</span>
+                        <span class="competency-tag"><span class="material-symbols-outlined text-xs">lightbulb</span> Critical Thinking</span>
+                        <span class="competency-tag"><span class="material-symbols-outlined text-xs">palette</span> Creativity</span>
+                        <span class="competency-tag"><span class="material-symbols-outlined text-xs">groups</span> Collaboration</span>
+                        <span class="competency-tag"><span class="material-symbols-outlined text-xs">computer</span> Digital Literacy</span>
+                        <span class="competency-tag"><span class="material-symbols-outlined text-xs">self_improvement</span> Self-Efficacy</span>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl p-6 shadow-sm">
+                    <h3 class="text-xl font-bold text-[#003f87] mb-1">CBE Performance Levels</h3>
+                    <p class="text-gray-500 text-sm mb-6" id="gradeDistSubtitle">Kenyan CBE Assessment Summary</p>
+                    <div class="space-y-5">
+                        <div>
+                            <div class="flex justify-between text-sm mb-1">
+                                <span class="text-green-600 font-semibold flex items-center gap-1">
+                                    <span class="material-symbols-outlined text-sm">emoji_events</span> Exceeding Expectations (EE)
+                                </span>
+                                <span id="eePercent" class="font-bold">0%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-3">
+                                <div id="eeBar" class="bg-green-600 h-3 rounded-full transition-all duration-500" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-sm mb-1">
+                                <span class="text-blue-600 font-semibold flex items-center gap-1">
+                                    <span class="material-symbols-outlined text-sm">check_circle</span> Meeting Expectations (ME)
+                                </span>
+                                <span id="mePercent" class="font-bold">0%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-3">
+                                <div id="meBar" class="bg-blue-600 h-3 rounded-full transition-all duration-500" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-sm mb-1">
+                                <span class="text-yellow-600 font-semibold flex items-center gap-1">
+                                    <span class="material-symbols-outlined text-sm">trending_up</span> Approaching Expectations (AE)
+                                </span>
+                                <span id="aePercent" class="font-bold">0%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-3">
+                                <div id="aeBar" class="bg-yellow-600 h-3 rounded-full transition-all duration-500" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-sm mb-1">
+                                <span class="text-red-600 font-semibold flex items-center gap-1">
+                                    <span class="material-symbols-outlined text-sm">error</span> Below Expectations (BE)
+                                </span>
+                                <span id="bePercent" class="font-bold">0%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-3">
+                                <div id="beBar" class="bg-red-600 h-3 rounded-full transition-all duration-500" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-6 p-4 bg-blue-50 rounded-xl border border-blue-100">
+                        <div class="flex items-start gap-2">
+                            <span class="material-symbols-outlined text-[#003f87] text-sm mt-0.5">info</span>
+                            <p class="text-sm text-gray-600 italic" id="insightMsg">Loading analytics data...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Subject Performance & Trend -->
+            <div class="grid lg:grid-cols-2 gap-6">
+                <div class="bg-white rounded-2xl overflow-hidden shadow-sm">
+                    <div class="p-6 border-b border-gray-100 flex justify-between items-center">
+                        <h3 class="text-xl font-bold text-[#003f87]">Subject Performance</h3>
+                        <button onclick="showSection('subjects')" class="text-[#003f87] text-sm hover:underline">View All</button>
+                    </div>
+                    <div id="subjectPerformanceList" class="divide-y divide-gray-100">
+                        <div class="p-8 text-center text-gray-400">Loading subject data...</div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl p-6 shadow-sm">
+                    <div class="flex justify-between items-start mb-6">
+                        <div>
+                            <h3 class="text-xl font-bold text-[#003f87]">Performance Trend</h3>
+                            <p class="text-gray-500 text-sm">Historical mastery (Termly) — CBC Aligned</p>
+                        </div>
+                        <div class="flex gap-3">
+                            <span class="flex items-center gap-1 text-sm"><span class="w-3 h-3 rounded-full bg-[#003f87]"></span> Core</span>
+                            <span class="flex items-center gap-1 text-sm"><span class="w-3 h-3 rounded-full bg-[#006d40]"></span> Practical</span>
+                        </div>
+                    </div>
+                    <div class="relative h-64">
+                        <canvas id="trendChart" width="400" height="200" style="max-width:100%; height:auto;"></canvas>
+                    </div>
+                    <div class="mt-4 p-3 bg-[#003f87]/5 rounded-lg border border-[#003f87]/10 flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <span class="material-symbols-outlined text-[#003f87]">insights</span>
+                            <span class="text-sm text-[#003f87]" id="trendInsight">Loading trend data...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CBE Insight & Intervention -->
+            <div class="mt-6 bg-gradient-to-r from-[#003f87]/5 to-[#0056b3]/5 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-6">
+                <div>
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="px-3 py-1 bg-[#003f87] text-white text-xs font-bold rounded-full uppercase">CBE Insight</span>
+                        <span class="px-3 py-1 bg-[#006d40] text-white text-xs font-bold rounded-full uppercase">Kenyan Curriculum</span>
+                    </div>
+                    <h3 class="text-xl font-bold text-gray-800 mt-2">Targeted Intervention Required</h3>
+                    <p class="text-gray-600 text-sm max-w-xl" id="interventionMsg">Loading analytics...</p>
+                    <div class="flex gap-3 mt-4">
+                        <button onclick="showSection('record')" class="px-6 py-2 bg-[#003f87] text-white rounded-xl hover:bg-[#002a5c] transition flex items-center gap-1">
+                            <span class="material-symbols-outlined text-sm">add</span> Generate Strategy
+                        </button>
+                        <button onclick="openViewDetailsModal()" class="px-6 py-2 border border-[#003f87] text-[#003f87] rounded-xl hover:bg-[#003f87]/5 transition flex items-center gap-1">
+                            <span class="material-symbols-outlined text-sm">visibility</span> View Details
+                        </button>
+                    </div>
+                </div>
+                <div class="w-48 h-48 bg-gradient-to-br from-[#003f87]/20 to-[#0056b3]/20 rounded-2xl flex items-center justify-center">
+                    <span class="material-symbols-outlined text-6xl text-[#003f87]/40">auto_awesome</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== SUBJECT PERFORMANCE SECTION ========== -->
+        <div id="subjectsSection" class="hidden">
+            <div class="mb-6 flex justify-between items-center flex-wrap gap-3">
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-800">Subject Performance Analysis</h2>
+                    <p class="text-gray-500">Detailed breakdown by subject and CBE competency level — Kenyan Curriculum</p>
+                </div>
+                <button onclick="exportSubjectData()" class="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition flex items-center gap-1">
+                    <span class="material-symbols-outlined text-sm">download</span> Export to Excel
+                </button>
+            </div>
+            <div id="fullSubjectList" class="bg-white rounded-2xl overflow-hidden shadow-sm">
+                <div class="p-8 text-center text-gray-400">Loading subject data...</div>
+            </div>
+        </div>
+
+        <!-- ========== STUDENT PROGRESS SECTION ========== -->
+        <div id="studentsSection" class="hidden">
+            <div class="mb-6">
+                <h2 class="text-2xl font-bold text-gray-800">Student Progress Tracking</h2>
+                <p class="text-gray-500">Individual student performance and CBE competency levels — Kenyan CBE</p>
+            </div>
+            <div class="bg-white rounded-xl p-3 mb-4 flex flex-wrap gap-3 items-center">
+                <select id="studentGradeFilter" class="p-2 border rounded-lg text-sm bg-white">
+                    <option value="">Select Grade</option>
+                </select>
+                <select id="studentStreamFilter" class="p-2 border rounded-lg text-sm bg-white">
+                    <option value="">Select Stream</option>
+                </select>
+                <input type="text" id="studentSearchInput" placeholder="Search student..." class="p-2 border rounded-lg text-sm w-48">
+                <button onclick="loadStudentProgress()" class="px-3 py-2 bg-[#003f87] text-white rounded-lg text-sm">Load</button>
+                <button onclick="exportStudentProgress()" class="px-3 py-2 border rounded-lg text-sm flex items-center gap-1">
+                    <span class="material-symbols-outlined text-sm">download</span> Export Progress
+                </button>
+            </div>
+            <div id="studentProgressList" class="grid md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+        </div>
+
+        <!-- ========== RECORD ASSESSMENT SECTION ========== -->
+        <div id="recordSection" class="hidden">
+            <div class="mb-6">
+                <h2 class="text-2xl font-bold text-gray-800">Record CBE Assessment</h2>
+                <p class="text-gray-500">Enter student performance data — Kenyan CBE Assessment</p>
+            </div>
+            <div class="bg-white rounded-2xl p-6 shadow-sm">
+                <form id="assessmentForm" class="space-y-5">
+                    <div class="grid md:grid-cols-2 gap-5">
+                        <select id="studentSelect" class="p-3 border rounded-xl" required><option value="">Select Student</option></select>
+                        <select id="subjectSelect" class="p-3 border rounded-xl" required><option value="">Select Subject</option></select>
+                        <select id="competencySelect" class="p-3 border rounded-xl" required>
+                            <option value="">Select Competency Level</option>
+                            <option value="EE">EE - Exceeding Expectations</option>
+                            <option value="ME">ME - Meeting Expectations</option>
+                            <option value="AE">AE - Approaching Expectations</option>
+                            <option value="BE">BE - Below Expectations</option>
+                        </select>
+                        <select id="termSelect" class="p-3 border rounded-xl" required>
+                            <option>Term 1</option>
+                            <option selected>Term 2</option>
+                            <option>Term 3</option>
+                        </select>
+                        <input type="text" id="teacherName" placeholder="Teacher Name" class="p-3 border rounded-xl">
+                        <input type="text" id="assessmentNotes" placeholder="Additional Notes (Optional)" class="p-3 border rounded-xl">
+                    </div>
+                    <button type="submit" class="w-full py-3 bg-gradient-to-r from-[#003f87] to-[#0056b3] text-white font-semibold rounded-xl hover:shadow-lg transition">Save Assessment</button>
+                </form>
+            </div>
+            <div class="mt-6">
+                <h3 class="font-bold text-gray-800 mb-3">Recent Assessments</h3>
+                <div id="recentAssessments" class="space-y-2"></div>
+            </div>
+        </div>
+
+        <!-- ========== TRASH SECTION ========== -->
+        <div id="trashSection" class="hidden">
+            <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+                <div class="p-3 border-b bg-gray-50 flex justify-between items-center">
+                    <h3 class="font-bold text-sm">🗑️ Deleted Assessments</h3>
+                    <button onclick="emptyTrash()" class="px-3 py-1.5 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 transition">Empty Trash</button>
+                </div>
+                <div id="trashList" class="divide-y divide-gray-100">
+                    <div class="p-6 text-center text-gray-400">Loading...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- View Details Modal -->
+    <div id="viewDetailsModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden modal">
+        <div class="bg-white rounded-2xl p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-[#003f87]">Detailed Analytics Report</h3>
+                <button onclick="closeViewDetailsModal()" class="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <div id="detailsContent" class="space-y-4"></div>
+            <div class="mt-4 flex justify-end gap-3">
+                <button onclick="exportDetailsReport()" class="px-4 py-2 bg-[#003f87] text-white rounded-lg hover:bg-[#002a5c] transition">Export Report</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal (used for the single-record delete) -->
+    <div id="deleteConfirmModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden modal">
+        <div class="bg-white rounded-xl p-5 max-w-sm w-full mx-3 text-center">
+            <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">🗑️</div>
+            <h3 class="text-lg font-bold mb-2">Confirm Delete</h3>
+            <p class="text-gray-500 text-sm mb-4" id="deleteConfirmMsg">Move this assessment to trash?</p>
+            <div class="flex gap-2">
+                <button id="confirmDeleteBtn" class="flex-1 py-2 bg-red-600 text-white rounded-lg">Move to Trash</button>
+                <button onclick="closeDeleteConfirmModal()" class="flex-1 py-2 border rounded-lg">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================= -->
+    <!-- SYSTEM CONFIRM MODAL (replaces native confirm) -->
+    <!-- ============================================= -->
+    <div id="systemConfirmModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[1100] hidden modal">
+        <div class="confirm-card bg-white rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl">
+            <div class="flex items-start gap-4 mb-4">
+                <div id="systemConfirmIcon" class="w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0 bg-red-100">
+                    <span id="systemConfirmIconText" class="material-symbols-outlined text-red-600 text-3xl">warning</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <h3 id="systemConfirmTitle" class="text-lg font-bold text-gray-800 mb-1">Confirm</h3>
+                    <p id="systemConfirmMessage" class="text-gray-500 text-sm whitespace-pre-line"></p>
+                </div>
+            </div>
+            <div class="flex gap-3 pt-2">
+                <button id="systemConfirmCancel" class="flex-1 py-2.5 border border-gray-200 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition">Cancel</button>
+                <button id="systemConfirmOk" class="flex-1 py-2.5 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" style="display:none" class="toast"></div>
+
+    <script>
+        // Firebase config
+        const firebaseConfig = {
+            apiKey: "AIzaSyA4cm7chJXz90yOLWPtbdIW8KlEozG1lxo",
+            authDomain: "learnpro-kenya-erp.firebaseapp.com",
+            projectId: "learnpro-kenya-erp",
+            storageBucket: "learnpro-kenya-erp.firebasestorage.app",
+            messagingSenderId: "327168081514",
+            appId: "1:327168081514:web:13cdc8b827fa76d95a9413"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        
+        // ==========================================
+        // BUILT-IN CACHE SYSTEM
+        // ==========================================
+        const DataCache = {
+            _cache: {},
+            _timestamps: {},
+            _expiry: 5, // minutes
+            
+            get(key) {
+                if (!this._cache[key]) return null;
+                const age = (Date.now() - this._timestamps[key]) / 1000 / 60;
+                if (age > this._expiry) {
+                    delete this._cache[key];
+                    delete this._timestamps[key];
+                    return null;
+                }
+                return this._cache[key];
+            },
+            
+            set(key, data) {
+                this._cache[key] = data;
+                this._timestamps[key] = Date.now();
+                try {
+                    localStorage.setItem('cache_' + key, JSON.stringify({
+                        data: data,
+                        timestamp: Date.now()
+                    }));
+                } catch(e) { /* ignore */ }
+            },
+            
+            clear(key) {
+                if (key) {
+                    delete this._cache[key];
+                    delete this._timestamps[key];
+                    try { localStorage.removeItem('cache_' + key); } catch(e) {}
+                } else {
+                    this._cache = {};
+                    this._timestamps = {};
+                    try {
+                        Object.keys(localStorage).filter(k => k.startsWith('cache_')).forEach(k => localStorage.removeItem(k));
+                    } catch(e) {}
+                }
+            },
+            
+            loadFromStorage(key) {
+                try {
+                    const stored = localStorage.getItem('cache_' + key);
+                    if (!stored) return null;
+                    const parsed = JSON.parse(stored);
+                    const age = (Date.now() - parsed.timestamp) / 1000 / 60;
+                    if (age > this._expiry) {
+                        localStorage.removeItem('cache_' + key);
+                        return null;
+                    }
+                    this._cache[key] = parsed.data;
+                    this._timestamps[key] = parsed.timestamp;
+                    return parsed.data;
+                } catch(e) {
+                    return null;
+                }
+            }
+        };
+        
+        let currentSchoolCode = null;
+        let allAssessments = [];
+        let allStudents = [];
+        let allGrades = [];
+        let allStreams = [];
+        let deletedAssessments = [];
+        let radarChart = null;
+        let trendChart = null;
+        let pendingDeleteId = null;
+        let isLoading = false;
+
+        // ==========================================
+        // KENYAN CBE CURRICULUM STRUCTURE
+        // ==========================================
+        const subjectsByGrade = {
+            'Grade 1': ['Literacy', 'Numeracy', 'Environmental Activities', 'Hygiene and Nutrition', 'Religious Education', 'Creative Arts', 'Physical Education'],
+            'Grade 2': ['Literacy', 'Numeracy', 'Environmental Activities', 'Hygiene and Nutrition', 'Religious Education', 'Creative Arts', 'Physical Education'],
+            'Grade 3': ['Literacy', 'Numeracy', 'Environmental Activities', 'Hygiene and Nutrition', 'Religious Education', 'Creative Arts', 'Physical Education'],
+            'Grade 4': ['English', 'Kiswahili', 'Mathematics', 'Science and Technology', 'Social Studies', 'Creative Arts', 'Physical and Health Education', 'Religious Education'],
+            'Grade 5': ['English', 'Kiswahili', 'Mathematics', 'Science and Technology', 'Social Studies', 'Creative Arts', 'Physical and Health Education', 'Religious Education'],
+            'Grade 6': ['English', 'Kiswahili', 'Mathematics', 'Science and Technology', 'Social Studies', 'Creative Arts', 'Physical and Health Education', 'Religious Education'],
+            'Grade 7': ['English', 'Kiswahili', 'Mathematics', 'Integrated Science', 'Health Education', 'Pre-Technical Studies', 'Social Studies', 'Religious Education', 'Business Studies', 'Agriculture', 'Life Skills', 'Sports and Physical Education'],
+            'Grade 8': ['English', 'Kiswahili', 'Mathematics', 'Integrated Science', 'Health Education', 'Pre-Technical Studies', 'Social Studies', 'Religious Education', 'Business Studies', 'Agriculture', 'Life Skills', 'Sports and Physical Education'],
+            'Grade 9': ['English', 'Kiswahili', 'Mathematics', 'Integrated Science', 'Health Education', 'Pre-Technical Studies', 'Social Studies', 'Religious Education', 'Business Studies', 'Agriculture', 'Life Skills', 'Sports and Physical Education']
+        };
+
+        // ==========================================
+        // CBE STRAND MAPPING (Kenyan Curriculum)
+        // ==========================================
+        const subjectStrands = {
+            'Literacy': 'literacy',
+            'Numeracy': 'numeracy',
+            'Environmental Activities': 'environmental',
+            'Hygiene and Nutrition': 'hygiene',
+            'Religious Education': 'religious',
+            'Creative Arts': 'creative',
+            'Physical Education': 'physical',
+            'English': 'english',
+            'Kiswahili': 'kiswahili',
+            'Mathematics': 'mathematics',
+            'Science and Technology': 'science',
+            'Social Studies': 'social',
+            'Integrated Science': 'science',
+            'Health Education': 'hygiene',
+            'Pre-Technical Studies': 'technical',
+            'Business Studies': 'business',
+            'Agriculture': 'agriculture',
+            'Life Skills': 'life',
+            'Sports and Physical Education': 'sports',
+            'Physical and Health Education': 'physical'
+        };
+
+        // ==========================================
+        // CBE CORE COMPETENCIES (Kenyan BECF)
+        // ==========================================
+        const CBE_CORE_COMPETENCIES = [
+            'Communication and Collaboration',
+            'Critical Thinking and Problem Solving',
+            'Creativity and Imagination',
+            'Citizenship',
+            'Digital Literacy',
+            'Learning to Learn',
+            'Self-Efficacy'
+        ];
+
+        // ==========================================
+        // CBE PERFORMANCE LEVELS (Kenyan)
+        // ==========================================
+        const CBE_PERFORMANCE_LEVELS = {
+            'EE': { label: 'Exceeding Expectations', color: '#003f87', description: 'Student demonstrates superior competency' },
+            'ME': { label: 'Meeting Expectations', color: '#059669', description: 'Student demonstrates expected competency' },
+            'AE': { label: 'Approaching Expectations', color: '#d97706', description: 'Student is developing competency' },
+            'BE': { label: 'Below Expectations', color: '#dc2626', description: 'Student needs significant support' }
+        };
+
+        function getSubjectsForGrade(grade) {
+            return subjectsByGrade[grade] || ['English', 'Kiswahili', 'Mathematics', 'Science', 'Social Studies', 'Creative Arts'];
+        }
+
+        function getStrandForSubject(subject) {
+            return subjectStrands[subject] || 'general';
+        }
+
+        function getStrandClass(subject) {
+            const strand = getStrandForSubject(subject);
+            return `strand-${strand}`;
+        }
+
+        function showToast(msg, isErr) {
+            const t = document.getElementById('toast');
+            if (!t) return;
+            t.textContent = msg;
+            t.className = `toast ${isErr ? 'toast-error' : 'toast-success'}`;
+            t.style.display = 'block';
+            setTimeout(() => t.style.display = 'none', 3000);
+        }
+
+        function closeDeleteConfirmModal() {
+            document.getElementById('deleteConfirmModal').classList.add('hidden');
+            pendingDeleteId = null;
+        }
+
+        function closeViewDetailsModal() {
+            document.getElementById('viewDetailsModal').classList.add('hidden');
+        }
+
+        // ==========================================
+        // SYSTEM CONFIRM — replaces native confirm()
+        // ==========================================
+        let _systemConfirmResolve = null;
+
+        function systemConfirm(opts = {}) {
+            const title   = opts.title   || 'Confirm';
+            const message = opts.message || 'Are you sure?';
+            const okText  = opts.okText  || 'Confirm';
+            const cancelText = opts.cancelText || 'Cancel';
+            const tone    = opts.tone    || 'danger';
+
+            return new Promise((resolve) => {
+                _systemConfirmResolve = resolve;
+
+                const modal = document.getElementById('systemConfirmModal');
+                const iconWrap = document.getElementById('systemConfirmIcon');
+                const iconText = document.getElementById('systemConfirmIconText');
+                const okBtn = document.getElementById('systemConfirmOk');
+                const cancelBtn = document.getElementById('systemConfirmCancel');
+
+                document.getElementById('systemConfirmTitle').textContent = title;
+                document.getElementById('systemConfirmMessage').textContent = message;
+                okBtn.textContent = okText;
+                cancelBtn.textContent = cancelText;
+
+                iconWrap.className = 'w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0 ';
+                okBtn.className = 'flex-1 py-2.5 rounded-lg font-medium transition ';
+
+                if (tone === 'danger') {
+                    iconWrap.classList.add('bg-red-100');
+                    iconText.className = 'material-symbols-outlined text-red-600 text-3xl';
+                    iconText.textContent = 'warning';
+                    okBtn.classList.add('bg-red-600', 'text-white', 'hover:bg-red-700');
+                } else if (tone === 'warning') {
+                    iconWrap.classList.add('bg-yellow-100');
+                    iconText.className = 'material-symbols-outlined text-yellow-600 text-3xl';
+                    iconText.textContent = 'warning';
+                    okBtn.classList.add('bg-yellow-500', 'text-white', 'hover:bg-yellow-600');
+                } else if (tone === 'success') {
+                    iconWrap.classList.add('bg-green-100');
+                    iconText.className = 'material-symbols-outlined text-green-600 text-3xl';
+                    iconText.textContent = 'check_circle';
+                    okBtn.classList.add('bg-green-600', 'text-white', 'hover:bg-green-700');
+                } else {
+                    iconWrap.classList.add('bg-blue-100');
+                    iconText.className = 'material-symbols-outlined text-blue-600 text-3xl';
+                    iconText.textContent = 'info';
+                    okBtn.classList.add('bg-[#003f87]', 'text-white', 'hover:bg-[#002a5c]');
+                }
+
+                okBtn.onclick = () => {
+                    modal.classList.add('hidden');
+                    const r = _systemConfirmResolve; _systemConfirmResolve = null;
+                    if (r) r(true);
+                };
+                cancelBtn.onclick = () => {
+                    modal.classList.add('hidden');
+                    const r = _systemConfirmResolve; _systemConfirmResolve = null;
+                    if (r) r(false);
+                };
+
+                modal.classList.remove('hidden');
+            });
+        }
+
+        // ==========================================
+        // FAST CACHED DATA LOADING
+        // ==========================================
+
+        async function loadAllData() {
+            if (!currentSchoolCode) return;
+            if (isLoading) return;
+            
+            isLoading = true;
+            
+            const syncBtn = document.getElementById('syncBtn');
+            const syncText = document.getElementById('syncText');
+            if (syncText) syncText.textContent = 'Loading...';
+            if (syncBtn) syncBtn.disabled = true;
+            
+            try {
+                const cachedGrades = DataCache.get('grades_' + currentSchoolCode);
+                const cachedStreams = DataCache.get('streams_' + currentSchoolCode);
+                const cachedStudents = DataCache.get('students_' + currentSchoolCode);
+                const cachedAssessments = DataCache.get('assessments_' + currentSchoolCode);
+                
+                if (cachedStudents && cachedAssessments) {
+                    allGrades = cachedGrades || [];
+                    allStreams = cachedStreams || [];
+                    allStudents = cachedStudents;
+                    allAssessments = cachedAssessments.filter(a => a.deleted !== true);
+                    deletedAssessments = cachedAssessments.filter(a => a.deleted === true);
+                    
+                    console.log(`✅ Cache hit: ${allStudents.length} students, ${allAssessments.length} active assessments`);
+                    
+                    updateTrashBadge();
+                    populateFilters();
+                    updateDashboard();
+                    showToast(`📦 Loaded ${allAssessments.length} active assessments from cache`);
+                }
+                
+                console.log('📡 Fetching fresh CBE data from Firebase...');
+                
+                const [gradesSnap, streamsSnap, studentsSnap, assessmentsSnap] = await Promise.all([
+                    db.collection('schools').doc(currentSchoolCode).collection('grades').where('deleted', '==', false).get(),
+                    db.collection('schools').doc(currentSchoolCode).collection('streams').where('deleted', '==', false).get(),
+                    db.collection('schools').doc(currentSchoolCode).collection('students').where('deleted', '==', false).get(),
+                    db.collection('schools').doc(currentSchoolCode).collection('assessments').get()
+                ]);
+                
+                allGrades = [];
+                gradesSnap.forEach(d => allGrades.push({ id: d.id, name: d.data().name }));
+                DataCache.set('grades_' + currentSchoolCode, allGrades);
+                
+                allStreams = [];
+                streamsSnap.forEach(d => allStreams.push({ id: d.id, gradeName: d.data().gradeName, name: d.data().name }));
+                DataCache.set('streams_' + currentSchoolCode, allStreams);
+                
+                allStudents = [];
+                studentsSnap.forEach(d => allStudents.push({ id: d.id, ...d.data() }));
+                DataCache.set('students_' + currentSchoolCode, allStudents);
+                
+                const allAssessmentsData = [];
+                assessmentsSnap.forEach(d => allAssessmentsData.push({ id: d.id, ...d.data() }));
+                allAssessments = allAssessmentsData.filter(a => a.deleted !== true);
+                deletedAssessments = allAssessmentsData.filter(a => a.deleted === true);
+                DataCache.set('assessments_' + currentSchoolCode, allAssessmentsData);
+                
+                updateTrashBadge();
+                populateFilters();
+                
+                console.log(`✅ Loaded ${allStudents.length} students, ${allAssessments.length} active assessments`);
+                console.log(`🗑️ ${deletedAssessments.length} items in trash`);
+                
+                updateDashboard();
+                
+                if (!cachedAssessments) {
+                    showToast(`✅ Loaded ${allAssessments.length} active assessments`);
+                } else {
+                    showToast(`✅ Updated to ${allAssessments.length} active assessments`);
+                }
+                
+            } catch (err) {
+                console.error("Error loading data:", err);
+                if (!allAssessments || allAssessments.length === 0) {
+                    showToast("Error loading data: " + err.message, true);
+                }
+            } finally {
+                isLoading = false;
+                if (syncText) syncText.textContent = 'Sync';
+                if (syncBtn) syncBtn.disabled = false;
+                updateTrashBadge();
+            }
+        }
+
+        function updateTrashBadge() {
+            const badge = document.getElementById('trashBadge');
+            if (badge) badge.innerText = deletedAssessments.length;
+        }
+
+        // ==========================================
+        // SYNC FUNCTION
+        // ==========================================
+        async function syncCBEData() {
+            if (isLoading) {
+                showToast('⏳ Already loading...', true);
+                return;
+            }
+            
+            const syncText = document.getElementById('syncText');
+            if (syncText) syncText.textContent = 'Syncing...';
+            
+            try {
+                showToast('🔄 Syncing CBE data from server...');
+                
+                DataCache.clear('grades_' + currentSchoolCode);
+                DataCache.clear('streams_' + currentSchoolCode);
+                DataCache.clear('students_' + currentSchoolCode);
+                DataCache.clear('assessments_' + currentSchoolCode);
+                
+                allAssessments = [];
+                deletedAssessments = [];
+                
+                await loadAllData();
+                
+                showToast('✅ Sync complete! Active records only.');
+                
+            } catch (error) {
+                console.error('❌ Sync error:', error);
+                showToast('Sync failed: ' + error.message, true);
+            } finally {
+                if (syncText) syncText.textContent = 'Sync';
+            }
+        }
+
+        function populateFilters() {
+            let gradeHtml = '<option value="all">All Grades</option>';
+            allGrades.forEach(g => gradeHtml += `<option value="${g.name}">${g.name}</option>`);
+            const gradeFilter = document.getElementById('gradeFilter');
+            if (gradeFilter) gradeFilter.innerHTML = gradeHtml;
+            
+            const studentGradeFilter = document.getElementById('studentGradeFilter');
+            if (studentGradeFilter) {
+                studentGradeFilter.innerHTML = '<option value="">Select Grade</option>' + allGrades.map(g => `<option value="${g.name}">${g.name}</option>`).join('');
+            }
+            
+            updateStreamFilter();
+            updateStudentStreamFilter();
+            loadStudentSelect();
+        }
+
+        function updateStreamFilter() {
+            const selectedGrade = document.getElementById('gradeFilter').value;
+            const streamSelect = document.getElementById('streamFilter');
+            if (!streamSelect) return;
+            
+            if (selectedGrade === 'all') {
+                const uniqueStreams = [...new Set(allStreams.map(s => s.name))];
+                streamSelect.innerHTML = '<option value="all">All Streams</option>' + uniqueStreams.map(s => `<option value="${s}">${s}</option>`).join('');
+            } else {
+                const gradeStreams = allStreams.filter(s => s.gradeName === selectedGrade);
+                streamSelect.innerHTML = '<option value="all">All Streams</option>' + gradeStreams.map(s => `<option value="${s.name}">${s.name}</option>`).join('');
+            }
+        }
+
+        function updateStudentStreamFilter() {
+            const selectedGrade = document.getElementById('studentGradeFilter').value;
+            const streamSelect = document.getElementById('studentStreamFilter');
+            if (!streamSelect) return;
+            
+            if (!selectedGrade) {
+                streamSelect.innerHTML = '<option value="">Select Stream</option>';
+                return;
+            }
+            
+            const gradeStreams = allStreams.filter(s => s.gradeName === selectedGrade);
+            streamSelect.innerHTML = '<option value="">All Streams</option>' + gradeStreams.map(s => `<option value="${s.name}">${s.name}</option>`).join('');
+        }
+
+        function applyFilters() {
+            updateDashboard();
+            showToast('Filters applied successfully!');
+        }
+
+        async function refreshAllData() {
+            showToast('Refreshing data...');
+            DataCache.clear('assessments_' + currentSchoolCode);
+            await loadAllData();
+        }
+
+        function getFilteredAssessments() {
+            const grade = document.getElementById('gradeFilter').value;
+            const stream = document.getElementById('streamFilter').value;
+            const term = document.getElementById('termFilter').value;
+            
+            let filtered = allAssessments.filter(a => a.deleted !== true && a.term === term);
+            
+            if (grade && grade !== 'all') filtered = filtered.filter(a => a.grade === grade);
+            if (stream && stream !== 'all') filtered = filtered.filter(a => a.stream === stream);
+            
+            return filtered;
+        }
+
+        function showSection(section) {
+            document.getElementById('overviewSection').classList.add('hidden');
+            document.getElementById('subjectsSection').classList.add('hidden');
+            document.getElementById('studentsSection').classList.add('hidden');
+            document.getElementById('recordSection').classList.add('hidden');
+            document.getElementById('trashSection').classList.add('hidden');
+            
+            document.querySelectorAll('.nav-tab').forEach(btn => {
+                btn.classList.remove('nav-tab-active');
+                btn.classList.add('nav-tab-inactive');
+            });
+            
+            const tabMap = {
+                'overview': 'navOverview',
+                'subjects': 'navSubjects',
+                'students': 'navStudents',
+                'record': 'navRecord',
+                'trash': 'navTrash'
+            };
+            
+            if (tabMap[section]) {
+                const activeBtn = document.getElementById(tabMap[section]);
+                if (activeBtn) {
+                    activeBtn.classList.add('nav-tab-active');
+                    activeBtn.classList.remove('nav-tab-inactive');
+                }
+            }
+            
+            if (section === 'overview') {
+                document.getElementById('overviewSection').classList.remove('hidden');
+                updateDashboard();
+            } else if (section === 'subjects') {
+                document.getElementById('subjectsSection').classList.remove('hidden');
+                loadFullSubjects();
+            } else if (section === 'students') {
+                document.getElementById('studentsSection').classList.remove('hidden');
+                loadStudentProgress();
+            } else if (section === 'record') {
+                document.getElementById('recordSection').classList.remove('hidden');
+                loadRecentAssessments();
+                loadStudentSelect();
+            } else if (section === 'trash') {
+                document.getElementById('trashSection').classList.remove('hidden');
+                loadTrash();
+            }
+        }
+
+        async function updateDashboard() {
+            try {
+                const filtered = getFilteredAssessments();
+                const total = filtered.length;
+                
+                const ee = filtered.filter(a => a.competency === 'EE').length;
+                const me = filtered.filter(a => a.competency === 'ME').length;
+                const ae = filtered.filter(a => a.competency === 'AE').length;
+                const be = filtered.filter(a => a.competency === 'BE').length;
+                
+                const eeP = total ? Number(((ee/total)*100).toFixed(1)) : 0;
+                const meP = total ? Number(((me/total)*100).toFixed(1)) : 0;
+                const aeP = total ? Number(((ae/total)*100).toFixed(1)) : 0;
+                const beP = total ? Number(((be/total)*100).toFixed(1)) : 0;
+                const passRate = eeP + meP;
+                
+                const totalAssessments = document.getElementById('totalAssessments');
+                const passRateDisplay = document.getElementById('passRateDisplay');
+                const totalStudentsDisplay = document.getElementById('totalStudentsDisplay');
+                const totalSubjectsDisplay = document.getElementById('totalSubjectsDisplay');
+                const eePercent = document.getElementById('eePercent');
+                const mePercent = document.getElementById('mePercent');
+                const aePercent = document.getElementById('aePercent');
+                const bePercent = document.getElementById('bePercent');
+                const eeBar = document.getElementById('eeBar');
+                const meBar = document.getElementById('meBar');
+                const aeBar = document.getElementById('aeBar');
+                const beBar = document.getElementById('beBar');
+                const insightMsg = document.getElementById('insightMsg');
+                const interventionMsg = document.getElementById('interventionMsg');
+                const competencySubtitle = document.getElementById('competencySubtitle');
+                const gradeDistSubtitle = document.getElementById('gradeDistSubtitle');
+                
+                if (totalAssessments) totalAssessments.innerText = total;
+                if (passRateDisplay) passRateDisplay.innerText = passRate + '%';
+                if (totalStudentsDisplay) totalStudentsDisplay.innerText = new Set(filtered.map(a => a.studentId)).size;
+                if (totalSubjectsDisplay) totalSubjectsDisplay.innerText = new Set(filtered.map(a => a.subject)).size;
+                
+                if (eePercent) eePercent.innerHTML = `${eeP}%`;
+                if (mePercent) mePercent.innerHTML = `${meP}%`;
+                if (aePercent) aePercent.innerHTML = `${aeP}%`;
+                if (bePercent) bePercent.innerHTML = `${beP}%`;
+                if (eeBar) eeBar.style.width = `${eeP}%`;
+                if (meBar) meBar.style.width = `${meP}%`;
+                if (aeBar) aeBar.style.width = `${aeP}%`;
+                if (beBar) beBar.style.width = `${beP}%`;
+                
+                let insightText = passRate >= 80 ? `🎉 Excellent! ${passRate}% of students are meeting or exceeding expectations.` :
+                                passRate >= 65 ? `📈 Good progress with ${passRate}% pass rate. Continue supporting AE students.` :
+                                passRate >= 45 ? `⚠️ ${passRate}% pass rate. Targeted intervention recommended.` :
+                                `🔴 Critical: Only ${passRate}% pass rate. Immediate action required.`;
+                if (insightMsg) insightMsg.innerHTML = insightText;
+                if (interventionMsg) interventionMsg.innerHTML = insightText;
+                
+                const subjectStats = {};
+                filtered.forEach(a => {
+                    if (!subjectStats[a.subject]) subjectStats[a.subject] = { ee: 0, me: 0, ae: 0, be: 0 };
+                    const comp = a.competency ? a.competency.toLowerCase() : 'me';
+                    if (subjectStats[a.subject][comp] !== undefined) subjectStats[a.subject][comp]++;
+                    else subjectStats[a.subject].me++;
+                });
+                
+                let subjectHtml = '';
+                Object.entries(subjectStats).slice(0, 4).forEach(([name, s]) => {
+                    const totalSubj = s.ee + s.me + s.ae + s.be;
+                    const passSubj = s.ee + s.me;
+                    const rate = totalSubj ? Math.round((passSubj/totalSubj)*100) : 0;
+                    const rateColor = rate >= 80 ? 'text-green-600' : rate >= 65 ? 'text-blue-600' : rate >= 45 ? 'text-yellow-600' : 'text-red-600';
+                    const strandClass = getStrandClass(name);
+                    subjectHtml += `<div class="p-4 flex items-center justify-between hover:bg-gray-50 transition">
+                        <div class="flex items-center gap-3">
+                            <span class="strand-badge ${strandClass}">${getStrandForSubject(name)}</span>
+                            <div>
+                                <div class="font-semibold">${name}</div>
+                                <div class="text-sm text-gray-500">${totalSubj} Assessments</div>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="font-bold ${rateColor}">${rate}%</div>
+                            <div class="text-xs text-gray-500">Pass Rate</div>
+                        </div>
+                    </div>`;
+                });
+                const subjectPerformanceList = document.getElementById('subjectPerformanceList');
+                if (subjectPerformanceList) subjectPerformanceList.innerHTML = subjectHtml || '<div class="p-8 text-center text-gray-400">No subject data yet</div>';
+                
+                updateRadarChart(filtered);
+                updateTrendChart();
+                
+                const grade = document.getElementById('gradeFilter').value;
+                const term = document.getElementById('termFilter').value;
+                if (competencySubtitle) competencySubtitle.innerHTML = grade !== 'all' ? `Average mastery levels across ${grade}` : 'Average mastery levels across all grades';
+                if (gradeDistSubtitle) gradeDistSubtitle.innerHTML = `${term} Performance Summary — Kenyan CBE`;
+                
+            } catch (err) {
+                console.error("Error updating dashboard:", err);
+                showToast("Error updating dashboard", true);
+            }
+        }
+
+        function updateRadarChart(assessments) {
+            // CBE Core Competencies (Kenyan BECF)
+            const competencies = [
+                'Communication',
+                'Critical Thinking',
+                'Creativity',
+                'Citizenship',
+                'Digital Literacy',
+                'Learning to Learn',
+                'Self-Efficacy'
+            ];
+            
+            let scores = [0, 0, 0, 0, 0, 0, 0];
+            let count = 0;
+            
+            assessments.forEach(a => {
+                // Map subjects to core competencies
+                const competencyMap = {
+                    'English': 0, 'Literacy': 0, 'Kiswahili': 0,
+                    'Mathematics': 1, 'Numeracy': 1,
+                    'Science': 1, 'Integrated Science': 1,
+                    'Social Studies': 3, 'Religious Education': 3,
+                    'Creative Arts': 2, 'Pre-Technical Studies': 2,
+                    'Business Studies': 4, 'Agriculture': 4,
+                    'Life Skills': 5, 'Health Education': 5,
+                    'Sports and Physical Education': 6, 'Physical Education': 6,
+                    'Physical and Health Education': 6,
+                    'Environmental Activities': 5,
+                    'Hygiene and Nutrition': 5,
+                    'Science and Technology': 1
+                };
+                let idx = competencyMap[a.subject] !== undefined ? competencyMap[a.subject] : 1;
+                if (a.competency === 'EE') scores[idx] += 100;
+                else if (a.competency === 'ME') scores[idx] += 70;
+                else if (a.competency === 'AE') scores[idx] += 50;
+                else if (a.competency === 'BE') scores[idx] += 30;
+                count++;
+            });
+            
+            if (count > 0) scores = scores.map(s => Math.round(s / count));
+            
+            const ctx = document.getElementById('radarChart')?.getContext('2d');
+            if (ctx) {
+                if (radarChart) radarChart.destroy();
+                radarChart = new Chart(ctx, {
+                    type: 'radar',
+                    data: {
+                        labels: competencies,
+                        datasets: [{
+                            label: 'CBE Mastery Score %',
+                            data: scores,
+                            backgroundColor: 'rgba(0,63,135,0.2)',
+                            borderColor: '#003f87',
+                            borderWidth: 2,
+                            pointBackgroundColor: '#003f87',
+                            pointBorderColor: '#fff',
+                            pointBorderWidth: 1,
+                            pointRadius: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        scales: { 
+                            r: { 
+                                beginAtZero: true, 
+                                max: 100, 
+                                ticks: { 
+                                    stepSize: 20,
+                                    backdropColor: 'transparent'
+                                },
+                                grid: { color: 'rgba(0,0,0,0.06)' },
+                                angleLines: { color: 'rgba(0,0,0,0.06)' }
+                            } 
+                        },
+                        plugins: { 
+                            legend: { 
+                                position: 'bottom',
+                                labels: { boxWidth: 12, padding: 16, font: { size: 11 } }
+                            } 
+                        }
+                    }
+                });
+            }
+        }
+
+        async function updateTrendChart() {
+            const terms = ['Term 1', 'Term 2', 'Term 3'];
+            let coreRates = [], practicalRates = [];
+            const coreSubjects = ['English', 'Kiswahili', 'Mathematics', 'Science', 'Integrated Science', 'Literacy', 'Numeracy'];
+            const practicalSubjects = ['Creative Arts', 'Physical Education', 'Sports and Physical Education', 'Agriculture', 'Business Studies', 'Pre-Technical Studies'];
+            
+            for (let term of terms) {
+                let termAssessments = allAssessments.filter(a => a.deleted !== true && a.term === term);
+                let coreAssessments = termAssessments.filter(a => coreSubjects.includes(a.subject));
+                let practicalAssessments = termAssessments.filter(a => practicalSubjects.includes(a.subject));
+                let corePass = coreAssessments.filter(a => a.competency === 'EE' || a.competency === 'ME').length;
+                let practicalPass = practicalAssessments.filter(a => a.competency === 'EE' || a.competency === 'ME').length;
+                coreRates.push(coreAssessments.length ? Math.round((corePass / coreAssessments.length) * 100) : 0);
+                practicalRates.push(practicalAssessments.length ? Math.round((practicalPass / practicalAssessments.length) * 100) : 0);
+            }
+            
+            const ctx = document.getElementById('trendChart')?.getContext('2d');
+            if (ctx) {
+                if (trendChart) trendChart.destroy();
+                trendChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: terms,
+                        datasets: [
+                            { 
+                                label: 'Core Subjects', 
+                                data: coreRates, 
+                                borderColor: '#003f87', 
+                                backgroundColor: 'rgba(0,63,135,0.1)', 
+                                fill: true, 
+                                tension: 0.3,
+                                pointBackgroundColor: '#003f87',
+                                pointBorderColor: '#fff',
+                                pointBorderWidth: 1,
+                                pointRadius: 4
+                            },
+                            { 
+                                label: 'Practical Subjects', 
+                                data: practicalRates, 
+                                borderColor: '#006d40', 
+                                backgroundColor: 'rgba(0,109,64,0.1)', 
+                                fill: true, 
+                                tension: 0.3,
+                                pointBackgroundColor: '#006d40',
+                                pointBorderColor: '#fff',
+                                pointBorderWidth: 1,
+                                pointRadius: 4
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        scales: { 
+                            y: { 
+                                beginAtZero: true, 
+                                max: 100,
+                                ticks: { callback: v => v + '%' }
+                            } 
+                        },
+                        plugins: { 
+                            legend: { 
+                                position: 'bottom',
+                                labels: { boxWidth: 12, padding: 16, font: { size: 11 } }
+                            } 
+                        }
+                    }
+                });
+            }
+            
+            let improvement = coreRates[1] - coreRates[0];
+            const trendInsight = document.getElementById('trendInsight');
+            if (trendInsight) {
+                trendInsight.innerHTML = improvement > 0 ? `📈 Significant growth in Core subjects (+${improvement}%) since Term 1.` : improvement < 0 ? `📉 Decline in Core subjects (${improvement}%). Need intervention.` : `📊 Stable performance across terms.`;
+            }
+        }
+
+        function openViewDetailsModal() {
+            const filtered = getFilteredAssessments();
+            const grade = document.getElementById('gradeFilter').value;
+            const stream = document.getElementById('streamFilter').value;
+            const term = document.getElementById('termFilter').value;
+            
+            const ee = filtered.filter(a => a.competency === 'EE').length;
+            const me = filtered.filter(a => a.competency === 'ME').length;
+            const ae = filtered.filter(a => a.competency === 'AE').length;
+            const be = filtered.filter(a => a.competency === 'BE').length;
+            const total = filtered.length;
+            const passRate = total ? Math.round(((ee + me) / total) * 100) : 0;
+            const uniqueStudents = new Set(filtered.map(a => a.studentId)).size;
+            const uniqueSubjects = new Set(filtered.map(a => a.subject)).size;
+            
+            const subjectRanking = {};
+            filtered.forEach(a => {
+                if (!subjectRanking[a.subject]) subjectRanking[a.subject] = { total: 0, pass: 0 };
+                subjectRanking[a.subject].total++;
+                if (a.competency === 'EE' || a.competency === 'ME') subjectRanking[a.subject].pass++;
+            });
+            const topSubjects = Object.entries(subjectRanking).map(([name, data]) => ({ name, rate: Math.round((data.pass / data.total) * 100) })).sort((a,b) => b.rate - a.rate).slice(0, 3);
+            const bottomSubjects = Object.entries(subjectRanking).map(([name, data]) => ({ name, rate: Math.round((data.pass / data.total) * 100) })).sort((a,b) => a.rate - b.rate).slice(0, 3);
+            
+            window.currentReportData = { filtered, grade, stream, term, ee, me, ae, be, total, passRate, uniqueStudents, uniqueSubjects, topSubjects, bottomSubjects };
+            
+            document.getElementById('detailsContent').innerHTML = `
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="bg-blue-50 p-3 rounded-lg"><p class="text-xs text-gray-500">Total Assessments</p><p class="text-2xl font-bold text-blue-600">${total}</p></div>
+                    <div class="bg-green-50 p-3 rounded-lg"><p class="text-xs text-gray-500">Pass Rate</p><p class="text-2xl font-bold text-green-600">${passRate}%</p></div>
+                    <div class="bg-purple-50 p-3 rounded-lg"><p class="text-xs text-gray-500">Students Assessed</p><p class="text-2xl font-bold text-purple-600">${uniqueStudents}</p></div>
+                    <div class="bg-orange-50 p-3 rounded-lg"><p class="text-xs text-gray-500">Subjects Covered</p><p class="text-2xl font-bold text-orange-600">${uniqueSubjects}</p></div>
+                </div>
+                <div>
+                    <h4 class="font-bold text-gray-800 mb-2">📊 CBE Performance Distribution</h4>
+                    <div class="grid grid-cols-4 gap-2">
+                        <div class="bg-[#003f87]/10 p-2 rounded text-center"><p class="text-xs text-gray-500">EE</p><p class="text-lg font-bold text-[#003f87]">${ee}</p></div>
+                        <div class="bg-green-50 p-2 rounded text-center"><p class="text-xs text-gray-500">ME</p><p class="text-lg font-bold text-green-600">${me}</p></div>
+                        <div class="bg-yellow-50 p-2 rounded text-center"><p class="text-xs text-gray-500">AE</p><p class="text-lg font-bold text-yellow-600">${ae}</p></div>
+                        <div class="bg-red-50 p-2 rounded text-center"><p class="text-xs text-gray-500">BE</p><p class="text-lg font-bold text-red-600">${be}</p></div>
+                    </div>
+                </div>
+                <div><h4 class="font-bold text-gray-800 mb-2">🏆 Top Performing Subjects</h4>${topSubjects.map(s => `<div class="flex justify-between p-2 bg-gray-50 rounded mb-1"><span>${s.name}</span><span class="text-green-600 font-bold">${s.rate}%</span></div>`).join('') || '<p class="text-gray-400">No data</p>'}</div>
+                <div><h4 class="font-bold text-gray-800 mb-2">⚠️ Subjects Needing Improvement</h4>${bottomSubjects.map(s => `<div class="flex justify-between p-2 bg-gray-50 rounded mb-1"><span>${s.name}</span><span class="text-red-600 font-bold">${s.rate}%</span></div>`).join('') || '<p class="text-gray-400">No data</p>'}</div>
+                <div class="bg-yellow-50 p-3 rounded-lg border border-yellow-200"><h4 class="font-bold text-gray-800 mb-2">📝 CBE Recommendations</h4><ul class="list-disc list-inside text-sm space-y-1"><li>Focus on improving ${bottomSubjects[0]?.name || 'weak subjects'} with additional resources and differentiated instruction</li><li>Celebrate success in ${topSubjects[0]?.name || 'strong subjects'} and share best practices</li><li>Provide targeted support for ${ae + be} students in AE/BE categories through remedial programs</li><li>Align interventions with CBE core competencies and Kenyan curriculum standards</li></ul></div>
+                <div class="bg-gray-50 p-3 rounded-lg text-sm"><p><strong>Filters Applied:</strong> ${grade !== 'all' ? `Grade: ${grade}` : 'All Grades'} | ${stream !== 'all' ? `Stream: ${stream}` : 'All Streams'} | Term: ${term}</p></div>
+            `;
+            document.getElementById('viewDetailsModal').classList.remove('hidden');
+        }
+
+        function exportDetailsReport() {
+            if (!window.currentReportData) {
+                showToast("No report data to export", true);
+                return;
+            }
+            
+            const data = window.currentReportData;
+            
+            const summaryData = [{
+                'Report Generated': new Date().toLocaleString(),
+                'Term': data.term,
+                'Grade Filter': data.grade !== 'all' ? data.grade : 'All Grades',
+                'Stream Filter': data.stream !== 'all' ? data.stream : 'All Streams',
+                'Total Assessments': data.total,
+                'Pass Rate': `${data.passRate}%`,
+                'EE Count': data.ee,
+                'ME Count': data.me,
+                'AE Count': data.ae,
+                'BE Count': data.be,
+                'Unique Students': data.uniqueStudents,
+                'Unique Subjects': data.uniqueSubjects
+            }];
+            
+            const detailedData = data.filtered.map(a => ({
+                'Student Name': a.studentName,
+                'Admission No': a.admNo,
+                'Grade': a.grade,
+                'Stream': a.stream,
+                'Subject': a.subject,
+                'CBE Strand': getStrandForSubject(a.subject),
+                'Competency': a.competency,
+                'Performance Level': CBE_PERFORMANCE_LEVELS[a.competency]?.label || a.competency,
+                'Teacher': a.teacher,
+                'Term': a.term,
+                'Date Assessed': a.date ? new Date(a.date).toLocaleDateString() : 'N/A'
+            }));
+            
+            const wb = XLSX.utils.book_new();
+            const summaryWs = XLSX.utils.json_to_sheet(summaryData);
+            const detailedWs = XLSX.utils.json_to_sheet(detailedData);
+            
+            XLSX.utils.book_append_sheet(wb, summaryWs, 'Summary');
+            XLSX.utils.book_append_sheet(wb, detailedWs, 'Detailed Assessments');
+            
+            const fileName = `cbe_analytics_report_${data.term}_${data.grade !== 'all' ? data.grade : 'all_grades'}_${new Date().toISOString().split('T')[0]}.xlsx`;
+            XLSX.writeFile(wb, fileName);
+            showToast('Report exported successfully!');
+        }
+
+        async function loadFullSubjects() {
+            const filtered = getFilteredAssessments();
+            const subjectStats = {};
+            
+            filtered.forEach(a => {
+                if (!subjectStats[a.subject]) subjectStats[a.subject] = { ee: 0, me: 0, ae: 0, be: 0 };
+                if (a.competency === 'EE') subjectStats[a.subject].ee++;
+                else if (a.competency === 'ME') subjectStats[a.subject].me++;
+                else if (a.competency === 'AE') subjectStats[a.subject].ae++;
+                else if (a.competency === 'BE') subjectStats[a.subject].be++;
+            });
+            
+            let html = '<div class="divide-y"><div class="grid grid-cols-7 p-4 bg-gray-50 font-semibold text-gray-600 text-sm"><span>Subject</span><span>Strand</span><span>EE</span><span>ME</span><span>AE</span><span>BE</span><span>Pass Rate</span></div>';
+            
+            Object.entries(subjectStats).forEach(([name, s]) => {
+                const total = s.ee + s.me + s.ae + s.be;
+                const passRate = total ? Math.round(((s.ee + s.me) / total) * 100) : 0;
+                const rateColor = passRate >= 80 ? 'EE' : passRate >= 65 ? 'ME' : passRate >= 45 ? 'AE' : 'BE';
+                const strandClass = getStrandClass(name);
+                html += `<div class="grid grid-cols-7 p-4 hover:bg-gray-50 text-sm items-center">
+                    <span class="font-medium">${name}</span>
+                    <span class="strand-badge ${strandClass}">${getStrandForSubject(name)}</span>
+                    <span class="text-[#003f87] font-semibold">${s.ee}</span>
+                    <span class="text-green-600 font-semibold">${s.me}</span>
+                    <span class="text-yellow-600 font-semibold">${s.ae}</span>
+                    <span class="text-red-600 font-semibold">${s.be}</span>
+                    <span class="grade-badge grade-${rateColor}">${passRate}%</span>
+                </div>`;
+            });
+            
+            document.getElementById('fullSubjectList').innerHTML = html + '</div>' || '<div class="p-8 text-center text-gray-400">No subject data</div>';
+        }
+
+        async function loadStudentProgress() {
+            const grade = document.getElementById('studentGradeFilter').value;
+            const stream = document.getElementById('studentStreamFilter').value;
+            const search = document.getElementById('studentSearchInput').value.toLowerCase();
+            const term = document.getElementById('termFilter').value;
+            
+            if (!grade) {
+                document.getElementById('studentProgressList').innerHTML = '<div class="col-span-full text-center py-8 text-gray-400">Select a grade to view students</div>';
+                return;
+            }
+            
+            let students = allStudents.filter(s => s.grade === grade);
+            if (stream && stream !== '' && stream !== 'All Streams') students = students.filter(s => s.stream === stream);
+            if (search) students = students.filter(s => s.name.toLowerCase().includes(search) || (s.admNo && s.admNo.toLowerCase().includes(search)));
+            
+            const container = document.getElementById('studentProgressList');
+            if (!container) return;
+            if (students.length === 0) {
+                container.innerHTML = '<div class="col-span-full text-center py-8 text-gray-400">No students found</div>';
+                return;
+            }
+            
+            container.innerHTML = students.map(student => {
+                const assessments = allAssessments.filter(a => a.studentId === student.id && a.term === term && a.deleted !== true);
+                const ee = assessments.filter(a => a.competency === 'EE').length;
+                const me = assessments.filter(a => a.competency === 'ME').length;
+                const ae = assessments.filter(a => a.competency === 'AE').length;
+                const be = assessments.filter(a => a.competency === 'BE').length;
+                const total = ee + me + ae + be;
+                const passRate = total > 0 ? Math.round(((ee + me) / total) * 100) : 0;
+                const overallComp = passRate >= 80 ? 'EE' : passRate >= 65 ? 'ME' : passRate >= 45 ? 'AE' : 'BE';
+                const subjectsCount = getSubjectsForGrade(student.grade).length;
+                const assessedCount = assessments.length;
+                const completionRate = subjectsCount > 0 ? Math.round((assessedCount / subjectsCount) * 100) : 0;
+                
+                return `<div class="cbe-card cbe-card-${overallComp.toLowerCase()}">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h4 class="font-bold text-gray-800">${student.name}</h4>
+                            <p class="text-xs text-gray-500">Adm: ${student.admNo} | ${student.grade} ${student.stream || ''}</p>
+                            <div class="flex items-center gap-2 mt-1">
+                                <span class="text-xs text-gray-400">${assessedCount}/${subjectsCount} subjects</span>
+                                <span class="text-xs ${completionRate === 100 ? 'text-green-600' : 'text-yellow-600'}">(${completionRate}%)</span>
+                            </div>
+                        </div>
+                        <span class="grade-badge grade-${overallComp}">${overallComp}</span>
+                    </div>
+                    <div class="flex gap-3 mt-3 text-xs">
+                        <span class="cbc-level"><span class="cbc-level-dot bg-[#003f87]"></span> EE:${ee}</span>
+                        <span class="cbc-level"><span class="cbc-level-dot bg-green-600"></span> ME:${me}</span>
+                        <span class="cbc-level"><span class="cbc-level-dot bg-yellow-600"></span> AE:${ae}</span>
+                        <span class="cbc-level"><span class="cbc-level-dot bg-red-600"></span> BE:${be}</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-1.5 mt-2">
+                        <div class="bg-green-600 h-1.5 rounded-full transition-all duration-500" style="width: ${passRate}%"></div>
+                    </div>
+                    <div class="flex justify-between mt-2">
+                        <button onclick="deleteStudentAssessments('${student.id}', '${student.name.replace(/'/g, "\\'")}')" class="text-xs text-red-600 hover:text-red-800 transition">Delete All</button>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function exportStudentProgress() {
+            const grade = document.getElementById('studentGradeFilter').value;
+            const stream = document.getElementById('studentStreamFilter').value;
+            const term = document.getElementById('termFilter').value;
+            
+            if (!grade) { showToast('Select a grade first', true); return; }
+            
+            let students = allStudents.filter(s => s.grade === grade);
+            if (stream && stream !== '' && stream !== 'All Streams') students = students.filter(s => s.stream === stream);
+            
+            const studentData = students.map(student => {
+                const assessments = allAssessments.filter(a => a.studentId === student.id && a.term === term && a.deleted !== true);
+                const ee = assessments.filter(a => a.competency === 'EE').length;
+                const me = assessments.filter(a => a.competency === 'ME').length;
+                const ae = assessments.filter(a => a.competency === 'AE').length;
+                const be = assessments.filter(a => a.competency === 'BE').length;
+                const total = ee + me + ae + be;
+                const passRate = total > 0 ? Math.round(((ee + me) / total) * 100) : 0;
+                const subjectsCount = getSubjectsForGrade(student.grade).length;
+                
+                return {
+                    'Student Name': student.name,
+                    'Admission No': student.admNo,
+                    'UPI': student.upi || 'N/A',
+                    'Grade': student.grade,
+                    'Stream': student.stream || 'N/A',
+                    'Subjects Assessed': assessments.length,
+                    'Total Subjects': subjectsCount,
+                    'EE Count': ee,
+                    'ME Count': me,
+                    'AE Count': ae,
+                    'BE Count': be,
+                    'Pass Rate': `${passRate}%`,
+                    'Overall Competency': passRate >= 80 ? 'EE' : passRate >= 65 ? 'ME' : passRate >= 45 ? 'AE' : 'BE'
+                };
+            });
+            
+            if (studentData.length === 0) {
+                showToast('No student data to export', true);
+                return;
+            }
+            
+            const ws = XLSX.utils.json_to_sheet(studentData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Student Progress');
+            XLSX.writeFile(wb, `student_progress_${grade}_${term}_${new Date().toISOString().split('T')[0]}.xlsx`);
+            showToast('Student progress exported!');
+        }
+
+        async function deleteStudentAssessments(studentId, studentName) {
+            const assessments = allAssessments.filter(a => a.studentId === studentId && a.deleted !== true);
+            if (assessments.length === 0) {
+                showToast(`${studentName} has no active assessments to delete`, true);
+                return;
+            }
+
+            const ok = await systemConfirm({
+                title: 'Delete All Assessments?',
+                message:
+                    `This will move ${assessments.length} assessment record(s) for ${studentName} to trash.\n\n` +
+                    `You can restore them later from the Trash tab.`,
+                okText: 'Move to Trash',
+                cancelText: 'Cancel',
+                tone: 'danger'
+            });
+            if (!ok) return;
+
+            try {
+                const batch = db.batch();
+                assessments.forEach(a => {
+                    batch.update(
+                        db.collection('schools').doc(currentSchoolCode).collection('assessments').doc(a.id),
+                        { deleted: true, deletedAt: new Date().toISOString() }
+                    );
+                });
+                await batch.commit();
+                showToast(`Moved ${assessments.length} record(s) to trash`);
+                DataCache.clear('assessments_' + currentSchoolCode);
+                await loadAllData();
+                loadStudentProgress();
+            } catch (err) {
+                console.error('Error deleting student assessments:', err);
+                showToast('Error: ' + err.message, true);
+            }
+        }
+
+        async function loadStudentSelect() {
+            const select = document.getElementById('studentSelect');
+            if (!select) return;
+            select.innerHTML = '<option value="">Select Student</option>' + allStudents.map(s => `<option value="${s.id}" data-grade="${s.grade}">${s.name} (${s.admNo}) - ${s.grade}</option>`).join('');
+        }
+
+        async function loadRecentAssessments() {
+            const term = document.getElementById('termFilter').value;
+            const recent = allAssessments.filter(a => a.deleted !== true && a.term === term).slice(-5).reverse();
+            let html = '';
+            recent.forEach(a => {
+                const student = allStudents.find(s => s.id === a.studentId);
+                const strandClass = getStrandClass(a.subject);
+                html += `<div class="p-3 bg-gray-50 rounded-xl flex justify-between items-center">
+                    <div class="flex items-center gap-3">
+                        <span class="strand-badge ${strandClass}">${getStrandForSubject(a.subject)}</span>
+                        <div>
+                            <p class="font-semibold">${student?.name || a.studentName} - ${a.subject}</p>
+                            <p class="text-xs text-gray-500">${a.competency} • ${a.teacher || 'N/A'}</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-2">
+                        <span class="grade-badge grade-${a.competency}">${a.competency}</span>
+                        <button onclick="deleteSingleAssessment('${a.id}', '${a.subject}', '${(student?.name || a.studentName).replace(/'/g, "\\'")}')" class="text-red-600 text-xs hover:text-red-800 transition">Delete</button>
+                    </div>
+                </div>`;
+            });
+            document.getElementById('recentAssessments').innerHTML = html || '<div class="text-center text-gray-400 py-8">No assessments yet</div>';
+        }
+
+        function deleteSingleAssessment(id, subject, studentName) {
+            pendingDeleteId = id;
+            document.getElementById('deleteConfirmMsg').innerHTML = `Move "<strong>${subject}</strong>" assessment for ${studentName} to trash?`;
+            document.getElementById('deleteConfirmModal').classList.remove('hidden');
+        }
+
+        async function confirmDeleteAction() {
+            if (!pendingDeleteId) return;
+            try {
+                await db.collection('schools').doc(currentSchoolCode).collection('assessments').doc(pendingDeleteId).update({ deleted: true, deletedAt: new Date().toISOString() });
+                showToast('Moved to trash');
+                closeDeleteConfirmModal();
+                DataCache.clear('assessments_' + currentSchoolCode);
+                await loadAllData();
+            } catch (err) {
+                showToast("Error: " + err.message, true);
+            }
+        }
+
+        async function loadTrash() {
+            const container = document.getElementById('trashList');
+            if (!container) return;
+            if (deletedAssessments.length === 0) {
+                container.innerHTML = '<div class="p-6 text-center text-gray-400">Trash is empty</div>';
+                return;
+            }
+            container.innerHTML = deletedAssessments.map(a => {
+                const strandClass = getStrandClass(a.subject);
+                return `<div class="p-3 flex justify-between items-center hover:bg-gray-50 border-b">
+                    <div class="flex items-center gap-3">
+                        <span class="strand-badge ${strandClass}">${getStrandForSubject(a.subject)}</span>
+                        <div>
+                            <p class="font-medium text-gray-600 line-through">${a.studentName} - ${a.subject}</p>
+                            <p class="text-xs text-gray-400">${a.grade} | ${a.competency} | Deleted: ${a.deletedAt ? new Date(a.deletedAt).toLocaleDateString() : 'Unknown'}</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="restoreAssessment('${a.id}')" class="px-2 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700 transition">Restore</button>
+                        <button onclick="permanentDelete('${a.id}', '${(a.studentName || 'assessment').replace(/'/g, "\\'")}')" class="px-2 py-1 bg-red-700 text-white rounded text-xs hover:bg-red-800 transition">Delete Forever</button>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        async function restoreAssessment(id) {
+            try {
+                await db.collection('schools').doc(currentSchoolCode).collection('assessments').doc(id).update({ deleted: false, deletedAt: null });
+                showToast('✅ Restored');
+                DataCache.clear('assessments_' + currentSchoolCode);
+                await loadAllData();
+                loadTrash();
+            } catch (err) {
+                console.error('Restore error:', err);
+                showToast('Error restoring: ' + err.message, true);
+            }
+        }
+
+        async function permanentDelete(id, name) {
+            const ok = await systemConfirm({
+                title: 'Delete Permanently?',
+                message: `Permanently delete the assessment record for ${name}? This action cannot be undone.`,
+                okText: 'Delete Forever',
+                cancelText: 'Cancel',
+                tone: 'danger'
+            });
+            if (!ok) return;
+
+            try {
+                await db.collection('schools').doc(currentSchoolCode).collection('assessments').doc(id).delete();
+                showToast('🗑️ Deleted forever');
+                DataCache.clear('assessments_' + currentSchoolCode);
+                await loadAllData();
+                loadTrash();
+            } catch (err) {
+                console.error('Permanent delete error:', err);
+                showToast('Error: ' + err.message, true);
+            }
+        }
+
+        async function emptyTrash() {
+            if (isLoading) { showToast('⏳ Please wait, still loading...', true); return; }
+
+            let snapshotCount = deletedAssessments.length;
+            try {
+                const snap = await db.collection('schools').doc(currentSchoolCode)
+                    .collection('assessments').where('deleted', '==', true).get();
+                snapshotCount = snap.size;
+            } catch (err) {
+                console.warn('Could not refresh trash count:', err);
+            }
+
+            if (snapshotCount === 0) {
+                showToast('Trash is already empty', true);
+                return;
+            }
+
+            const ok = await systemConfirm({
+                title: 'Empty Trash?',
+                message:
+                    `This will permanently delete ${snapshotCount} assessment record(s) in trash.\n\n` +
+                    `This CANNOT be undone.`,
+                okText: 'Empty Trash',
+                cancelText: 'Cancel',
+                tone: 'danger'
+            });
+            if (!ok) return;
+
+            isLoading = true;
+            try {
+                const snap = await db.collection('schools').doc(currentSchoolCode)
+                    .collection('assessments').where('deleted', '==', true).get();
+                if (snap.empty) {
+                    showToast('Trash is already empty', true);
+                    return;
+                }
+                const batch = db.batch();
+                snap.docs.forEach(doc => batch.delete(doc.ref));
+                await batch.commit();
+
+                showToast(`🗑️ Trash emptied: ${snap.size} record(s) permanently deleted`);
+                DataCache.clear('assessments_' + currentSchoolCode);
+                await loadAllData();
+                loadTrash();
+            } catch (err) {
+                console.error('Empty trash error:', err);
+                showToast('Error emptying trash: ' + err.message, true);
+            } finally {
+                isLoading = false;
+            }
+        }
+
+        function exportSubjectData() {
+            const filtered = getFilteredAssessments();
+            const ws = XLSX.utils.json_to_sheet(filtered.map(a => ({
+                Student: a.studentName,
+                Admission: a.admNo,
+                Grade: a.grade,
+                Stream: a.stream,
+                Subject: a.subject,
+                'CBE Strand': getStrandForSubject(a.subject),
+                Competency: a.competency,
+                Teacher: a.teacher,
+                Term: a.term,
+                Notes: a.notes || ''
+            })));
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Subject Performance');
+            XLSX.writeFile(wb, `subject_performance_${new Date().toISOString().split('T')[0]}.xlsx`);
+            showToast('Exported!');
+        }
+
+        document.getElementById('assessmentForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const studentId = document.getElementById('studentSelect').value;
+            const student = allStudents.find(s => s.id === studentId);
+            if (!student) {
+                showToast('Please select a student', true);
+                return;
+            }
+            const subject = document.getElementById('subjectSelect').value;
+            const competency = document.getElementById('competencySelect').value;
+            const term = document.getElementById('termSelect').value;
+            
+            if (!subject || !competency) {
+                showToast('Please select subject and competency', true);
+                return;
+            }
+
+            const exists = allAssessments.find(a => a.studentId === student.id && a.subject === subject && a.term === term && a.deleted !== true);
+            if (exists) {
+                showToast(`Assessment for ${student.name} - ${subject} already exists for ${term}`, true);
+                return;
+            }
+            
+            try {
+                await db.collection('schools').doc(currentSchoolCode).collection('assessments').add({
+                    studentId: student.id,
+                    studentName: student.name,
+                    admNo: student.admNo,
+                    grade: student.grade,
+                    stream: student.stream || '',
+                    subject: subject,
+                    cbeStrand: getStrandForSubject(subject),
+                    competency: competency,
+                    teacher: document.getElementById('teacherName').value || 'Admin',
+                    term: term,
+                    notes: document.getElementById('assessmentNotes').value,
+                    date: new Date().toISOString(),
+                    deleted: false
+                });
+                showToast('Assessment recorded successfully!');
+                document.getElementById('assessmentForm').reset();
+                DataCache.clear('assessments_' + currentSchoolCode);
+                await loadAllData();
+                loadRecentAssessments();
+            } catch (err) {
+                showToast('Error saving assessment: ' + err.message, true);
+            }
+        });
+
+        document.getElementById('subjectSelect').addEventListener('focus', function() {
+            const selectedOption = document.getElementById('studentSelect').selectedOptions[0];
+            const grade = selectedOption?.dataset?.grade;
+            if (grade) {
+                const subjects = getSubjectsForGrade(grade);
+                this.innerHTML = '<option value="">Select Subject</option>' + subjects.map(s => `<option value="${s}">${s}</option>`).join('');
+            } else {
+                this.innerHTML = '<option value="">Select Subject</option><option>English</option><option>Kiswahili</option><option>Mathematics</option><option>Science</option><option>Social Studies</option><option>Creative Arts</option>';
+            }
+        });
+
+        document.getElementById('confirmDeleteBtn').onclick = confirmDeleteAction;
+        
+        document.getElementById('gradeFilter').addEventListener('change', function() {
+            updateStreamFilter();
+            updateDashboard();
+        });
+        
+        document.getElementById('streamFilter').addEventListener('change', function() {
+            updateDashboard();
+        });
+        
+        document.getElementById('termFilter').addEventListener('change', function() {
+            const term = this.value;
+            const overviewTitle = document.getElementById('overviewTitle');
+            if (overviewTitle) overviewTitle.innerText = `${term} CBE Analytics Dashboard`;
+            updateDashboard();
+        });
+        
+        document.getElementById('studentGradeFilter').addEventListener('change', function() {
+            updateStudentStreamFilter();
+        });
+
+        // ==========================================
+        // AUTH & INIT
+        // ==========================================
+
+        auth.onAuthStateChanged(async (user) => {
+            if (!user) {
+                window.location.href = 'index.html';
+                return;
+            }
+            
+            currentSchoolCode = sessionStorage.getItem('currentSchoolCode');
+            if (!currentSchoolCode) {
+                try {
+                    const snap = await db.collection('schools').where('adminId', '==', user.uid).get();
+                    if (!snap.empty) {
+                        currentSchoolCode = snap.docs[0].id;
+                        sessionStorage.setItem('currentSchoolCode', currentSchoolCode);
+                        sessionStorage.setItem('currentSchoolName', snap.docs[0].data().schoolName);
+                    }
+                } catch (err) {
+                    console.error(err);
+                }
+            }
+            
+            const schoolName = sessionStorage.getItem('currentSchoolName') || currentSchoolCode;
+            const badge = document.getElementById('schoolBadge');
+            if (badge) badge.innerText = schoolName;
+            
+            const cachedAssessments = DataCache.get('assessments_' + currentSchoolCode);
+            
+            if (cachedAssessments) {
+                allAssessments = cachedAssessments.filter(a => a.deleted !== true);
+                deletedAssessments = cachedAssessments.filter(a => a.deleted === true);
+                const cachedStudents = DataCache.get('students_' + currentSchoolCode) || [];
+                const cachedGrades = DataCache.get('grades_' + currentSchoolCode) || [];
+                const cachedStreams = DataCache.get('streams_' + currentSchoolCode) || [];
+                allStudents = cachedStudents;
+                allGrades = cachedGrades;
+                allStreams = cachedStreams;
+                updateTrashBadge();
+                populateFilters();
+                updateDashboard();
+                console.log(`📦 Restored ${allAssessments.length} active assessments from cache`);
+            }
+            
+            await loadAllData();
+        });
+
+        window.addEventListener('message', function(event) {
+            if (event.data && event.data.type === 'themeChange') {
+                const theme = event.data.theme;
+                document.body.className = '';
+                if (theme === 'dark') document.body.classList.add('theme-dark');
+                else if (theme === 'green') document.body.classList.add('theme-green');
+                else if (theme === 'grey') document.body.classList.add('theme-grey');
+            }
+        });
+
+        if (window.parent !== window) {
+            window.parent.postMessage({ type: 'iframeReady' }, '*');
+        }
+    </script>
+</body>
+</html>
