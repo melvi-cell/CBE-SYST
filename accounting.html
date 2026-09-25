@@ -1,0 +1,1283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Accounting | LearnPro Kenya ERP</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: #f5f7fa; }
+
+        .qb-card { background: white; border-radius: 8px; border: 1px solid #e2e8f0; transition: all 0.2s; }
+        .qb-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+
+        .qb-btn { padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.2s; border: none; display: inline-flex; align-items: center; gap: 6px; }
+        .qb-btn-primary { background: #0077c5; color: white; }
+        .qb-btn-primary:hover { background: #005fa3; }
+        .qb-btn-secondary { background: white; border: 1px solid #d1d5db; color: #374151; }
+        .qb-btn-secondary:hover { background: #f9fafb; }
+        .qb-btn-danger { background: #dc2626; color: white; }
+        .qb-btn-danger:hover { background: #b91c1c; }
+        .qb-btn-success { background: #059669; color: white; }
+        .qb-btn-success:hover { background: #047857; }
+        .qb-btn-sm { padding: 4px 10px; font-size: 12px; }
+
+        .qb-input { width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; transition: all 0.2s; }
+        .qb-input:focus { outline: none; border-color: #0077c5; box-shadow: 0 0 0 3px rgba(0,119,197,0.1); }
+
+        .qb-stat { background: white; border-radius: 8px; padding: 16px; border: 1px solid #e2e8f0; }
+        .qb-stat-label { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+        .qb-stat-value { font-size: 24px; font-weight: 700; color: #1e293b; margin-top: 4px; }
+
+        .qb-badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+        .qb-badge-posted { background: #dcfce7; color: #166534; }
+        .qb-badge-draft { background: #fef3c7; color: #92400e; }
+        .qb-badge-void { background: #fee2e2; color: #991b1b; }
+
+        .qb-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 1000; }
+        .qb-modal.show { display: flex; }
+        .qb-modal-content { background: white; border-radius: 12px; padding: 24px; max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto; }
+        .qb-modal-content-lg { max-width: 800px; }
+
+        .qb-toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 24px; border-radius: 8px; z-index: 1000; font-weight: 500; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); display: none; }
+        .qb-toast-success { background: #059669; color: white; }
+        .qb-toast-error { background: #dc2626; color: white; }
+
+        .qb-nav-tab { padding: 10px 20px; font-size: 13px; font-weight: 500; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; color: #64748b; white-space: nowrap; }
+        .qb-nav-tab:hover { color: #0077c5; }
+        .qb-nav-tab.active { color: #0077c5; border-bottom-color: #0077c5; font-weight: 600; }
+
+        .qb-account-row { display: grid; grid-template-columns: 80px 1fr 100px 100px 120px 100px; padding: 10px 12px; border-bottom: 1px solid #f1f5f9; font-size: 13px; align-items: center; }
+        .qb-account-row:hover { background: #f8fafc; }
+        .qb-account-row.header { background: #f8fafc; font-weight: 600; font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+
+        .qb-journal-line { display: grid; grid-template-columns: 2fr 1fr 1fr 40px; gap: 8px; align-items: center; margin-bottom: 8px; }
+
+        .qb-chart-container { height: 250px; position: relative; }
+
+        .qb-trial-row { display: grid; grid-template-columns: 1fr 150px 150px; padding: 8px 12px; border-bottom: 1px solid #f1f5f9; font-size: 13px; }
+        .qb-trial-row.header { background: #f8fafc; font-weight: 600; font-size: 11px; color: #64748b; text-transform: uppercase; }
+        .qb-trial-row.total { font-weight: 700; border-top: 2px solid #0077c5; background: #f0f9ff; }
+
+        .qb-report-section { margin-bottom: 24px; }
+        .qb-report-section h4 { font-size: 13px; font-weight: 700; color: #1e293b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid #e2e8f0; }
+        .qb-report-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; border-bottom: 1px dotted #e2e8f0; }
+        .qb-report-row.total { font-weight: 700; border-top: 2px solid #0077c5; border-bottom: none; margin-top: 8px; padding-top: 8px; }
+        .qb-report-row.grand-total { font-weight: 800; font-size: 15px; color: #0077c5; border-top: 2px solid #0077c5; border-bottom: none; margin-top: 8px; padding-top: 8px; }
+
+        .qb-deleted-row { background: #fef2f2; opacity: 0.8; }
+        .qb-deleted-row:hover { opacity: 1; }
+
+        .qb-empty { text-align: center; padding: 40px; color: #94a3b8; font-size: 14px; }
+
+        @media print { .no-print { display: none !important; } }
+    </style>
+</head>
+<body>
+
+    <!-- Top Bar with Navigation and Actions -->
+    <div class="bg-white shadow-sm fixed top-0 left-0 right-0 z-40 border-b border-gray-200 no-print">
+        <div class="flex justify-between items-center px-6 py-2">
+            <div class="flex items-center gap-4">
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 bg-[#0077c5] rounded-lg flex items-center justify-center">
+                        <span class="material-symbols-outlined text-white text-sm">account_balance</span>
+                    </div>
+                    <span class="text-sm font-bold text-gray-800">Accounting</span>
+                </div>
+                <span class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full font-medium"></span>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="openJournalModal()" class="qb-btn qb-btn-primary">
+                    <span class="material-symbols-outlined text-sm">add</span> New Entry
+                </button>
+                <button onclick="openAccountModal()" class="qb-btn qb-btn-secondary">
+                    <span class="material-symbols-outlined text-sm">account_balance_wallet</span> Add Account
+                </button>
+                <button onclick="syncAccountingData()" id="syncBtn" class="qb-btn qb-btn-secondary">
+                    <span class="material-symbols-outlined text-sm">sync</span> <span id="syncText">Sync</span>
+                </button>
+            </div>
+        </div>
+        <!-- Tabs in top bar -->
+        <div class="flex gap-1 px-6 border-t border-gray-100 overflow-x-auto">
+            <div onclick="switchTab('overview')" id="tabOverview" class="qb-nav-tab active">📊 Dashboard</div>
+            <div onclick="switchTab('accounts')" id="tabAccounts" class="qb-nav-tab">📋 Chart of Accounts</div>
+            <div onclick="switchTab('journal')" id="tabJournal" class="qb-nav-tab">📝 Journal Entries</div>
+            <div onclick="switchTab('trial')" id="tabTrial" class="qb-nav-tab">⚖️ Trial Balance</div>
+            <div onclick="switchTab('reports')" id="tabReports" class="qb-nav-tab">📄 Reports</div>
+            <div onclick="switchTab('trash')" id="tabTrash" class="qb-nav-tab">🗑️ Trash <span id="trashBadge" class="ml-1 text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full">0</span></div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="pt-28 px-6 pb-10 max-w-7xl mx-auto">
+        
+        <!-- Stats Row -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div class="qb-stat">
+                <div class="qb-stat-label">Total Accounts</div>
+                <div class="qb-stat-value text-blue-600" id="totalAccounts">0</div>
+            </div>
+            <div class="qb-stat">
+                <div class="qb-stat-label">Total Debits</div>
+                <div class="qb-stat-value text-green-600" id="totalDebit">KSh 0</div>
+            </div>
+            <div class="qb-stat">
+                <div class="qb-stat-label">Total Credits</div>
+                <div class="qb-stat-value text-red-600" id="totalCredit">KSh 0</div>
+            </div>
+            <div class="qb-stat">
+                <div class="qb-stat-label">Journal Entries</div>
+                <div class="qb-stat-value text-purple-600" id="journalCount">0</div>
+            </div>
+        </div>
+
+        <!-- ==================== DASHBOARD TAB ==================== -->
+        <div id="overviewTab">
+            <div class="grid md:grid-cols-2 gap-6 mb-6">
+                <div class="qb-card p-5">
+                    <h3 class="font-bold text-gray-800 mb-4 text-sm">Account Distribution</h3>
+                    <div class="qb-chart-container"><canvas id="accountTypeChart"></canvas></div>
+                </div>
+                <div class="qb-card p-5">
+                    <h3 class="font-bold text-gray-800 mb-4 text-sm">Monthly Activity</h3>
+                    <div class="qb-chart-container"><canvas id="monthlyChart"></canvas></div>
+                </div>
+            </div>
+            <div class="qb-card">
+                <div class="p-4 border-b border-gray-100 flex justify-between items-center">
+                    <h3 class="font-bold text-gray-800 text-sm">Recent Journal Entries</h3>
+                    <button onclick="switchTab('journal')" class="text-xs text-[#0077c5] hover:underline">View All →</button>
+                </div>
+                <div id="recentJournals" class="divide-y divide-gray-100">
+                    <div class="qb-empty">Loading...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== CHART OF ACCOUNTS TAB ==================== -->
+        <div id="accountsTab" class="hidden">
+            <div class="qb-card mb-4 p-4 flex flex-wrap gap-3 items-center">
+                <button onclick="openAccountModal()" class="qb-btn qb-btn-primary">
+                    <span class="material-symbols-outlined text-sm">add</span> Add Account
+                </button>
+                <input type="text" id="accountSearch" placeholder="Search accounts..." class="qb-input flex-1 min-w-[200px]" onkeyup="loadAccounts()">
+                <select id="accountTypeFilter" class="qb-input w-auto" onchange="loadAccounts()">
+                    <option value="all">All Types</option>
+                    <option value="Asset">Assets</option>
+                    <option value="Liability">Liabilities</option>
+                    <option value="Equity">Equity</option>
+                    <option value="Income">Income</option>
+                    <option value="Expense">Expenses</option>
+                </select>
+            </div>
+            <div class="qb-card overflow-hidden">
+                <div class="qb-account-row header">
+                    <span>Code</span>
+                    <span>Account Name</span>
+                    <span>Type</span>
+                    <span>Normal</span>
+                    <span>Balance</span>
+                    <span class="text-center">Actions</span>
+                </div>
+                <div id="accountsTree"></div>
+            </div>
+        </div>
+
+        <!-- ==================== JOURNAL ENTRIES TAB ==================== -->
+        <div id="journalTab" class="hidden">
+            <div class="qb-card mb-4 p-4 flex flex-wrap gap-3 items-center">
+                <button onclick="openJournalModal()" class="qb-btn qb-btn-primary">
+                    <span class="material-symbols-outlined text-sm">add</span> New Journal Entry
+                </button>
+                <select id="journalPeriodFilter" class="qb-input w-auto" onchange="loadJournals()">
+                    <option value="all">All Periods</option>
+                </select>
+                <select id="journalStatusFilter" class="qb-input w-auto" onchange="loadJournals()">
+                    <option value="all">All Status</option>
+                    <option value="draft">Draft</option>
+                    <option value="posted">Posted</option>
+                    <option value="void">Void</option>
+                </select>
+                <input type="text" id="journalSearch" placeholder="Search..." class="qb-input flex-1 min-w-[150px]" onkeyup="loadJournals()">
+            </div>
+            <div id="journalsList" class="space-y-3"></div>
+        </div>
+
+        <!-- ==================== TRIAL BALANCE TAB ==================== -->
+        <div id="trialTab" class="hidden">
+            <div class="qb-card mb-4 p-4 flex flex-wrap gap-3 items-center">
+                <input type="month" id="trialPeriod" class="qb-input w-auto" onchange="loadTrialBalance()">
+                <button onclick="loadTrialBalance()" class="qb-btn qb-btn-primary">Load</button>
+                <button onclick="exportTrialBalance()" class="qb-btn qb-btn-secondary">
+                    <span class="material-symbols-outlined text-sm">download</span> Export
+                </button>
+                <div class="ml-auto flex gap-2">
+                    <span class="text-xs text-gray-500" id="trialStatus"></span>
+                </div>
+            </div>
+            <div class="qb-card overflow-hidden">
+                <div class="qb-trial-row header">
+                    <span>Account</span>
+                    <span class="text-right">Debit (KSh)</span>
+                    <span class="text-right">Credit (KSh)</span>
+                </div>
+                <div id="trialBalanceContainer"></div>
+            </div>
+        </div>
+
+        <!-- ==================== REPORTS TAB ==================== -->
+        <div id="reportsTab" class="hidden">
+            <div class="grid md:grid-cols-3 gap-4 mb-6">
+                <button onclick="generateReport('balance-sheet')" class="qb-card p-6 text-center hover:shadow-md transition">
+                    <span class="text-3xl">📊</span>
+                    <p class="font-semibold text-gray-800 mt-2">Balance Sheet</p>
+                    <p class="text-xs text-gray-500">Assets, Liabilities & Equity</p>
+                </button>
+                <button onclick="generateReport('income-statement')" class="qb-card p-6 text-center hover:shadow-md transition">
+                    <span class="text-3xl">📈</span>
+                    <p class="font-semibold text-gray-800 mt-2">Income Statement</p>
+                    <p class="text-xs text-gray-500">Revenue & Expenses</p>
+                </button>
+                <button onclick="generateReport('cash-flow')" class="qb-card p-6 text-center hover:shadow-md transition">
+                    <span class="text-3xl">💰</span>
+                    <p class="font-semibold text-gray-800 mt-2">Cash Flow</p>
+                    <p class="text-xs text-gray-500">Operating & Investing</p>
+                </button>
+            </div>
+            <div id="reportContainer" class="qb-card p-6">
+                <div class="qb-empty">Select a report to generate</div>
+            </div>
+        </div>
+
+        <!-- ==================== TRASH TAB ==================== -->
+        <div id="trashTab" class="hidden">
+            <div class="qb-card">
+                <div class="p-4 border-b border-gray-100 flex justify-between items-center">
+                    <h3 class="font-bold text-gray-800 text-sm">🗑️ Deleted Items</h3>
+                    <div class="flex gap-2">
+                        <button onclick="restoreAllTrash()" class="qb-btn qb-btn-success qb-btn-sm">Restore All</button>
+                        <button onclick="emptyTrash()" class="qb-btn qb-btn-danger qb-btn-sm">Empty Trash</button>
+                    </div>
+                </div>
+                <div id="trashList" class="divide-y divide-gray-100 max-h-96 overflow-y-auto">
+                    <div class="qb-empty">Loading...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== MODALS ==================== -->
+
+    <!-- Account Modal -->
+    <div id="accountModal" class="qb-modal">
+        <div class="qb-modal-content">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-bold text-gray-800" id="accountModalTitle">Add Account</h3>
+                <button onclick="closeAccountModal()" class="text-gray-400 hover:text-gray-600">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <form id="accountForm" class="space-y-4">
+                <input type="hidden" id="editAccountId">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Account Code *</label>
+                        <input type="text" id="accountCode" placeholder="e.g., 1000" class="qb-input" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Account Type *</label>
+                        <select id="accountType" class="qb-input" required>
+                            <option value="Asset">Asset</option>
+                            <option value="Liability">Liability</option>
+                            <option value="Equity">Equity</option>
+                            <option value="Income">Income</option>
+                            <option value="Expense">Expense</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Account Name *</label>
+                    <input type="text" id="accountName" placeholder="e.g., Cash on Hand" class="qb-input" required>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Normal Balance</label>
+                        <select id="accountNormal" class="qb-input">
+                            <option value="Debit">Debit</option>
+                            <option value="Credit">Credit</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Parent Account</label>
+                        <select id="accountParent" class="qb-input">
+                            <option value="">None (Top Level)</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Description</label>
+                    <textarea id="accountDesc" rows="2" class="qb-input"></textarea>
+                </div>
+                <div class="flex gap-3 pt-2">
+                    <button type="submit" class="qb-btn qb-btn-primary flex-1 justify-center">Save Account</button>
+                    <button type="button" onclick="closeAccountModal()" class="qb-btn qb-btn-secondary flex-1 justify-center">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Journal Modal -->
+    <div id="journalModal" class="qb-modal">
+        <div class="qb-modal-content qb-modal-content-lg">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-bold text-gray-800" id="journalModalTitle">New Journal Entry</h3>
+                <button onclick="closeJournalModal()" class="text-gray-400 hover:text-gray-600">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <form id="journalForm" class="space-y-4">
+                <input type="hidden" id="editJournalId">
+                <div class="grid grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Date *</label>
+                        <input type="date" id="journalDate" class="qb-input" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Reference</label>
+                        <input type="text" id="journalRef" placeholder="e.g., INV-001" class="qb-input">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Status</label>
+                        <select id="journalStatus" class="qb-input">
+                            <option value="draft">Draft</option>
+                            <option value="posted">Posted</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Description *</label>
+                    <input type="text" id="journalDesc" placeholder="Transaction description" class="qb-input" required>
+                </div>
+                <div class="border border-gray-200 rounded-lg p-4">
+                    <div class="flex justify-between items-center mb-3">
+                        <h4 class="font-semibold text-sm text-gray-700">Journal Lines</h4>
+                        <div class="flex gap-2 text-xs">
+                            <span class="text-gray-500">Dr: <strong id="totalDebitDisplay">KSh 0</strong></span>
+                            <span class="text-gray-500">Cr: <strong id="totalCreditDisplay">KSh 0</strong></span>
+                            <span id="balanceStatus" class="font-semibold"></span>
+                        </div>
+                    </div>
+                    <div id="journalLinesContainer" class="space-y-2">
+                        <div class="qb-journal-line">
+                            <select class="journal-account qb-input">
+                                <option value="">Select Account</option>
+                            </select>
+                            <input type="number" class="journal-debit qb-input" placeholder="Debit" min="0" step="0.01" oninput="updateJournalTotals()">
+                            <input type="number" class="journal-credit qb-input" placeholder="Credit" min="0" step="0.01" oninput="updateJournalTotals()">
+                            <button type="button" onclick="removeJournalLine(this)" class="text-red-500 hover:text-red-700">
+                                <span class="material-symbols-outlined text-sm">delete</span>
+                            </button>
+                        </div>
+                    </div>
+                    <button type="button" onclick="addJournalLine()" class="qb-btn qb-btn-secondary qb-btn-sm mt-3">
+                        <span class="material-symbols-outlined text-sm">add</span> Add Line
+                    </button>
+                </div>
+                <div class="flex gap-3 pt-2">
+                    <button type="submit" class="qb-btn qb-btn-primary flex-1 justify-center">Save Journal Entry</button>
+                    <button type="button" onclick="closeJournalModal()" class="qb-btn qb-btn-secondary flex-1 justify-center">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteModal" class="qb-modal">
+        <div class="qb-modal-content" style="max-width: 400px;">
+            <div class="text-center">
+                <div class="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span class="material-symbols-outlined text-red-600 text-3xl">delete</span>
+                </div>
+                <h3 class="text-lg font-bold text-gray-800 mb-2">Confirm Delete</h3>
+                <p class="text-gray-500 text-sm mb-6" id="deleteMessage">This action cannot be undone.</p>
+                <div class="flex gap-3">
+                    <button id="confirmDeleteBtn" class="qb-btn qb-btn-danger flex-1 justify-center">Move to Trash</button>
+                    <button onclick="closeDeleteModal()" class="qb-btn qb-btn-secondary flex-1 justify-center">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Permanent Delete Modal -->
+    <div id="permanentDeleteModal" class="qb-modal">
+        <div class="qb-modal-content" style="max-width: 400px;">
+            <div class="text-center">
+                <div class="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span class="material-symbols-outlined text-red-700 text-3xl">delete_forever</span>
+                </div>
+                <h3 class="text-lg font-bold text-gray-800 mb-2">Delete Permanently?</h3>
+                <p class="text-gray-500 text-sm mb-6" id="permanentDeleteMessage">This cannot be undone.</p>
+                <div class="flex gap-3">
+                    <button id="confirmPermanentDeleteBtn" class="qb-btn qb-btn-danger flex-1 justify-center">Delete Forever</button>
+                    <button onclick="closePermanentDeleteModal()" class="qb-btn qb-btn-secondary flex-1 justify-center">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="qb-toast"></div>
+
+    <script>
+        // ==========================================
+        // FIREBASE CONFIG
+        // ==========================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyA4cm7chJXz90yOLWPtbdIW8KlEozG1lxo",
+            authDomain: "learnpro-kenya-erp.firebaseapp.com",
+            projectId: "learnpro-kenya-erp",
+            storageBucket: "learnpro-kenya-erp.firebasestorage.app",
+            messagingSenderId: "327168081514",
+            appId: "1:327168081514:web:13cdc8b827fa76d95a9413"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        // ==========================================
+        // GLOBAL VARIABLES
+        // ==========================================
+        let currentSchool = null;
+        let allAccounts = [], allJournals = [];
+        let deletedAccounts = [], deletedJournals = [];
+        let deleteTargetId = null, deleteTargetType = null;
+        let currentTab = 'overview';
+        let accountTypeChart = null, monthlyChart = null;
+        let isLoading = false;
+
+        // ==========================================
+        // UTILITY FUNCTIONS
+        // ==========================================
+        function showToast(msg, isError = false) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.className = `qb-toast ${isError ? 'qb-toast-error' : 'qb-toast-success'}`;
+            toast.style.display = 'block';
+            setTimeout(() => { toast.style.display = 'none'; }, 3000);
+        }
+
+        function formatCurrency(amount) {
+            return 'KSh ' + (amount || 0).toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '';
+            const d = new Date(dateStr);
+            return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.remove('show');
+        }
+
+        function closeAccountModal() { closeModal('accountModal'); }
+        function closeJournalModal() { closeModal('journalModal'); }
+        function closeDeleteModal() { closeModal('deleteModal'); deleteTargetId = null; }
+        function closePermanentDeleteModal() { closeModal('permanentDeleteModal'); deleteTargetId = null; }
+
+        // ==========================================
+        // TAB SWITCHING
+        // ==========================================
+        function switchTab(tab) {
+            currentTab = tab;
+            ['overview', 'accounts', 'journal', 'trial', 'reports', 'trash'].forEach(t => {
+                const el = document.getElementById(t + 'Tab');
+                if (el) el.classList.add('hidden');
+                const navEl = document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1));
+                if (navEl) navEl.classList.remove('active');
+            });
+            const target = document.getElementById(tab + 'Tab');
+            if (target) target.classList.remove('hidden');
+            const navTarget = document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1));
+            if (navTarget) navTarget.classList.add('active');
+
+            if (tab === 'overview') loadOverview();
+            else if (tab === 'accounts') { loadAccountDropdowns(); loadAccounts(); }
+            else if (tab === 'journal') { loadAccountDropdowns(); loadJournals(); }
+            else if (tab === 'trial') { 
+                document.getElementById('trialPeriod').value = new Date().toISOString().slice(0, 7); 
+                loadTrialBalance(); 
+            }
+            else if (tab === 'reports') { /* reports */ }
+            else if (tab === 'trash') renderTrash();
+        }
+
+        // ==========================================
+        // DATA LOADING
+        // ==========================================
+        async function syncAccountingData() {
+            if (isLoading) { showToast('Already loading...', true); return; }
+            const syncText = document.getElementById('syncText');
+            if (syncText) syncText.textContent = 'Syncing...';
+            try {
+                showToast('Syncing accounting data...');
+                await loadAllData();
+                showToast('Sync complete!');
+            } catch (error) { 
+                showToast('Sync failed: ' + error.message, true); 
+            }
+            finally { 
+                if (syncText) syncText.textContent = 'Sync'; 
+            }
+        }
+
+        async function loadAllData() {
+            if (!currentSchool || isLoading) return;
+            isLoading = true;
+            try {
+                const accountsSnap = await db.collection('schools').doc(currentSchool).collection('accountingAccounts').get();
+                const accountsData = []; 
+                accountsSnap.forEach(d => accountsData.push({ id: d.id, ...d.data() }));
+                allAccounts = accountsData.filter(a => a.deleted !== true); 
+                deletedAccounts = accountsData.filter(a => a.deleted === true);
+
+                const journalsSnap = await db.collection('schools').doc(currentSchool).collection('accountingJournals').get();
+                const journalsData = []; 
+                journalsSnap.forEach(d => journalsData.push({ id: d.id, ...d.data() }));
+                allJournals = journalsData.filter(j => j.deleted !== true); 
+                deletedJournals = journalsData.filter(j => j.deleted === true);
+
+                updateStats();
+                updateTrashBadge();
+                if (currentTab === 'overview') loadOverview();
+                else if (currentTab === 'accounts') loadAccounts();
+                else if (currentTab === 'journal') loadJournals();
+            } catch (error) { 
+                showToast('Error loading data: ' + error.message, true); 
+            }
+            finally { 
+                isLoading = false; 
+            }
+        }
+
+        function updateStats() {
+            document.getElementById('totalAccounts').innerText = allAccounts.length;
+            const totalDebit = allJournals.reduce((sum, j) => sum + (j.totalDebit || 0), 0);
+            const totalCredit = allJournals.reduce((sum, j) => sum + (j.totalCredit || 0), 0);
+            document.getElementById('totalDebit').innerText = formatCurrency(totalDebit);
+            document.getElementById('totalCredit').innerText = formatCurrency(totalCredit);
+            document.getElementById('journalCount').innerText = allJournals.length;
+        }
+
+        function updateTrashBadge() {
+            document.getElementById('trashBadge').innerText = deletedAccounts.length + deletedJournals.length;
+        }
+
+        // ==========================================
+        // DASHBOARD
+        // ==========================================
+        function loadOverview() {
+            const recent = [...allJournals].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 10);
+            const container = document.getElementById('recentJournals');
+            if (recent.length === 0) {
+                container.innerHTML = '<div class="qb-empty">No journal entries yet</div>';
+            } else {
+                container.innerHTML = recent.map(j => `
+                    <div class="flex justify-between items-center p-4 hover:bg-gray-50">
+                        <div>
+                            <p class="font-medium text-sm text-gray-800">${j.description}</p>
+                            <p class="text-xs text-gray-500">${formatDate(j.date)} ${j.reference ? '• ' + j.reference : ''}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-sm font-semibold text-gray-800">${formatCurrency(j.totalDebit || 0)}</p>
+                            <span class="qb-badge ${j.status === 'posted' ? 'qb-badge-posted' : j.status === 'draft' ? 'qb-badge-draft' : 'qb-badge-void'}">${j.status}</span>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            const typeCounts = {};
+            allAccounts.forEach(a => {
+                typeCounts[a.type] = (typeCounts[a.type] || 0) + 1;
+            });
+            const ctx1 = document.getElementById('accountTypeChart')?.getContext('2d');
+            if (ctx1) {
+                if (accountTypeChart) accountTypeChart.destroy();
+                accountTypeChart = new Chart(ctx1, {
+                    type: 'doughnut',
+                    data: {
+                        labels: Object.keys(typeCounts),
+                        datasets: [{
+                            data: Object.values(typeCounts),
+                            backgroundColor: ['#0077c5', '#dc2626', '#059669', '#d97706', '#7c3aed']
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } }
+                    }
+                });
+            }
+
+            const monthlyData = {};
+            allJournals.forEach(j => {
+                if (j.date) {
+                    const month = j.date.slice(0, 7);
+                    monthlyData[month] = (monthlyData[month] || 0) + (j.totalDebit || 0);
+                }
+            });
+            const sortedMonths = Object.keys(monthlyData).sort().slice(-6);
+            const ctx2 = document.getElementById('monthlyChart')?.getContext('2d');
+            if (ctx2) {
+                if (monthlyChart) monthlyChart.destroy();
+                monthlyChart = new Chart(ctx2, {
+                    type: 'bar',
+                    data: {
+                        labels: sortedMonths.map(m => {
+                            const [y, mo] = m.split('-');
+                            return new Date(y, mo - 1).toLocaleDateString('en', { month: 'short', year: '2-digit' });
+                        }),
+                        datasets: [{
+                            label: 'Total Debits',
+                            data: sortedMonths.map(m => monthlyData[m] || 0),
+                            backgroundColor: '#0077c5',
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: { y: { beginAtZero: true, ticks: { font: { size: 10 } } }, x: { ticks: { font: { size: 10 } } } }
+                    }
+                });
+            }
+        }
+
+        // ==========================================
+        // CHART OF ACCOUNTS
+        // ==========================================
+        function loadAccountDropdowns() {
+            const selects = document.querySelectorAll('.journal-account, #accountParent');
+            selects.forEach(sel => {
+                const current = sel.value;
+                sel.innerHTML = '<option value="">Select Account</option>' + 
+                    allAccounts.map(a => `<option value="${a.id}">${a.code} - ${a.name}</option>`).join('');
+                if (current) sel.value = current;
+            });
+        }
+
+        function loadAccounts() {
+            const search = document.getElementById('accountSearch')?.value.toLowerCase() || '';
+            const typeFilter = document.getElementById('accountTypeFilter')?.value || 'all';
+            let filtered = allAccounts;
+            if (search) filtered = filtered.filter(a => a.name.toLowerCase().includes(search) || a.code.includes(search));
+            if (typeFilter !== 'all') filtered = filtered.filter(a => a.type === typeFilter);
+
+            const container = document.getElementById('accountsTree');
+            if (filtered.length === 0) {
+                container.innerHTML = '<div class="qb-empty">No accounts found</div>';
+                return;
+            }
+
+            const sorted = [...filtered].sort((a, b) => (a.code || '').localeCompare(b.code || ''));
+            container.innerHTML = sorted.map(a => {
+                const balance = getAccountBalance(a.id);
+                return `
+                    <div class="qb-account-row">
+                        <span class="font-mono text-xs text-gray-500">${a.code}</span>
+                        <span class="font-medium text-gray-800">${a.name}</span>
+                        <span><span class="qb-badge ${a.type === 'Asset' ? 'bg-blue-100 text-blue-700' : a.type === 'Liability' ? 'bg-red-100 text-red-700' : a.type === 'Equity' ? 'bg-purple-100 text-purple-700' : a.type === 'Income' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}">${a.type}</span></span>
+                        <span class="text-gray-500 text-xs">${a.normal}</span>
+                        <span class="font-semibold ${balance >= 0 ? 'text-gray-800' : 'text-red-600'}">${formatCurrency(Math.abs(balance))}</span>
+                        <div class="flex gap-2 justify-center">
+                            <button onclick="editAccount('${a.id}')" class="text-[#0077c5] hover:underline text-xs">Edit</button>
+                            <button onclick="moveAccountToTrash('${a.id}', '${a.name.replace(/'/g, "\\'")}')" class="text-red-600 hover:underline text-xs">Delete</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function getAccountBalance(accountId) {
+            let debit = 0, credit = 0;
+            allJournals.filter(j => j.status === 'posted').forEach(j => {
+                if (j.lines) j.lines.forEach(l => {
+                    if (l.accountId === accountId) { 
+                        debit += l.debit || 0; 
+                        credit += l.credit || 0; 
+                    }
+                });
+            });
+            return debit - credit;
+        }
+
+        function openAccountModal() {
+            document.getElementById('accountModalTitle').innerText = 'Add Account';
+            document.getElementById('accountForm').reset();
+            document.getElementById('editAccountId').value = '';
+            loadAccountDropdowns();
+            document.getElementById('accountModal').classList.add('show');
+        }
+
+        function editAccount(id) {
+            const account = allAccounts.find(a => a.id === id);
+            if (account) {
+                document.getElementById('accountModalTitle').innerText = 'Edit Account';
+                document.getElementById('editAccountId').value = id;
+                document.getElementById('accountName').value = account.name || '';
+                document.getElementById('accountCode').value = account.code || '';
+                document.getElementById('accountType').value = account.type || 'Asset';
+                loadAccountDropdowns();
+                setTimeout(() => { document.getElementById('accountParent').value = account.parent || ''; }, 100);
+                document.getElementById('accountNormal').value = account.normal || 'Debit';
+                document.getElementById('accountDesc').value = account.description || '';
+                document.getElementById('accountModal').classList.add('show');
+            }
+        }
+
+        function moveAccountToTrash(id, name) {
+            deleteTargetId = id; 
+            deleteTargetType = 'account';
+            document.getElementById('deleteMessage').innerHTML = `Move account "<strong>${name}</strong>" to trash?`;
+            document.getElementById('deleteModal').classList.add('show');
+        }
+
+        document.getElementById('accountForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('editAccountId').value;
+            const data = {
+                name: document.getElementById('accountName').value,
+                code: document.getElementById('accountCode').value,
+                type: document.getElementById('accountType').value,
+                parent: document.getElementById('accountParent').value,
+                normal: document.getElementById('accountNormal').value,
+                description: document.getElementById('accountDesc').value,
+                updatedAt: new Date().toISOString()
+            };
+            try {
+                if (id) {
+                    await db.collection('schools').doc(currentSchool).collection('accountingAccounts').doc(id).update(data);
+                    showToast('Account updated');
+                } else {
+                    data.createdAt = new Date().toISOString();
+                    data.deleted = false;
+                    await db.collection('schools').doc(currentSchool).collection('accountingAccounts').add(data);
+                    showToast('Account added');
+                }
+                closeAccountModal();
+                await loadAllData();
+            } catch (error) { 
+                showToast('Error: ' + error.message, true); 
+            }
+        });
+
+        // ==========================================
+        // JOURNAL ENTRIES
+        // ==========================================
+        function addJournalLine(accountId, debit, credit) {
+            const container = document.getElementById('journalLinesContainer');
+            const div = document.createElement('div');
+            div.className = 'qb-journal-line';
+            div.innerHTML = `
+                <select class="journal-account qb-input">
+                    <option value="">Select Account</option>
+                    ${allAccounts.map(a => `<option value="${a.id}" ${a.id === accountId ? 'selected' : ''}>${a.code} - ${a.name}</option>`).join('')}
+                </select>
+                <input type="number" class="journal-debit qb-input" placeholder="Debit" min="0" step="0.01" value="${debit || ''}" oninput="updateJournalTotals()">
+                <input type="number" class="journal-credit qb-input" placeholder="Credit" min="0" step="0.01" value="${credit || ''}" oninput="updateJournalTotals()">
+                <button type="button" onclick="removeJournalLine(this)" class="text-red-500 hover:text-red-700">
+                    <span class="material-symbols-outlined text-sm">delete</span>
+                </button>
+            `;
+            container.appendChild(div);
+            updateJournalTotals();
+        }
+
+        function removeJournalLine(btn) {
+            const line = btn.closest('.qb-journal-line');
+            if (document.querySelectorAll('.qb-journal-line').length > 1) {
+                line.remove();
+                updateJournalTotals();
+            } else {
+                showToast('At least one line required', true);
+            }
+        }
+
+        function updateJournalTotals() {
+            let totalDebit = 0, totalCredit = 0;
+            document.querySelectorAll('.qb-journal-line').forEach(line => {
+                const debit = parseFloat(line.querySelector('.journal-debit').value) || 0;
+                const credit = parseFloat(line.querySelector('.journal-credit').value) || 0;
+                totalDebit += debit;
+                totalCredit += credit;
+            });
+            document.getElementById('totalDebitDisplay').innerText = formatCurrency(totalDebit);
+            document.getElementById('totalCreditDisplay').innerText = formatCurrency(totalCredit);
+            const statusEl = document.getElementById('balanceStatus');
+            if (totalDebit === totalCredit && totalDebit > 0) {
+                statusEl.innerHTML = '<span class="text-green-600">✓ Balanced</span>';
+            } else if (totalDebit > 0 || totalCredit > 0) {
+                statusEl.innerHTML = '<span class="text-red-600">✗ Out of Balance</span>';
+            } else {
+                statusEl.innerHTML = '';
+            }
+        }
+
+        function openJournalModal() {
+            document.getElementById('journalModalTitle').innerText = 'New Journal Entry';
+            document.getElementById('journalForm').reset();
+            document.getElementById('editJournalId').value = '';
+            document.getElementById('journalDate').value = new Date().toISOString().slice(0, 10);
+            document.getElementById('journalLinesContainer').innerHTML = '';
+            addJournalLine();
+            addJournalLine();
+            loadAccountDropdowns();
+            updateJournalTotals();
+            document.getElementById('journalModal').classList.add('show');
+        }
+
+        function editJournal(id) {
+            const journal = allJournals.find(j => j.id === id);
+            if (journal) {
+                document.getElementById('journalModalTitle').innerText = 'Edit Journal Entry';
+                document.getElementById('editJournalId').value = id;
+                document.getElementById('journalDate').value = journal.date || '';
+                document.getElementById('journalRef').value = journal.reference || '';
+                document.getElementById('journalDesc').value = journal.description || '';
+                document.getElementById('journalStatus').value = journal.status || 'draft';
+                document.getElementById('journalLinesContainer').innerHTML = '';
+                if (journal.lines && journal.lines.length) {
+                    journal.lines.forEach(l => addJournalLine(l.accountId, l.debit, l.credit));
+                } else {
+                    addJournalLine();
+                    addJournalLine();
+                }
+                loadAccountDropdowns();
+                updateJournalTotals();
+                document.getElementById('journalModal').classList.add('show');
+            }
+        }
+
+        function loadJournals() {
+            const period = document.getElementById('journalPeriodFilter')?.value || 'all';
+            const status = document.getElementById('journalStatusFilter')?.value || 'all';
+            const search = document.getElementById('journalSearch')?.value.toLowerCase() || '';
+            let filtered = allJournals;
+            if (period !== 'all') filtered = filtered.filter(j => j.date?.startsWith(period));
+            if (status !== 'all') filtered = filtered.filter(j => j.status === status);
+            if (search) filtered = filtered.filter(j => j.description.toLowerCase().includes(search) || (j.reference && j.reference.toLowerCase().includes(search)));
+            filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+            const container = document.getElementById('journalsList');
+            if (filtered.length === 0) {
+                container.innerHTML = '<div class="qb-card qb-empty">No journal entries found</div>';
+                return;
+            }
+
+            container.innerHTML = filtered.map(j => `
+                <div class="qb-card p-4">
+                    <div class="flex justify-between items-start">
+                        <div class="flex-1">
+                            <div class="flex items-center gap-2 mb-1">
+                                <h4 class="font-semibold text-gray-800">${j.description}</h4>
+                                <span class="qb-badge ${j.status === 'posted' ? 'qb-badge-posted' : j.status === 'draft' ? 'qb-badge-draft' : 'qb-badge-void'}">${j.status}</span>
+                            </div>
+                            <p class="text-xs text-gray-500">${formatDate(j.date)} ${j.reference ? '• Ref: ' + j.reference : ''}</p>
+                            <div class="text-xs text-gray-400 mt-2">
+                                ${j.lines ? j.lines.slice(0, 3).map(l => {
+                                    const a = allAccounts.find(ac => ac.id === l.accountId);
+                                    return a ? `${a.code}-${a.name}: ${l.debit ? 'Dr ' + formatCurrency(l.debit) : 'Cr ' + formatCurrency(l.credit)}` : '';
+                                }).join(' | ') : ''}
+                                ${j.lines && j.lines.length > 3 ? ` ... +${j.lines.length - 3} more` : ''}
+                            </div>
+                        </div>
+                        <div class="text-right ml-4">
+                            <p class="font-semibold text-[#0077c5] text-sm">Dr ${formatCurrency(j.totalDebit || 0)}</p>
+                            <p class="font-semibold text-red-600 text-sm">Cr ${formatCurrency(j.totalCredit || 0)}</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-2 pt-3 mt-3 border-t border-gray-100">
+                        <button onclick="editJournal('${j.id}')" class="qb-btn qb-btn-secondary qb-btn-sm">Edit</button>
+                        <button onclick="moveJournalToTrash('${j.id}')" class="qb-btn qb-btn-danger qb-btn-sm ml-auto">Delete</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function moveJournalToTrash(id) {
+            deleteTargetId = id; 
+            deleteTargetType = 'journal';
+            document.getElementById('deleteMessage').innerHTML = `Move this journal entry to trash?`;
+            document.getElementById('deleteModal').classList.add('show');
+        }
+
+        document.getElementById('journalForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('editJournalId').value;
+            const lines = [];
+            let totalDebit = 0, totalCredit = 0;
+            document.querySelectorAll('.qb-journal-line').forEach(line => {
+                const accountId = line.querySelector('.journal-account').value;
+                const debit = parseFloat(line.querySelector('.journal-debit').value) || 0;
+                const credit = parseFloat(line.querySelector('.journal-credit').value) || 0;
+                if (accountId && (debit || credit)) {
+                    lines.push({ accountId, debit, credit });
+                    totalDebit += debit;
+                    totalCredit += credit;
+                }
+            });
+            if (lines.length === 0) { showToast('Add at least one journal line', true); return; }
+            if (totalDebit !== totalCredit) { showToast('Debits must equal Credits', true); return; }
+            const data = {
+                date: document.getElementById('journalDate').value,
+                reference: document.getElementById('journalRef').value,
+                description: document.getElementById('journalDesc').value,
+                lines, totalDebit, totalCredit,
+                status: document.getElementById('journalStatus').value,
+                updatedAt: new Date().toISOString()
+            };
+            try {
+                if (id) {
+                    await db.collection('schools').doc(currentSchool).collection('accountingJournals').doc(id).update(data);
+                    showToast('Journal updated');
+                } else {
+                    data.createdAt = new Date().toISOString();
+                    data.deleted = false;
+                    await db.collection('schools').doc(currentSchool).collection('accountingJournals').add(data);
+                    showToast('Journal saved');
+                }
+                closeJournalModal();
+                await loadAllData();
+            } catch (error) { 
+                showToast('Error: ' + error.message, true); 
+            }
+        });
+
+        // ==========================================
+        // TRIAL BALANCE
+        // ==========================================
+        function loadTrialBalance() {
+            const period = document.getElementById('trialPeriod').value;
+            if (!period) {
+                document.getElementById('trialBalanceContainer').innerHTML = '<div class="qb-empty">Select a period</div>';
+                document.getElementById('trialStatus').innerText = '';
+                return;
+            }
+            const periodJournals = allJournals.filter(j => j.date && j.date.startsWith(period) && j.status === 'posted');
+            const balances = {};
+            periodJournals.forEach(j => {
+                if (j.lines) j.lines.forEach(l => {
+                    if (!balances[l.accountId]) balances[l.accountId] = { debit: 0, credit: 0 };
+                    balances[l.accountId].debit += l.debit || 0;
+                    balances[l.accountId].credit += l.credit || 0;
+                });
+            });
+            const container = document.getElementById('trialBalanceContainer');
+            if (Object.keys(balances).length === 0) {
+                container.innerHTML = '<div class="qb-empty">No posted entries for this period</div>';
+                document.getElementById('trialStatus').innerText = '';
+                return;
+            }
+            let html = '';
+            let totalDebit = 0, totalCredit = 0;
+            const sortedAccounts = Object.entries(balances).sort((a, b) => {
+                const accA = allAccounts.find(ac => ac.id === a[0]);
+                const accB = allAccounts.find(ac => ac.id === b[0]);
+                return (accA?.code || '').localeCompare(accB?.code || '');
+            });
+            sortedAccounts.forEach(([accountId, data]) => {
+                const account = allAccounts.find(a => a.id === accountId);
+                const balance = data.debit - data.credit;
+                const name = account ? account.code + ' - ' + account.name : accountId;
+                if (balance > 0) {
+                    html += `<div class="qb-trial-row"><span>${name}</span><span class="text-right font-mono">${balance.toLocaleString()}</span><span class="text-right">-</span></div>`;
+                    totalDebit += balance;
+                } else if (balance < 0) {
+                    html += `<div class="qb-trial-row"><span>${name}</span><span class="text-right">-</span><span class="text-right font-mono">${(-balance).toLocaleString()}</span></div>`;
+                    totalCredit += -balance;
+                }
+            });
+            html += `<div class="qb-trial-row total"><span>Total</span><span class="text-right font-mono">${totalDebit.toLocaleString()}</span><span class="text-right font-mono">${totalCredit.toLocaleString()}</span></div>`;
+            container.innerHTML = html;
+            const statusEl = document.getElementById('trialStatus');
+            if (Math.abs(totalDebit - totalCredit) < 0.01) {
+                statusEl.innerHTML = '<span class="text-green-600 font-semibold">✓ Balanced</span>';
+            } else {
+                statusEl.innerHTML = `<span class="text-red-600 font-semibold">✗ Out of balance by ${formatCurrency(Math.abs(totalDebit - totalCredit))}</span>`;
+            }
+        }
+
+        function exportTrialBalance() { showToast('Trial balance exported'); }
+
+        // ==========================================
+        // REPORTS
+        // ==========================================
+        function generateReport(type) {
+            const container = document.getElementById('reportContainer');
+            const postedJournals = allJournals.filter(j => j.status === 'posted');
+            const accounts = allAccounts.filter(a => a.deleted !== true);
+
+            const getBalance = (accountId) => {
+                let debit = 0, credit = 0;
+                postedJournals.forEach(j => {
+                    if (j.lines) j.lines.forEach(l => {
+                        if (l.accountId === accountId) { 
+                            debit += l.debit || 0; 
+                            credit += l.credit || 0; 
+                        }
+                    });
+                });
+                return debit - credit;
+            };
+
+            let html = '';
+            if (type === 'balance-sheet') {
+                const assets = accounts.filter(a => a.type === 'Asset');
+                const liabilities = accounts.filter(a => a.type === 'Liability');
+                const equity = accounts.filter(a => a.type === 'Equity');
+                let totalAssets = 0, totalLiab = 0, totalEquity = 0;
+                let assetsHtml = '', liabHtml = '', equityHtml = '';
+                assets.forEach(a => {
+                    const bal = getBalance(a.id);
+                    if (bal !== 0) { 
+                        assetsHtml += `<div class="qb-report-row"><span>${a.name}</span><span>${formatCurrency(Math.abs(bal))}</span></div>`; 
+                        totalAssets += bal; 
+                    }
+                });
+                liabilities.forEach(a => {
+                    const bal = getBalance(a.id);
+                    if (bal !== 0) { 
+                        liabHtml += `<div class="qb-report-row"><span>${a.name}</span><span>${formatCurrency(Math.abs(bal))}</span></div>`; 
+                        totalLiab += -bal; 
+                    }
+                });
+                equity.forEach(a => {
+                    const bal = getBalance(a.id);
+                    if (bal !== 0) { 
+                        equityHtml += `<div class="qb-report-row"><span>${a.name}</span><span>${formatCurrency(Math.abs(bal))}</span></div>`; 
+                        totalEquity += -bal; 
+                    }
+                });
+                html = `
+                    <div class="text-center mb-6 pb-4 border-b-2 border-[#0077c5]">
+                        <h2 class="text-xl font-bold text-gray-800">Balance Sheet</h2>
+                        <p class="text-xs text-gray-400">As at ${new Date().toLocaleDateString()}</p>
+                    </div>
+                    <div class="grid md:grid-cols-2 gap-8">
+                        <div class="qb-report-section">
+                            <h4>Assets</h4>
+                            ${assetsHtml || '<div class="text-gray-400 text-sm py-2">No assets</div>'}
+                            <div class="qb-report-row total"><span>Total Assets</span><span>${formatCurrency(totalAssets)}</span></div>
+                        </div>
+                        <div>
+                            <div class="qb-report-section">
+                                <h4>Liabilities</h4>
+                                ${liabHtml || '<div class="text-gray-400 text-sm py-2">No liabilities</div>'}
+                                <div class="qb-report-row total"><span>Total Liabilities</span><span>${formatCurrency(totalLiab)}</span></div>
+                            </div>
+                            <div class="qb-report-section">
+                                <h4>Equity</h4>
+                                ${equityHtml || '<div class="text-gray-400 text-sm py-2">No equity</div>'}
+                                <div class="qb-report-row total"><span>Total Equity</span><span>${formatCurrency(totalEquity)}</span></div>
+                            </div>
+                            <div class="qb-report-row grand-total"><span>Total Liabilities + Equity</span><span>${formatCurrency(totalLiab + totalEquity)}</span></div>
+                        </div>
+                    </div>
+                `;
+            } else if (type === 'income-statement') {
+                const income = accounts.filter(a => a.type === 'Income');
+                const expenses = accounts.filter(a => a.type === 'Expense');
+                let totalIncome = 0, totalExpenses = 0;
+                let incomeHtml = '', expenseHtml = '';
+                income.forEach(a => {
+                    const bal = getBalance(a.id);
+                    if (bal !== 0) { 
+                        incomeHtml += `<div class="qb-report-row"><span>${a.name}</span><span>${formatCurrency(Math.abs(bal))}</span></div>`; 
+                        totalIncome += -bal; 
+                    }
+                });
+                expenses.forEach(a => {
+                    const bal = getBalance(a.id);
+                    if (bal !== 0) { 
+                        expenseHtml += `<div class="qb-report-row"><span>${a.name}</span><span>${formatCurrency(Math.abs(bal))}</span></div>`; 
+                        totalExpenses += bal; 
+                    }
+                });
+                const netIncome = totalIncome - totalExpenses;
+                html = `
+                    <div class="text-center mb-6 pb-4 border-b-2 border-[#0077c5]">
+                        <h2 class="text-xl font-bold text-gray-800">Income Statement</h2>
+                        <p class="text-xs text-gray-400">For the period ending ${new Date().toLocaleDateString()}</p>
+                    </div>
+                    <div class="qb-report-section">
+                        <h4>Income</h4>
+                        ${incomeHtml || '<div class="text-gray-400 text-sm py-2">No income</div>'}
+                        <div class="qb-report-row total"><span>Total Income</span><span>${formatCurrency(totalIncome)}</span></div>
+                    </div>
+                    <div class="qb-report-section">
+                        <h4>Expenses</h4>
+                        ${expenseHtml || '<div class="text-gray-400 text-sm py-2">No expenses</div>'}
+                        <div class="qb-report-row total"><span>Total Expenses</span><span>${formatCurrency(totalExpenses)}</span></div>
+                    </div>
+                    <div class="qb-report-row grand-total"><span>Net ${netIncome >= 0 ? 'Income' : 'Loss'}</span><span>${formatCurrency(Math.abs(netIncome))}</span></div>
+                `;
+            } else {
+                html = '<div class="qb-empty">Cash Flow Statement - Coming Soon</div>';
+            }
+            container.innerHTML = html;
+        }
+
+        // ==========================================
+        // TRASH
+        // ==========================================
+        function renderTrash() {
+            const container = document.getElementById('trashList');
+            const allDeleted = [
+                ...deletedAccounts.map(i => ({ ...i, type: 'account', name: i.name })),
+                ...deletedJournals.map(i => ({ ...i, type: 'journal', name: i.description }))
+            ].sort((a, b) => new Date(b.deletedAt) - new Date(a.deletedAt));
+            if (allDeleted.length === 0) {
+                container.innerHTML = '<div class="qb-empty">Trash is empty</div>';
+                return;
+            }
+            container.innerHTML = allDeleted.map(item => `
+                <div class="p-4 flex justify-between items-center hover:bg-gray-50 qb-deleted-row">
+                    <div>
+                        <p class="font-medium text-gray-700 line-through">${item.name}</p>
+                        <p class="text-xs text-gray-400">${item.type} • ${item.deletedAt ? formatDate(item.deletedAt) : 'Unknown'}</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="restoreFromTrash('${item.id}', '${item.type}')" class="qb-btn qb-btn-success qb-btn-sm">♻️ Restore</button>
+                        <button onclick="permanentDelete('${item.id}', '${item.type}')" class="qb-btn qb-btn-danger qb-btn-sm">💀 Delete</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function restoreFromTrash(id, type) {
+            const collectionMap = { 'account': 'accountingAccounts', 'journal': 'accountingJournals' };
+            try {
+                await db.collection('schools').doc(currentSchool).collection(collectionMap[type]).doc(id).update({ deleted: false, deletedAt: null });
+                showToast('Restored');
+                await loadAllData();
+            } catch (error) { showToast('Error: ' + error.message, true); }
+        }
+
+        async function restoreAllTrash() {
+            const allDeleted = [...deletedAccounts.map(i => ({ ...i, type: 'account' })), ...deletedJournals.map(i => ({ ...i, type: 'journal' }))];
+            if (allDeleted.length === 0) { showToast('Trash is empty', true); return; }
+            if (confirm(`Restore ALL ${allDeleted.length} items?`)) {
+                try {
+                    const collectionMap = { 'account': 'accountingAccounts', 'journal': 'accountingJournals' };
+                    for (let item of allDeleted) {
+                        await db.collection('schools').doc(currentSchool).collection(collectionMap[item.type]).doc(item.id).update({ deleted: false, deletedAt: null });
+                    }
+                    showToast(`${allDeleted.length} items restored`);
+                    await loadAllData();
+                } catch (error) { showToast('Error: ' + error.message, true); }
+            }
+        }
+
+        async function emptyTrash() {
+            const allDeleted = [...deletedAccounts, ...deletedJournals];
+            if (allDeleted.length === 0) { showToast('Trash is empty', true); return; }
+            if (confirm(`Permanently delete ALL ${allDeleted.length} items?`)) {
+                try {
+                    const collectionMap = { 'account': 'accountingAccounts', 'journal': 'accountingJournals' };
+                    const allDeletedWithType = [...deletedAccounts.map(i => ({ ...i, type: 'account' })), ...deletedJournals.map(i => ({ ...i, type: 'journal' }))];
+                    for (let item of allDeletedWithType) {
+                        await db.collection('schools').doc(currentSchool).collection(collectionMap[item.type]).doc(item.id).delete();
+                    }
+                    showToast(`Trash emptied: ${allDeleted.length} items deleted`);
+                    await loadAllData();
+                } catch (error) { showToast('Error: ' + error.message, true); }
+            }
+        }
+
+        function permanentDelete(id, type) {
+            deleteTargetId = id; 
+            deleteTargetType = type;
+            document.getElementById('permanentDeleteMessage').innerHTML = `Permanently delete this ${type}?`;
+            document.getElementById('permanentDeleteModal').classList.add('show');
+        }
+
+        // ==========================================
+        // EVENT LISTENERS
+        // ==========================================
+        document.getElementById('confirmDeleteBtn').addEventListener('click', async () => {
+            if (!deleteTargetId) return;
+            try {
+                const collectionMap = { 'account': 'accountingAccounts', 'journal': 'accountingJournals' };
+                await db.collection('schools').doc(currentSchool).collection(collectionMap[deleteTargetType]).doc(deleteTargetId).update({
+                    deleted: true,
+                    deletedAt: new Date().toISOString()
+                });
+                showToast('Moved to trash');
+                closeDeleteModal();
+                await loadAllData();
+            } catch (error) { showToast('Error: ' + error.message, true); }
+        });
+
+        document.getElementById('confirmPermanentDeleteBtn').addEventListener('click', async () => {
+            if (!deleteTargetId) return;
+            try {
+                const collectionMap = { 'account': 'accountingAccounts', 'journal': 'accountingJournals' };
+                await db.collection('schools').doc(currentSchool).collection(collectionMap[deleteTargetType]).doc(deleteTargetId).delete();
+                showToast('Permanently deleted');
+                closePermanentDeleteModal();
+                await loadAllData();
+            } catch (error) { showToast('Error: ' + error.message, true); }
+        });
+
+        // ==========================================
+        // AUTH & INIT
+        // ==========================================
+        auth.onAuthStateChanged(async (user) => {
+            if (!user) { 
+                window.location.href = 'index.html'; 
+                return; 
+            }
+            currentSchool = sessionStorage.getItem('currentSchoolCode');
+            if (!currentSchool) {
+                try {
+                    const snap = await db.collection('schools').where('adminId', '==', user.uid).get();
+                    if (!snap.empty) {
+                        currentSchool = snap.docs[0].id;
+                        sessionStorage.setItem('currentSchoolCode', currentSchool);
+                        sessionStorage.setItem('currentSchoolName', snap.docs[0].data().schoolName);
+                    }
+                } catch (error) { 
+                    console.error('Error fetching school:', error); 
+                }
+            }
+            if (currentSchool) {
+                await loadAllData();
+            }
+        });
+
+        // Theme messaging
+        window.addEventListener('message', function(event) {
+            if (event.data && event.data.type === 'themeChange') {
+                const theme = event.data.theme;
+                document.body.className = '';
+                if (theme === 'dark') document.body.classList.add('theme-dark');
+                else if (theme === 'green') document.body.classList.add('theme-green');
+                else if (theme === 'grey') document.body.classList.add('theme-grey');
+            }
+        });
+        if (window.parent !== window) { 
+            window.parent.postMessage({ type: 'iframeReady' }, '*'); 
+        }
+    </script>
+</body>
+</html>
