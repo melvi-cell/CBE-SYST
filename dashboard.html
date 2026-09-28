@@ -1,0 +1,1483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard | LearnPro Kenya ERP</title>
+  <link rel="icon" type="image/png" href="favK.png">
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+  <style>
+    /* ----- GLOBAL RESET & VARIABLES ----- */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; transition: background-color 0.3s, color 0.3s; }
+
+    :root {
+      --primary: #0056B3;
+      --primary-dark: #003f87;
+      --primary-light: #e8f0fe;
+      --secondary: #008751;
+      --tertiary: #FFB800;
+      --bg-light: #f0f2f5;
+      --card-bg: white;
+      --text-primary: #1e293b;
+      --text-secondary: #64748b;
+      --border-color: #eef2ff;
+      --hover-bg: rgba(0,86,179,0.05);
+      --shadow: 0 1px 3px rgba(0,0,0,0.06);
+      --shadow-hover: 0 20px 25px -12px rgba(0,63,135,0.15);
+    }
+
+    body.theme-dark {
+      --primary: #3b82f6;
+      --secondary: #10b981;
+      --tertiary: #fbbf24;
+      --bg-light: #0f172a;
+      --card-bg: #1e293b;
+      --text-primary: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --border-color: #334155;
+      --hover-bg: rgba(59,130,246,0.1);
+      --shadow: 0 1px 3px rgba(0,0,0,0.3);
+      --shadow-hover: 0 20px 25px -12px rgba(59,130,246,0.2);
+    }
+
+    body.theme-green {
+      --primary: #008751;
+      --primary-dark: #006d40;
+      --primary-light: #e8f5e9;
+      --secondary: #0056B3;
+      --tertiary: #FFB800;
+      --bg-light: #e8f5e9;
+      --card-bg: white;
+      --border-color: #c8e6c9;
+    }
+
+    body.theme-grey {
+      --primary: #475569;
+      --primary-dark: #334155;
+      --primary-light: #f1f5f9;
+      --secondary: #64748b;
+      --tertiary: #94a3b8;
+      --bg-light: #f1f5f9;
+      --card-bg: #ffffff;
+      --border-color: #e2e8f0;
+    }
+
+    /* ----- LAYOUT & COMPONENTS ----- */
+    .stat-card { 
+      background: var(--card-bg); 
+      border-radius: 20px; 
+      transition: all 0.3s ease; 
+      border: 1px solid var(--border-color); 
+      cursor: pointer; 
+      position: relative;
+      overflow: hidden;
+    }
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 4px;
+      background: var(--primary);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .stat-card:hover::before { opacity: 1; }
+    .stat-card:hover { transform: translateY(-5px); box-shadow: var(--shadow-hover); }
+    
+    .toast { position: fixed; bottom: 24px; right: 24px; background: var(--primary); color: white; padding: 12px 24px; border-radius: 48px; z-index: 1000; font-weight: 600; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+    .toast-error { background: #dc2626; }
+    .toast-success { background: #059669; }
+    
+    .nav-item { transition: all 0.2s ease; cursor: pointer; border-radius: 12px; position: relative; }
+    .nav-item:hover { background: var(--hover-bg); transform: translateX(5px); }
+    .nav-active { background: var(--primary); color: white !important; }
+    .nav-active:hover { background: var(--primary); transform: none; }
+    .nav-active .material-symbols-outlined { color: white !important; }
+    
+    .whatsapp-btn { background: #25D366; transition: all 0.2s; }
+    .whatsapp-btn:hover { background: #128C7E; transform: scale(1.05); }
+    
+    .sidebar-wrapper {
+      position: fixed; left: 0; top: 64px; bottom: 0; width: 280px;
+      display: flex; flex-direction: column;
+      background: var(--card-bg);
+      border-right: 1px solid var(--border-color);
+      overflow: hidden; z-index: 20;
+    }
+    .sidebar-nav { flex: 1; overflow-y: auto; padding: 12px 16px; }
+    .sidebar-nav::-webkit-scrollbar { width: 4px; }
+    .sidebar-nav::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 10px; }
+    .sidebar-footer { padding: 16px; border-top: 1px solid var(--border-color); flex-shrink: 0; }
+    
+    .logo-container { position: relative; cursor: pointer; }
+    .logo-overlay {
+      position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5); border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; transition: opacity 0.2s;
+    }
+    .logo-container:hover .logo-overlay { opacity: 1; }
+    .logo-img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+    
+    /* Top-bar school logo */
+    .school-logo-btn {
+      position: relative; cursor: pointer; overflow: hidden;
+      border: 2px solid var(--border-color); transition: all 0.2s;
+    }
+    .school-logo-btn:hover { border-color: var(--primary); transform: scale(1.03); }
+    .school-logo-btn .overlay-edit {
+      position: absolute; inset: 0;
+      background: rgba(0,0,0,0.45); border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; transition: opacity 0.2s; color: white;
+    }
+    .school-logo-btn:hover .overlay-edit { opacity: 1; }
+
+    /* Developer avatar - clickable to view full size */
+    .dev-avatar-btn {
+      position: relative; cursor: pointer; overflow: hidden;
+      border: 2px solid var(--border-color); transition: all 0.2s;
+      width: 40px; height: 40px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(135deg, #10b981, #059669);
+    }
+    .dev-avatar-btn:hover { border-color: var(--primary); transform: scale(1.08); }
+    .dev-avatar-btn img {
+      width: 100%; height: 100%; object-fit: cover; border-radius: 50%;
+      display: block;
+    }
+    .dev-avatar-btn .dev-avatar-fallback {
+      color: white; font-weight: 800; font-size: 16px;
+      display: none; width: 100%; height: 100%;
+      align-items: center; justify-content: center;
+    }
+    .dev-avatar-btn.error img { display: none; }
+    .dev-avatar-btn.error .dev-avatar-fallback { display: flex; }
+
+    /* Full-screen image lightbox (WhatsApp profile style) */
+    .img-lightbox {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.92);
+      z-index: 9999;
+      display: none;
+      align-items: center; justify-content: center;
+      flex-direction: column;
+      padding: 24px;
+      animation: lbFadeIn 0.2s ease-out;
+    }
+    .img-lightbox.open { display: flex; }
+    @keyframes lbFadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    .img-lightbox-close {
+      position: absolute; top: 20px; right: 24px;
+      width: 44px; height: 44px; border-radius: 50%;
+      background: rgba(255,255,255,0.15); color: white;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; border: none; transition: all 0.2s;
+      z-index: 2;
+    }
+    .img-lightbox-close:hover { background: rgba(255,255,255,0.3); transform: rotate(90deg); }
+
+    .img-lightbox-content {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 20px; max-width: 100%; max-height: 100%;
+      animation: lbZoomIn 0.25s cubic-bezier(0.2, 0.8, 0.3, 1.05);
+    }
+    @keyframes lbZoomIn {
+      from { opacity: 0; transform: scale(0.85); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    .img-lightbox-frame {
+      width: min(80vw, 80vh);
+      height: min(80vw, 80vh);
+      border-radius: 50%;
+      overflow: hidden;
+      background: #1e293b;
+      box-shadow: 0 0 0 6px rgba(255,255,255,0.08), 0 25px 60px rgba(0,0,0,0.6);
+      display: flex; align-items: center; justify-content: center;
+      position: relative;
+    }
+    .img-lightbox-frame img {
+      width: 100%; height: 100%; object-fit: cover;
+      display: block;
+    }
+    .img-lightbox-frame .lightbox-fallback {
+      font-size: 8rem; font-weight: 900; color: white;
+      display: none;
+    }
+    .img-lightbox-frame.error img { display: none; }
+    .img-lightbox-frame.error .lightbox-fallback { display: block; }
+
+    .img-lightbox-name {
+      color: white; font-weight: 700; font-size: 20px;
+      letter-spacing: 0.3px;
+      text-align: center;
+    }
+    .img-lightbox-role {
+      color: rgba(255,255,255,0.65); font-size: 13px;
+      margin-top: -14px;
+      text-align: center;
+    }
+
+    .content-panel { display: none; animation: fadeIn 0.3s ease-out; }
+    .content-panel.active { display: block; }
+    
+    .iframe-container {
+      background: var(--card-bg);
+      border-radius: 24px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border-color);
+    }
+    .module-iframe {
+      width: 100%;
+      height: calc(100vh - 140px);
+      border: none;
+      background: var(--card-bg);
+    }
+    
+    .module-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 12px;
+    }
+    .module-item {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 16px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      color: var(--text-primary);
+    }
+    .module-item:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--shadow-hover);
+      border-color: var(--primary);
+    }
+    .module-item .icon {
+      width: 48px; height: 48px; border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 8px;
+      background: var(--primary-light);
+      color: var(--primary);
+    }
+    .module-item .name { font-size: 12px; font-weight: 600; }
+    .module-item .badge { font-size: 10px; padding: 2px 8px; border-radius: 20px; background: var(--primary-light); color: var(--primary); }
+    
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg-light); border-radius: 10px; }
+    ::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 10px; }
+    
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .animate-fade-in { animation: fadeIn 0.3s ease-out; }
+    
+    @media (max-width: 768px) {
+      .sidebar-wrapper { width: 72px; }
+      .sidebar-wrapper .nav-item span:not(.material-symbols-outlined) { display: none; }
+      .sidebar-wrapper .nav-item { padding: 12px; justify-content: center; }
+      .sidebar-wrapper .logo-container { width: 40px; height: 40px; margin: 0 auto; }
+      .sidebar-wrapper .sidebar-footer { display: none; }
+      .ml-64 { margin-left: 72px; }
+      .module-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+    }
+    
+    .notification-dot {
+      width: 8px; height: 8px; background: #ef4444; border-radius: 50%;
+      display: inline-block;
+      animation: pulse-dot 2s infinite;
+    }
+    @keyframes pulse-dot { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.8); } }
+
+    /* Notification icons rendering fix */
+    .notif-icon .material-symbols-outlined {
+      font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 24;
+      display: block;
+      line-height: 1;
+    }
+
+    /* Top bar button */
+    .topbar-btn {
+      display: flex; align-items: center; gap: 6px;
+      padding: 8px 14px; border-radius: 12px;
+      font-size: 13px; font-weight: 500;
+      transition: all 0.2s; cursor: pointer; border: 1px solid transparent;
+    }
+    .topbar-btn:hover { background: var(--hover-bg); border-color: var(--border-color); }
+
+    /* Theme dropdown */
+    .theme-dd-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px; border-radius: 10px;
+      cursor: pointer; font-size: 13px; font-weight: 500;
+      transition: all 0.15s;
+    }
+    .theme-dd-item:hover { background: var(--hover-bg); }
+    .theme-dd-item .swatch {
+      width: 16px; height: 16px; border-radius: 50%;
+      border: 2px solid rgba(0,0,0,0.08);
+    }
+    .theme-dd-item.active { background: var(--primary-light); color: var(--primary); font-weight: 700; }
+
+    /* Toast-style notifications inside panel */
+    .notif-item {
+      display: flex; gap: 10px; padding: 12px;
+      border-radius: 12px; cursor: pointer;
+      transition: background 0.15s;
+    }
+    .notif-item:hover { background: var(--bg-light); }
+    .notif-icon {
+      width: 36px; height: 36px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body class="bg-[var(--bg-light)]" style="color: var(--text-primary);">
+
+  <!-- ===================================================== -->
+  <!-- TOP BAR                                               -->
+  <!-- ===================================================== -->
+  <div class="shadow-sm fixed top-0 left-0 right-0 z-30" style="background: var(--card-bg); border-bottom: 1px solid var(--border-color);">
+    <div class="flex justify-between items-center px-6 py-2.5">
+
+      <!-- LEFT: School logo + name -->
+      <div class="flex items-center gap-3">
+        <div class="school-logo-btn w-11 h-11 rounded-xl flex items-center justify-center shadow-sm"
+             onclick="document.getElementById('schoolLogoUploadTop').click()"
+             title="Click to upload school logo">
+          <img id="schoolLogoTop" class="hidden w-full h-full object-cover rounded-xl" alt="School Logo">
+          <span id="schoolLogoTopPlaceholder" class="material-symbols-outlined text-white text-2xl"
+                style="background: linear-gradient(135deg, var(--primary), var(--primary-dark)); width:100%; height:100%; display:flex; align-items:center; justify-content:center; border-radius:10px;">
+            school
+          </span>
+          <div class="overlay-edit"><span class="material-symbols-outlined text-sm">edit</span></div>
+        </div>
+        <input type="file" id="schoolLogoUploadTop" accept="image/*" class="hidden" onchange="uploadSchoolLogoTop(this)">
+
+        <div class="hidden md:block">
+          <h1 class="text-base font-black tracking-tight leading-tight" style="color: var(--primary);">LEARNPRO KENYA</h1>
+          <p class="text-[10px] tracking-wider uppercase leading-tight" style="color: var(--text-secondary);">Unified School Management</p>
+        </div>
+        <span id="schoolBadge" class="ml-2 text-xs px-3 py-1.5 rounded-full font-semibold" style="background: var(--primary); color: white;">Loading...</span>
+        <span class="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 hidden lg:inline-block font-semibold">CBE Compliant</span>
+      </div>
+
+      <!-- RIGHT: theme, support, notifications, email, developer avatar, logout -->
+      <div class="flex items-center gap-2">
+
+        <!-- Theme dropdown -->
+        <div class="relative">
+          <button onclick="toggleThemeDropdown(event)" class="topbar-btn" style="color: var(--text-primary); background: var(--bg-light);">
+            <span class="material-symbols-outlined text-sm">palette</span>
+            <span class="hidden md:block">Theme</span>
+            <span class="material-symbols-outlined text-sm">expand_more</span>
+          </button>
+          <div id="themeDropdown" class="absolute right-0 mt-2 w-52 rounded-xl shadow-lg hidden z-50 animate-fade-in"
+               style="background: var(--card-bg); border: 1px solid var(--border-color);">
+            <div class="p-2">
+              <div class="theme-dd-item" data-theme="light" onclick="setTheme('light'); closeThemeDropdown();">
+                <span class="swatch" style="background:#0056B3;"></span>
+                <span>Light Blue (Default)</span>
+                <span class="ml-auto material-symbols-outlined text-sm check-icon hidden">check</span>
+              </div>
+              <div class="theme-dd-item" data-theme="green" onclick="setTheme('green'); closeThemeDropdown();">
+                <span class="swatch" style="background:#008751;"></span>
+                <span>Kenyan Green</span>
+                <span class="ml-auto material-symbols-outlined text-sm check-icon hidden">check</span>
+              </div>
+              <div class="theme-dd-item" data-theme="dark" onclick="setTheme('dark'); closeThemeDropdown();">
+                <span class="swatch" style="background:#1e293b;"></span>
+                <span>Dark Mode</span>
+                <span class="ml-auto material-symbols-outlined text-sm check-icon hidden">check</span>
+              </div>
+              <div class="theme-dd-item" data-theme="grey" onclick="setTheme('grey'); closeThemeDropdown();">
+                <span class="swatch" style="background:#475569;"></span>
+                <span>Slate Grey</span>
+                <span class="ml-auto material-symbols-outlined text-sm check-icon hidden">check</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Support (WhatsApp) -->
+        <a href="https://wa.me/254115094893?text=Hello%20LearnPro%20Support%2C%20I%20need%20help%20with%20my%20dashboard."
+           target="_blank" rel="noopener"
+           class="topbar-btn" style="color: #25D366; background: rgba(37,211,102,0.1);" title="Chat with support on WhatsApp">
+          <span class="material-symbols-outlined text-sm">support_agent</span>
+          <span class="hidden md:block">Support</span>
+        </a>
+
+        <!-- Notifications -->
+        <div class="relative">
+          <button onclick="toggleNotifications(event)" class="topbar-btn relative" style="background: var(--bg-light); color: var(--text-primary);">
+            <span class="material-symbols-outlined text-sm">notifications</span>
+            <span id="notifDot" class="notification-dot absolute top-2 right-2"></span>
+          </button>
+          <div id="notificationsPanel" class="absolute right-0 mt-2 w-96 rounded-xl shadow-lg hidden z-50 animate-fade-in"
+               style="background: var(--card-bg); border: 1px solid var(--border-color);">
+            <div class="p-4 border-b flex justify-between items-center" style="border-color: var(--border-color);">
+              <div>
+                <h4 class="font-bold text-sm" style="color: var(--text-primary);">Notifications</h4>
+                <p class="text-xs" style="color: var(--text-secondary);" id="notifSubtitle">Live activity from your school</p>
+              </div>
+              <button onclick="loadNotifications()" class="text-xs font-semibold" style="color: var(--primary);">↻ Refresh</button>
+            </div>
+            <div id="notificationsList" class="max-h-96 overflow-y-auto p-2 space-y-1">
+              <div class="p-4 text-center text-xs" style="color: var(--text-secondary);">Loading notifications...</div>
+            </div>
+            <div class="p-3 border-t text-center" style="border-color: var(--border-color);">
+              <button onclick="markNotificationsRead()" class="text-xs font-semibold" style="color: var(--primary);">Mark all as read</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Admin Email (moved before developer avatar) -->
+        <span id="adminEmail" class="text-sm hidden md:block" style="color: var(--text-secondary);">Admin</span>
+
+        <!-- Developer avatar (PREDEFINED — NOT UPLOADABLE — CLICKABLE) -->
+        <div class="dev-avatar-btn" id="devAvatarBtn" onclick="openDeveloperImage()" title="Click to view developer profile">
+          <img id="devAvatarImg" src="IMAGE AD.jpeg" alt="Developer">
+          <span class="dev-avatar-fallback">D</span>
+        </div>
+
+        <!-- Logout -->
+        <button onclick="logout()" class="topbar-btn" style="color: #dc2626; background: rgba(220,38,38,0.06);">
+          <span class="material-symbols-outlined text-sm">logout</span>
+          <span class="text-sm hidden md:block">Logout</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================== -->
+  <!-- DEVELOPER IMAGE LIGHTBOX (WhatsApp profile style)     -->
+  <!-- ===================================================== -->
+  <div id="developerLightbox" class="img-lightbox" onclick="if(event.target === this) closeDeveloperImage()">
+    <button class="img-lightbox-close" onclick="closeDeveloperImage()" title="Close">
+      <span class="material-symbols-outlined">close</span>
+    </button>
+    <div class="img-lightbox-content">
+      <div class="img-lightbox-frame" id="lightboxFrame">
+        <img id="lightboxImg" src="IMAGE AD.jpeg" alt="Developer">
+        <span class="lightbox-fallback">D</span>
+      </div>
+      <div class="img-lightbox-name">Melvin Musee</div>
+      <div class="img-lightbox-role">Developer — LearnPro Kenya ERP</div>
+    </div>
+  </div>
+
+  <!-- ===================================================== -->
+  <!-- SIDEBAR                                               -->
+  <!-- ===================================================== -->
+  <div class="flex pt-[64px] min-h-screen">
+    <div class="sidebar-wrapper">
+      <div class="sidebar-nav">
+        <div class="rounded-xl p-4 mb-4 text-center" style="background: var(--hover-bg);">
+          <div class="logo-container w-16 h-16 rounded-full mx-auto mb-2 flex items-center justify-center" style="background: var(--primary);" onclick="document.getElementById('logoUpload').click()">
+            <img id="schoolLogo" class="logo-img hidden" alt="Logo">
+            <span id="logoPlaceholder" class="text-2xl font-bold text-white">AD</span>
+            <div class="logo-overlay"><span class="material-symbols-outlined text-white text-sm">edit</span></div>
+          </div>
+          <input type="file" id="logoUpload" accept="image/*" class="hidden" onchange="uploadSchoolLogo(this)">
+          <h4 class="font-bold text-sm" id="sidebarAdminName" style="color: var(--text-primary);">Administrator</h4>
+          <p class="text-xs" style="color: var(--text-secondary);">School Admin</p>
+        </div>
+
+        <!-- CORE -->
+        <div class="text-xs font-semibold uppercase tracking-wider mb-2" style="color: var(--text-secondary);">Core</div>
+        <nav class="space-y-0.5" id="sidebarNav">
+          <div data-page="dashboard" class="nav-item nav-active flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm" onclick="showPanel('dashboard')">
+            <span class="material-symbols-outlined text-sm" style="color: var(--text-secondary);">dashboard</span><span class="font-medium">Dashboard</span>
+          </div>
+          <div data-page="knec_registration" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm" style="color: var(--text-secondary);" onclick="showPanel('knec_registration')">
+            <span class="material-symbols-outlined text-sm">how_to_reg</span><span class="font-medium">KNEC Portal</span>
+          </div>
+          <div data-page="student_management" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm" style="color: var(--text-secondary);" onclick="showPanel('student_management')">
+            <span class="material-symbols-outlined text-sm">group</span><span class="font-medium">Student Management</span>
+          </div>
+          <div data-page="teacher_management" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm" style="color: var(--text-secondary);" onclick="showPanel('teacher_management')">
+            <span class="material-symbols-outlined text-sm">school</span><span class="font-medium">Teacher Management</span>
+          </div>
+          <div data-page="fee_management" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm" style="color: var(--text-secondary);" onclick="showPanel('fee_management')">
+            <span class="material-symbols-outlined text-sm">payments</span><span class="font-medium">Fee Management</span>
+          </div>
+          <div data-page="exam_management" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm" style="color: var(--text-secondary);" onclick="showPanel('exam_management')">
+            <span class="material-symbols-outlined text-sm">assignment_turned_in</span><span class="font-medium">Exam Management</span>
+          </div>
+          <div data-page="accounting" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm" style="color: var(--text-secondary);" onclick="showPanel('accounting')">
+            <span class="material-symbols-outlined text-sm">account_balance</span><span class="font-medium">Accounting</span>
+          </div>
+          <div data-page="hr_management" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm" style="color: var(--text-secondary);" onclick="showPanel('hr_management')">
+            <span class="material-symbols-outlined text-sm">badge</span><span class="font-medium">HR Management</span>
+          </div>
+          <div data-page="payroll" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm" style="color: var(--text-secondary);" onclick="showPanel('payroll')">
+            <span class="material-symbols-outlined text-sm">payments</span><span class="font-medium">Payroll</span>
+          </div>
+          <div data-page="procurement" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm" style="color: var(--text-secondary);" onclick="showPanel('procurement')">
+            <span class="material-symbols-outlined text-sm">shopping_cart</span><span class="font-medium">Procurement</span>
+          </div>
+        </nav>
+
+        <!-- ACADEMIC -->
+        <div class="text-xs font-semibold uppercase tracking-wider mt-4 mb-2" style="color: var(--text-secondary);">Academic</div>
+        <nav class="space-y-0.5">
+          <div data-page="CBE_analytics" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm" style="color: var(--text-secondary);" onclick="showPanel('CBE_analytics')">
+            <span class="material-symbols-outlined text-sm">analytics</span><span class="font-medium">CBE Analytics</span>
+          </div>
+          <div data-page="class_management" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm" style="color: var(--text-secondary);" onclick="showPanel('class_management')">
+            <span class="material-symbols-outlined text-sm">class</span><span class="font-medium">Class Management</span>
+          </div>
+          <div data-page="academic_timetable" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm" style="color: var(--text-secondary);" onclick="showPanel('academic_timetable')">
+            <span class="material-symbols-outlined text-sm">calendar_month</span><span class="font-medium">Timetable</span>
+          </div>
+          <div data-page="report_card" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm" style="color: var(--text-secondary);" onclick="showPanel('report_card')">
+            <span class="material-symbols-outlined text-sm">description</span><span class="font-medium">Report Cards</span>
+          </div>
+          <div data-page="elearning_management" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm" style="color: var(--text-secondary);" onclick="showPanel('elearning_management')">
+            <span class="material-symbols-outlined text-sm">computer</span><span class="font-medium">E-Learning</span>
+          </div>
+        </nav>
+
+        <!-- CO-CURRICULAR -->
+        <div class="text-xs font-semibold uppercase tracking-wider mt-4 mb-2" style="color: var(--text-secondary);">Co-Curricular</div>
+        <nav class="space-y-0.5">
+          <div data-page="games_and_sports" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm" style="color: var(--text-secondary);" onclick="showPanel('games_and_sports')">
+            <span class="material-symbols-outlined text-sm">sports_soccer</span><span class="font-medium">Games & Sports</span>
+          </div>
+          <div data-page="trips_management" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm" style="color: var(--text-secondary);" onclick="showPanel('trips_management')">
+            <span class="material-symbols-outlined text-sm">luggage</span><span class="font-medium">Trips</span>
+          </div>
+          <div data-page="discipline_management" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm" style="color: var(--text-secondary);" onclick="showPanel('discipline_management')">
+            <span class="material-symbols-outlined text-sm">gavel</span><span class="font-medium">Discipline</span>
+          </div>
+        </nav>
+
+        <!-- OPERATIONS -->
+        <div class="text-xs font-semibold uppercase tracking-wider mt-4 mb-2" style="color: var(--text-secondary);">Operations</div>
+        <nav class="space-y-0.5">
+          <div data-page="cafeteria_management" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm" style="color: var(--text-secondary);" onclick="showPanel('cafeteria_management')">
+            <span class="material-symbols-outlined text-sm">restaurant</span><span class="font-medium">Cafeteria</span>
+          </div>
+          <div data-page="transport_management" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm" style="color: var(--text-secondary);" onclick="showPanel('transport_management')">
+            <span class="material-symbols-outlined text-sm">directions_bus</span><span class="font-medium">Transport</span>
+          </div>
+          <div data-page="hostel_management" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm" style="color: var(--text-secondary);" onclick="showPanel('hostel_management')">
+            <span class="material-symbols-outlined text-sm">home</span><span class="font-medium">Hostel</span>
+          </div>
+          <div data-page="inventory_management" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm" style="color: var(--text-secondary);" onclick="showPanel('inventory_management')">
+            <span class="material-symbols-outlined text-sm">inventory_2</span><span class="font-medium">Inventory</span>
+          </div>
+          <div data-page="library_management" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm" style="color: var(--text-secondary);" onclick="showPanel('library_management')">
+            <span class="material-symbols-outlined text-sm">menu_book</span><span class="font-medium">Library</span>
+          </div>
+          <div data-page="health_records" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm" style="color: var(--text-secondary);" onclick="showPanel('health_records')">
+            <span class="material-symbols-outlined text-sm">health_and_safety</span><span class="font-medium">Health</span>
+          </div>
+          <div data-page="staff_attendance" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm" style="color: var(--text-secondary);" onclick="showPanel('staff_attendance')">
+            <span class="material-symbols-outlined text-sm">event_available</span><span class="font-medium">Staff Attendance</span>
+          </div>
+          <div data-page="online_payments" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm" style="color: var(--text-secondary);" onclick="showPanel('online_payments')">
+            <span class="material-symbols-outlined text-sm">payments</span><span class="font-medium">Online Payments</span>
+          </div>
+          <div data-page="asset_management" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm" style="color: var(--text-secondary);" onclick="showPanel('asset_management')">
+            <span class="material-symbols-outlined text-sm">inventory</span><span class="font-medium">Asset Management</span>
+          </div>
+          <div data-page="online_admissions" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm" style="color: var(--text-secondary);" onclick="showPanel('online_admissions')">
+            <span class="material-symbols-outlined text-sm">how_to_reg</span><span class="font-medium">Online Admissions</span>
+          </div>
+        </nav>
+
+        <!-- COMMUNICATION -->
+        <div class="text-xs font-semibold uppercase tracking-wider mt-4 mb-2" style="color: var(--text-secondary);">Communication</div>
+        <nav class="space-y-0.5">
+          <div data-page="message_center" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm" style="color: var(--text-secondary);" onclick="showPanel('message_center')">
+            <span class="material-symbols-outlined text-sm">chat</span><span class="font-medium">Message Center</span>
+          </div>
+          <div data-page="school_announcements" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm" style="color: var(--text-secondary);" onclick="showPanel('school_announcements')">
+            <span class="material-symbols-outlined text-sm">campaign</span><span class="font-medium">Announcements</span>
+          </div>
+          <div data-page="sms_communication" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm" style="color: var(--text-secondary);" onclick="showPanel('sms_communication')">
+            <span class="material-symbols-outlined text-sm">sms</span><span class="font-medium">SMS</span>
+          </div>
+        </nav>
+
+        <!-- PORTALS -->
+        <div class="text-xs font-semibold uppercase tracking-wider mt-4 mb-2" style="color: var(--text-secondary);">Portals</div>
+        <nav class="space-y-0.5">
+          <div data-page="teacher_dashboard" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm" style="color: var(--text-secondary);" onclick="showPanel('teacher_dashboard')">
+            <span class="material-symbols-outlined text-sm">badge</span><span class="font-medium">Teacher View</span>
+          </div>
+          <div data-page="parent_portal" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm" style="color: var(--text-secondary);" onclick="showPanel('parent_portal')">
+            <span class="material-symbols-outlined text-sm">family_history</span><span class="font-medium">Parent Portal</span>
+          </div>
+          <div data-page="alumni_management" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm" style="color: var(--text-secondary);" onclick="showPanel('alumni_management')">
+            <span class="material-symbols-outlined text-sm">emoji_events</span><span class="font-medium">Alumni</span>
+          </div>
+        </nav>
+
+        <!-- SYSTEM -->
+        <div class="text-xs font-semibold uppercase tracking-wider mt-4 mb-2" style="color: var(--text-secondary);">System</div>
+        <nav class="space-y-0.5">
+          <div data-page="role_permission_management" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm" style="color: var(--text-secondary);" onclick="showPanel('role_permission_management')">
+            <span class="material-symbols-outlined text-sm">lock</span><span class="font-medium">Roles & Permissions</span>
+          </div>
+          <div data-page="audit_logs" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm" style="color: var(--text-secondary);" onclick="showPanel('audit_logs')">
+            <span class="material-symbols-outlined text-sm">history</span><span class="font-medium">Audit Logs</span>
+          </div>
+        </nav>
+      </div>
+      <div class="sidebar-footer">
+        <div class="rounded-xl p-3 text-center" style="background: var(--bg-light);">
+          <p class="text-xs" style="color: var(--text-secondary);">CBE Compliant ERP</p>
+          <p class="text-[10px] font-bold mt-1" style="color: var(--primary);">v3.0</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="ml-64 flex-1 p-6 overflow-y-auto" style="max-height: calc(100vh - 64px);">
+
+      <!-- DASHBOARD PANEL -->
+      <div id="dashboardPanel" class="content-panel active">
+        <div class="rounded-2xl p-6 mb-8 text-white" style="background: linear-gradient(135deg, var(--primary), var(--primary-dark));">
+          <div class="flex justify-between items-start flex-wrap gap-4">
+            <div>
+              <h2 class="text-2xl font-bold" id="welcomeMsg">Welcome back, Admin!</h2>
+              <p class="text-white/80 mt-1" id="schoolNameMsg">School Name</p>
+              <div class="flex gap-3 mt-3">
+                <span class="text-xs px-3 py-1 bg-white/20 rounded-full">CBE Compliant</span>
+                <span class="text-xs px-3 py-1 bg-white/20 rounded-full">Term 2, 2024</span>
+              </div>
+            </div>
+            <div class="text-right">
+              <p class="text-3xl font-bold" id="currentDate"></p>
+              <p class="text-sm text-white/70" id="currentTime"></p>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+          <div class="stat-card p-5" onclick="showPanel('student_management')">
+            <div class="flex justify-between items-start">
+              <div><p class="text-xs uppercase tracking-wider" style="color: var(--text-secondary);">Total Students</p><p class="text-3xl font-bold mt-1" id="totalStudents" style="color: var(--text-primary);">0</p></div>
+              <div class="w-12 h-12 rounded-2xl flex items-center justify-center" style="background: rgba(0,86,179,0.1);"><span class="material-symbols-outlined text-2xl" style="color: var(--primary);">groups</span></div>
+            </div>
+            <div class="mt-3 flex items-center gap-2"><span class="text-xs font-semibold text-green-600" id="studentGrowth">+0%</span><span class="text-xs" style="color: var(--text-secondary);">vs last month</span></div>
+          </div>
+          <div class="stat-card p-5" onclick="showPanel('teacher_management')">
+            <div class="flex justify-between items-start"><div><p class="text-xs uppercase tracking-wider" style="color: var(--text-secondary);">Total Teachers</p><p class="text-3xl font-bold mt-1" id="totalTeachers" style="color: var(--text-primary);">0</p></div><div class="w-12 h-12 rounded-2xl flex items-center justify-center" style="background: rgba(0,135,81,0.1);"><span class="material-symbols-outlined text-2xl" style="color: var(--secondary);">school</span></div></div>
+            <div class="mt-3 flex items-center gap-2"><span class="text-xs font-semibold text-green-600">100%</span><span class="text-xs" style="color: var(--text-secondary);">staff attendance</span></div>
+          </div>
+          <div class="stat-card p-5" onclick="showPanel('exam_management')">
+            <div class="flex justify-between items-start"><div><p class="text-xs uppercase tracking-wider" style="color: var(--text-secondary);">Pass Rate</p><p class="text-3xl font-bold mt-1" id="passRate" style="color: var(--text-primary);">0%</p></div><div class="w-12 h-12 rounded-2xl flex items-center justify-center" style="background: rgba(255,184,0,0.1);"><span class="material-symbols-outlined text-2xl" style="color: var(--tertiary);">check_circle</span></div></div>
+            <div class="mt-3 flex items-center gap-2"><span class="text-xs font-semibold text-green-600">↑ 5%</span><span class="text-xs" style="color: var(--text-secondary);">improvement</span></div>
+          </div>
+          <div class="stat-card p-5" onclick="showPanel('fee_management')">
+            <div class="flex justify-between items-start"><div><p class="text-xs uppercase tracking-wider" style="color: var(--text-secondary);">Fee Collection</p><p class="text-3xl font-bold mt-1" id="feeCollected" style="color: var(--text-primary);">KSh 0</p></div><div class="w-12 h-12 rounded-2xl flex items-center justify-center" style="background: rgba(0,86,179,0.1);"><span class="material-symbols-outlined text-2xl" style="color: var(--primary);">payments</span></div></div>
+            <div class="mt-3 flex items-center gap-2"><div class="w-full bg-gray-200 rounded-full h-1.5"><div class="h-1.5 rounded-full bg-green-500" style="width: 72%;"></div></div><span class="text-xs font-semibold" style="color: var(--text-secondary);">72%</span></div>
+          </div>
+        </div>
+
+        <div class="grid lg:grid-cols-2 gap-6 mb-8">
+          <div class="stat-card p-5"><div class="flex justify-between items-center mb-4"><h3 class="font-bold" style="color: var(--text-primary);">📈 Enrollment Trend</h3><button onclick="refreshChart('enrollmentChart')" class="text-xs" style="color: var(--primary);">↻ Refresh</button></div><canvas id="enrollmentChart" height="200" style="max-height: 200px;"></canvas></div>
+          <div class="stat-card p-5"><div class="flex justify-between items-center mb-4"><h3 class="font-bold" style="color: var(--text-primary);">💰 Fee Collection Overview</h3><button onclick="refreshChart('feeChart')" class="text-xs" style="color: var(--primary);">↻ Refresh</button></div><canvas id="feeChart" height="200" style="max-height: 200px;"></canvas></div>
+        </div>
+
+        <div class="mb-8">
+          <div class="flex justify-between items-center mb-4"><h3 class="font-bold text-lg" style="color: var(--text-primary);">🚀 Quick Access Modules</h3><span class="text-xs" style="color: var(--text-secondary);">42 Modules Available</span></div>
+          <div class="module-grid" id="quickModules">
+            <div class="module-item" onclick="showPanel('student_management')"><div class="icon"><span class="material-symbols-outlined">group</span></div><div class="name">Students</div></div>
+            <div class="module-item" onclick="showPanel('teacher_management')"><div class="icon"><span class="material-symbols-outlined">school</span></div><div class="name">Teachers</div></div>
+            <div class="module-item" onclick="showPanel('fee_management')"><div class="icon"><span class="material-symbols-outlined">payments</span></div><div class="name">Fees</div></div>
+            <div class="module-item" onclick="showPanel('exam_management')"><div class="icon"><span class="material-symbols-outlined">assignment_turned_in</span></div><div class="name">Exams</div></div>
+            <div class="module-item" onclick="showPanel('CBE_analytics')"><div class="icon"><span class="material-symbols-outlined">analytics</span></div><div class="name">Analytics</div></div>
+            <div class="module-item" onclick="showPanel('academic_timetable')"><div class="icon"><span class="material-symbols-outlined">calendar_month</span></div><div class="name">Timetable</div></div>
+            <div class="module-item" onclick="showPanel('games_and_sports')"><div class="icon"><span class="material-symbols-outlined">sports_soccer</span></div><div class="name">Sports</div></div>
+            <div class="module-item" onclick="showPanel('cafeteria_management')"><div class="icon"><span class="material-symbols-outlined">restaurant</span></div><div class="name">Cafeteria</div></div>
+            <div class="module-item" onclick="showPanel('elearning_management')"><div class="icon"><span class="material-symbols-outlined">computer</span></div><div class="name">E-Learning</div></div>
+            <div class="module-item" onclick="showPanel('message_center')"><div class="icon"><span class="material-symbols-outlined">chat</span></div><div class="name">Messages</div></div>
+            <div class="module-item" onclick="showPanel('knec_registration')"><div class="icon"><span class="material-symbols-outlined">how_to_reg</span></div><div class="name">KNEC Portal</div><span class="badge">Important</span></div>
+            <div class="module-item" onclick="showPanel('report_card')"><div class="icon"><span class="material-symbols-outlined">description</span></div><div class="name">Report Cards</div></div>
+            <div class="module-item" onclick="showPanel('accounting')"><div class="icon"><span class="material-symbols-outlined">account_balance</span></div><div class="name">Accounting</div></div>
+            <div class="module-item" onclick="showPanel('hr_management')"><div class="icon"><span class="material-symbols-outlined">badge</span></div><div class="name">HR</div></div>
+            <div class="module-item" onclick="showPanel('payroll')"><div class="icon"><span class="material-symbols-outlined">payments</span></div><div class="name">Payroll</div></div>
+            <div class="module-item" onclick="showPanel('online_payments')"><div class="icon"><span class="material-symbols-outlined">payments</span></div><div class="name">Online Payments</div></div>
+          </div>
+        </div>
+
+        <div class="stat-card p-5">
+          <div class="flex justify-between items-center mb-4"><h3 class="text-xl font-bold" style="color: var(--text-primary);">🔄 Recent Activity</h3><button class="text-sm" style="color: var(--primary);" onclick="loadRecentActivity()">Refresh →</button></div>
+          <div id="recentActivity" class="space-y-3"><div class="text-center py-8" style="color: var(--text-secondary);">Loading...</div></div>
+        </div>
+      </div>
+
+      <!-- ALL MODULE PANELS -->
+      <div id="knec_registrationPanel" class="content-panel"><div class="iframe-container"><iframe id="iframe_knec" src="knec_registration.html" class="module-iframe"></iframe></div></div>
+      <div id="student_managementPanel" class="content-panel"><div class="iframe-container"><iframe id="iframe_student" src="student_management.html" class="module-iframe"></iframe></div></div>
+      <div id="teacher_managementPanel" class="content-panel"><div class="iframe-container"><iframe id="iframe_teacher" src="teacher_management.html" class="module-iframe"></iframe></div></div>
+      <div id="fee_managementPanel" class="content-panel"><div class="iframe-container"><iframe id="iframe_fee" src="fee_management.html" class="module-iframe"></iframe></div></div>
+      <div id="exam_managementPanel" class="content-panel"><div class="iframe-container"><iframe id="iframe_exam" src="exam_management.html" class="module-iframe"></iframe></div></div>
+      <div id="CBE_analyticsPanel" class="content-panel"><div class="iframe-container"><iframe id="iframe_analytics" src="CBE_analytics.html" class="module-iframe"></iframe></div></div>
+      <div id="class_managementPanel" class="content-panel"><div class="iframe-container"><iframe id="iframe_class" src="class_management.html" class="module-iframe"></iframe></div></div>
+      <div id="academic_timetablePanel" class="content-panel"><div class="iframe-container"><iframe id="iframe_timetable" src="academic_timetable.html" class="module-iframe"></iframe></div></div>
+      <div id="games_and_sportsPanel" class="content-panel"><div class="iframe-container"><iframe id="iframe_games" src="games_and_sports.html" class="module-iframe"></iframe></div></div>
+      <div id="trips_managementPanel" class="content-panel"><div class="iframe-container"><iframe id="iframe_trips" src="trips_management.html" class="module-iframe"></iframe></div></div>
+      <div id="discipline_managementPanel" class="content-panel"><div class="iframe-container"><iframe id="iframe_discipline" src="discipline_management.html" class="module-iframe"></iframe></div></div>
+      <div id="cafeteria_managementPanel" class="content-panel"><div class="iframe-container"><iframe id="iframe_cafeteria" src="cafeteria_management.html" class="module-iframe"></iframe></div></div>
+      <div id="transport_managementPanel" class="content-panel"><div class="iframe-container"><iframe id="iframe_transport" src="transport_management.html" class="module-iframe"></iframe></div></div>
+      <div id="hostel_managementPanel" class="content-panel"><div class="iframe-container"><iframe id="iframe_hostel" src="hostel_management.html" class="module-iframe"></iframe></div></div>
+      <div id="inventory_managementPanel" class="content-panel"><div class="iframe-container"><iframe id="iframe_inventory" src="inventory_management.html" class="module-iframe"></iframe></div></div>
+      <div id="library_managementPanel" class="content-panel"><div class="iframe-container"><iframe id="iframe_library" src="library_management.html" class="module-iframe"></iframe></div></div>
+      <div id="health_recordsPanel" class="content-panel"><div class="iframe-container"><iframe id="iframe_health" src="health_records.html" class="module-iframe"></iframe></div></div>
+      <div id="staff_attendancePanel" class="content-panel"><div class="iframe-container"><iframe id="iframe_attendance" src="staff_attendance.html" class="module-iframe"></iframe></div></div>
+      <div id="knec_resultsPanel" class="content-panel"><div class="iframe-container"><iframe id="iframe_knec_results" src="knec_results.html" class="module-iframe"></iframe></div></div>
+      <div id="sms_communicationPanel" class="content-panel"><div class="iframe-container"><iframe id="iframe_sms" src="sms_communication.html" class="module-iframe"></iframe></div></div>
+      <div id="alumni_managementPanel" class="content-panel"><div class="iframe-container"><iframe id="iframe_alumni" src="alumni_management.html" class="module-iframe"></iframe></div></div>
+      <div id="elearning_managementPanel" class="content-panel"><div class="iframe-container"><iframe id="iframe_elearning" src="elearning_management.html" class="module-iframe"></iframe></div></div>
+      <div id="message_centerPanel" class="content-panel"><div class="iframe-container"><iframe id="iframe_message" src="message_center.html" class="module-iframe"></iframe></div></div>
+      <div id="school_announcementsPanel" class="content-panel"><div class="iframe-container"><iframe id="iframe_announcement" src="school_announcements.html" class="module-iframe"></iframe></div></div>
+      <div id="teacher_dashboardPanel" class="content-panel"><div class="iframe-container"><iframe id="iframe_teacherdash" src="teacher_dashboard.html" class="module-iframe"></iframe></div></div>
+      <div id="parent_portalPanel" class="content-panel"><div class="iframe-container"><iframe id="iframe_parentportal" src="parent_portal.html" class="module-iframe"></iframe></div></div>
+      <div id="report_cardPanel" class="content-panel"><div class="iframe-container"><iframe id="iframe_reportcard" src="report_card.html" class="module-iframe"></iframe></div></div>
+      <div id="accountingPanel" class="content-panel"><div class="iframe-container"><iframe id="iframe_accounting" src="accounting.html" class="module-iframe"></iframe></div></div>
+      <div id="hr_managementPanel" class="content-panel"><div class="iframe-container"><iframe id="iframe_hr" src="hr_management.html" class="module-iframe"></iframe></div></div>
+      <div id="payrollPanel" class="content-panel"><div class="iframe-container"><iframe id="iframe_payroll" src="payroll.html" class="module-iframe"></iframe></div></div>
+      <div id="procurementPanel" class="content-panel"><div class="iframe-container"><iframe id="iframe_procurement" src="procurement.html" class="module-iframe"></iframe></div></div>
+      <div id="online_paymentsPanel" class="content-panel"><div class="iframe-container"><iframe id="iframe_onlinepayments" src="online_payments.html" class="module-iframe"></iframe></div></div>
+      <div id="asset_managementPanel" class="content-panel"><div class="iframe-container"><iframe id="iframe_asset" src="asset_management.html" class="module-iframe"></iframe></div></div>
+      <div id="online_admissionsPanel" class="content-panel"><div class="iframe-container"><iframe id="iframe_admissions" src="online_admissions.html" class="module-iframe"></iframe></div></div>
+      <div id="role_permission_managementPanel" class="content-panel"><div class="iframe-container"><iframe id="iframe_roles" src="role_permission_management.html" class="module-iframe"></iframe></div></div>
+      <div id="audit_logsPanel" class="content-panel"><div class="iframe-container"><iframe id="iframe_audit" src="audit_logs.html" class="module-iframe"></iframe></div></div>
+    </div>
+  </div>
+
+  <!-- Floating WhatsApp -->
+  <a href="https://wa.me/254115094893?text=Hello%20LearnPro%20Support"
+     target="_blank" rel="noopener"
+     class="fixed bottom-6 right-6 z-50 whatsapp-btn p-3 rounded-full shadow-lg flex items-center justify-center"
+     style="background: #25D366;" title="Chat with us on WhatsApp">
+    <span class="material-symbols-outlined text-white">chat</span>
+  </a>
+
+  <div id="toast" style="display:none" class="toast"></div>
+
+  <script>
+    // ==========================================
+    // FIREBASE CONFIG
+    // ==========================================
+    const firebaseConfig = {
+      apiKey: "AIzaSyA4cm7chJXz90yOLWPtbdIW8KlEozG1lxo",
+      authDomain: "learnpro-kenya-erp.firebaseapp.com",
+      projectId: "learnpro-kenya-erp",
+      storageBucket: "learnpro-kenya-erp.firebasestorage.app",
+      messagingSenderId: "327168081514",
+      appId: "1:327168081514:web:13cdc8b827fa76d95a9413"
+    };
+    
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+    const storage = firebase.storage();
+    let currentSchoolCode = null;
+    let enrollmentChart, feeChart;
+
+    // ==========================================
+    // TOAST
+    // ==========================================
+    function showToast(msg, isErr) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.className = `toast ${isErr ? 'toast-error' : 'toast-success'}`;
+      t.style.display = 'block';
+      setTimeout(() => t.style.display = 'none', 3000);
+    }
+
+    // ==========================================
+    // DEVELOPER AVATAR + LIGHTBOX
+    // Robust local-image loading with visible fallback
+    // ==========================================
+    const DEVELOPER_IMAGE_CANDIDATES = [
+      'IMAGE AD.jpeg',
+      'IMAGE AD.jpg',
+      'IMAGE AD.png',
+      'developer.jpeg',
+      'developer.jpg',
+      'developer.png'
+    ];
+
+    function setDeveloperFallback() {
+      const btn = document.getElementById('devAvatarBtn');
+      const frame = document.getElementById('lightboxFrame');
+      if (btn) btn.classList.add('error');
+      if (frame) frame.classList.add('error');
+    }
+
+    function loadDeveloperAvatar() {
+      const img = document.getElementById('devAvatarImg');
+      const lightboxImg = document.getElementById('lightboxImg');
+      if (!img) return;
+
+      let index = 0;
+
+      const tryNext = () => {
+        if (index >= DEVELOPER_IMAGE_CANDIDATES.length) {
+          setDeveloperFallback();
+          return;
+        }
+
+        const src = DEVELOPER_IMAGE_CANDIDATES[index++];
+        const tester = new Image();
+
+        tester.onload = () => {
+          img.src = src;
+          img.onload = () => {
+            document.getElementById('devAvatarBtn')?.classList.remove('error');
+          };
+
+          if (lightboxImg) {
+            lightboxImg.src = src;
+            lightboxImg.onload = () => {
+              document.getElementById('lightboxFrame')?.classList.remove('error');
+            };
+          }
+        };
+
+        tester.onerror = tryNext;
+        tester.src = src + (src.includes('?') ? '&' : '?') + 'v=' + Date.now();
+      };
+
+      tryNext();
+    }
+
+    function openDeveloperImage() {
+      const lb = document.getElementById('developerLightbox');
+      if (!lb) return;
+
+      const avatar = document.getElementById('devAvatarImg');
+      const lightboxImg = document.getElementById('lightboxImg');
+
+      if (avatar?.src && !document.getElementById('devAvatarBtn')?.classList.contains('error')) {
+        if (lightboxImg) lightboxImg.src = avatar.src;
+      }
+
+      lb.classList.add('open');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeDeveloperImage() {
+      const lb = document.getElementById('developerLightbox');
+      if (lb) {
+        lb.classList.remove('open');
+        document.body.style.overflow = '';
+      }
+    }
+
+    // ESC key closes lightbox
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        const lb = document.getElementById('developerLightbox');
+        if (lb && lb.classList.contains('open')) closeDeveloperImage();
+      }
+    });
+
+    // ==========================================
+    // THEME HANDLING
+    // ==========================================
+    function sendThemeToIframes(theme) {
+      document.querySelectorAll('.module-iframe').forEach(iframe => {
+        if (iframe.contentWindow) {
+          iframe.contentWindow.postMessage({ type: 'themeChange', theme: theme }, '*');
+        }
+      });
+    }
+
+    function setTheme(theme) {
+      document.body.classList.remove('theme-dark', 'theme-green', 'theme-grey');
+      if (theme === 'dark') document.body.classList.add('theme-dark');
+      else if (theme === 'green') document.body.classList.add('theme-green');
+      else if (theme === 'grey') document.body.classList.add('theme-grey');
+      localStorage.setItem('learnpro_theme', theme);
+      
+      document.querySelectorAll('.theme-dd-item').forEach(item => {
+        const itemTheme = item.getAttribute('data-theme');
+        const checkIcon = item.querySelector('.check-icon');
+        if (itemTheme === theme) {
+          item.classList.add('active');
+          if (checkIcon) checkIcon.classList.remove('hidden');
+        } else {
+          item.classList.remove('active');
+          if (checkIcon) checkIcon.classList.add('hidden');
+        }
+      });
+      
+      sendThemeToIframes(theme);
+    }
+
+    function toggleThemeDropdown(e) {
+      e.stopPropagation();
+      document.getElementById('themeDropdown').classList.toggle('hidden');
+      document.getElementById('notificationsPanel').classList.add('hidden');
+    }
+    function closeThemeDropdown() {
+      document.getElementById('themeDropdown').classList.add('hidden');
+    }
+
+    // ==========================================
+    // NOTIFICATIONS — Live data + read filter
+    // ==========================================
+    function toggleNotifications(e) {
+      e.stopPropagation();
+      document.getElementById('notificationsPanel').classList.toggle('hidden');
+      document.getElementById('themeDropdown').classList.add('hidden');
+      const panel = document.getElementById('notificationsPanel');
+      if (!panel.classList.contains('hidden')) {
+        loadNotifications();
+      }
+    }
+
+    document.addEventListener('click', function(e) {
+      ['themeDropdown', 'notificationsPanel'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el && !el.classList.contains('hidden') && !e.target.closest(`#${id}`) && !e.target.closest(`[onclick*="${id}"]`) && !e.target.closest('.topbar-btn')) {
+          el.classList.add('hidden');
+        }
+      });
+    });
+
+    const NOTIF_READ_KEY = 'learnpro_notif_last_read';
+
+    function getLastReadTimestamp() {
+      const ts = localStorage.getItem(NOTIF_READ_KEY);
+      return ts ? new Date(ts) : new Date(0);
+    }
+
+    function setLastReadTimestamp() {
+      localStorage.setItem(NOTIF_READ_KEY, new Date().toISOString());
+    }
+
+    async function loadNotifications() {
+      const container = document.getElementById('notificationsList');
+      if (!currentSchoolCode) {
+        container.innerHTML = '<div class="p-4 text-center text-xs" style="color:var(--text-secondary);">No school loaded</div>';
+        return;
+      }
+      container.innerHTML = '<div class="p-4 text-center text-xs" style="color:var(--text-secondary);">Loading notifications...</div>';
+
+      try {
+        const lastRead = getLastReadTimestamp();
+        const events = [];
+
+        // 1) Recent students
+        const studentsSnap = await db.collection('schools').doc(currentSchoolCode)
+          .collection('students').where('deleted', '==', false)
+          .orderBy('createdAt', 'desc').limit(6).get().catch(() => null);
+        if (studentsSnap) {
+          studentsSnap.forEach(d => {
+            const data = d.data();
+            events.push({
+              icon: 'person_add', color: '#0056B3', bg: 'rgba(0,86,179,0.12)',
+              title: 'New Student Enrolled',
+              desc: `${data.name || 'Unknown'} • ${data.grade || ''}`,
+              time: data.createdAt || new Date().toISOString(),
+              target: 'student_management'
+            });
+          });
+        }
+
+        // 2) Recent fees
+        const feesSnap = await db.collection('schools').doc(currentSchoolCode)
+          .collection('fees').orderBy('date', 'desc').limit(5).get().catch(() => null);
+        if (feesSnap) {
+          feesSnap.forEach(d => {
+            const data = d.data();
+            events.push({
+              icon: 'payments', color: '#008751', bg: 'rgba(0,135,81,0.12)',
+              title: 'Fee Payment Received',
+              desc: `${data.student || 'Unknown'} • KSh ${(data.amount || 0).toLocaleString()}`,
+              time: data.date || new Date().toISOString(),
+              target: 'fee_management'
+            });
+          });
+        }
+
+        // 3) KNEC registrations
+        const knecSnap = await db.collection('schools').doc(currentSchoolCode)
+          .collection('knecRegistrations').orderBy('registeredAt', 'desc').limit(5).get().catch(() => null);
+        if (knecSnap) {
+          knecSnap.forEach(d => {
+            const data = d.data();
+            events.push({
+              icon: 'how_to_reg', color: '#d97706', bg: 'rgba(217,119,6,0.12)',
+              title: 'KNEC Registration',
+              desc: `${data.name || 'Unknown'} • ${data.grade || ''}`,
+              time: data.registeredAt || new Date().toISOString(),
+              target: 'knec_registration'
+            });
+          });
+        }
+
+        // 4) Announcements
+        const annSnap = await db.collection('schools').doc(currentSchoolCode)
+          .collection('announcements').where('deleted', '==', false)
+          .orderBy('createdAt', 'desc').limit(4).get().catch(() => null);
+        if (annSnap) {
+          annSnap.forEach(d => {
+            const data = d.data();
+            events.push({
+              icon: 'campaign', color: '#7c3aed', bg: 'rgba(124,58,237,0.12)',
+              title: 'Announcement: ' + (data.title || 'New'),
+              desc: (data.content || '').substring(0, 80),
+              time: data.createdAt || new Date().toISOString(),
+              target: 'school_announcements'
+            });
+          });
+        }
+
+        // Filter OUT anything older than last-read
+        const unreadEvents = events.filter(e => new Date(e.time) > lastRead);
+
+        if (unreadEvents.length === 0) {
+          container.innerHTML = '<div class="p-6 text-center text-xs" style="color:var(--text-secondary);">🎉 You\'re all caught up!</div>';
+          document.getElementById('notifDot').style.display = 'none';
+          document.getElementById('notifSubtitle').innerText = 'No new notifications';
+          return;
+        }
+
+        // Sort newest first
+        unreadEvents.sort((a, b) => new Date(b.time) - new Date(a.time));
+        const recent = unreadEvents.slice(0, 10);
+
+        container.innerHTML = recent.map(n => `
+          <div class="notif-item" onclick="handleNotifClick('${n.target}')">
+            <div class="notif-icon" style="background:${n.bg}; color:${n.color};">
+              <span class="material-symbols-outlined" style="font-size:20px; font-variation-settings:'FILL' 1;">${n.icon}</span>
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-semibold truncate" style="color:var(--text-primary);">${n.title}</p>
+              <p class="text-xs truncate" style="color:var(--text-secondary);">${n.desc}</p>
+              <p class="text-[10px] mt-0.5" style="color:var(--text-secondary);">${new Date(n.time).toLocaleString()}</p>
+            </div>
+          </div>
+        `).join('');
+
+        // Update dot + subtitle
+        document.getElementById('notifDot').style.display = 'block';
+        document.getElementById('notifSubtitle').innerText = `${unreadEvents.length} new activit${unreadEvents.length === 1 ? 'y' : 'ies'}`;
+      } catch (err) {
+        console.error('Error loading notifications:', err);
+        container.innerHTML = '<div class="p-4 text-center text-xs" style="color:var(--text-secondary);">Unable to load notifications</div>';
+      }
+    }
+
+    function handleNotifClick(target) {
+      document.getElementById('notificationsPanel').classList.add('hidden');
+      showPanel(target);
+    }
+
+    function markNotificationsRead() {
+      setLastReadTimestamp();
+      document.getElementById('notifDot').style.display = 'none';
+      loadNotifications();
+      showToast('All notifications marked as read');
+    }
+
+    // ==========================================
+    // SCHOOL LOGO — FIREBASE STORAGE + FIRESTORE
+    // One source of truth, visible on every device/user
+    // ==========================================
+    const SCHOOL_LOGO_MAX_BYTES = 5 * 1024 * 1024;
+
+    function setSchoolLogoUI(url) {
+      if (!url) return;
+
+      const topImg = document.getElementById('schoolLogoTop');
+      const topPlaceholder = document.getElementById('schoolLogoTopPlaceholder');
+      const sideImg = document.getElementById('schoolLogo');
+      const sidePlaceholder = document.getElementById('logoPlaceholder');
+
+      if (topImg) {
+        topImg.src = url;
+        topImg.classList.remove('hidden');
+      }
+      if (topPlaceholder) topPlaceholder.classList.add('hidden');
+
+      if (sideImg) {
+        sideImg.src = url;
+        sideImg.classList.remove('hidden');
+      }
+      if (sidePlaceholder) sidePlaceholder.classList.add('hidden');
+
+      // Cache only the URL for instant display on the next page load.
+      if (currentSchoolCode) {
+        localStorage.setItem(`learnpro_school_logo_${currentSchoolCode}`, url);
+      }
+    }
+
+    function showCachedSchoolLogo() {
+      if (!currentSchoolCode) return;
+      const cached = localStorage.getItem(`learnpro_school_logo_${currentSchoolCode}`);
+      if (cached) setSchoolLogoUI(cached);
+    }
+
+    async function saveSchoolLogo(file) {
+      if (!file) return false;
+
+      if (!currentSchoolCode) {
+        showToast('School is not loaded yet. Please wait a moment.', true);
+        return false;
+      }
+
+      if (!file.type || !file.type.startsWith('image/')) {
+        showToast('Please select a valid image file.', true);
+        return false;
+      }
+
+      if (file.size > SCHOOL_LOGO_MAX_BYTES) {
+        showToast('Logo is too large. Maximum size is 5 MB.', true);
+        return false;
+      }
+
+      try {
+        showToast('Uploading school logo...');
+
+        const safeType = file.type || 'image/jpeg';
+        const storageRef = storage.ref(`schools/${currentSchoolCode}/logo`);
+
+        // Replace the existing logo at the same Firebase Storage path.
+        await storageRef.put(file, {
+          contentType: safeType,
+          customMetadata: {
+            schoolCode: String(currentSchoolCode),
+            uploadedAt: new Date().toISOString()
+          }
+        });
+
+        const url = await storageRef.getDownloadURL();
+
+        // IMPORTANT: set(..., {merge:true}) works whether the school
+        // document already exists or not.
+        await db.collection('schools').doc(currentSchoolCode).set({
+          logoUrl: url,
+          logoUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+
+        setSchoolLogoUI(url);
+        showToast('✅ School logo saved successfully!');
+        return true;
+
+      } catch (error) {
+        console.error('School logo upload error:', error);
+        showToast('Logo upload failed: ' + (error.message || 'Unknown error'), true);
+        return false;
+      }
+    }
+
+    async function uploadSchoolLogoTop(input) {
+      const file = input?.files?.[0];
+      if (!file) return;
+
+      await saveSchoolLogo(file);
+
+      // Allows selecting the same image again later.
+      if (input) input.value = '';
+    }
+
+    async function uploadSchoolLogo(input) {
+      const file = input?.files?.[0];
+      if (!file) return;
+
+      await saveSchoolLogo(file);
+
+      if (input) input.value = '';
+    }
+
+    async function loadSchoolLogo() {
+      if (!currentSchoolCode) return;
+
+      // Show cached image immediately while Firebase is being checked.
+      showCachedSchoolLogo();
+
+      try {
+        const schoolRef = db.collection('schools').doc(currentSchoolCode);
+        const doc = await schoolRef.get();
+
+        let url = doc.exists ? doc.data()?.logoUrl : null;
+
+        // If Firestore URL is missing, recover it directly from Storage.
+        if (!url) {
+          try {
+            const storageRef = storage.ref(`schools/${currentSchoolCode}/logo`);
+            url = await storageRef.getDownloadURL();
+
+            await schoolRef.set({
+              logoUrl: url,
+              logoRecoveredAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+
+          } catch (storageError) {
+            console.info('No stored school logo found:', storageError.message);
+            return;
+          }
+        }
+
+        setSchoolLogoUI(url);
+
+        // If the saved URL itself becomes inaccessible, attempt one
+        // fresh Storage URL and update Firestore.
+        const verifier = new Image();
+        verifier.onload = () => setSchoolLogoUI(url);
+        verifier.onerror = async () => {
+          try {
+            const freshRef = storage.ref(`schools/${currentSchoolCode}/logo`);
+            const freshUrl = await freshRef.getDownloadURL();
+            await schoolRef.set({
+              logoUrl: freshUrl,
+              logoUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+            setSchoolLogoUI(freshUrl);
+          } catch (e) {
+            console.warn('Stored logo could not be refreshed:', e);
+          }
+        };
+        verifier.src = url;
+
+      } catch (error) {
+        console.warn('Could not load school logo:', error);
+      }
+    }
+
+    // ==========================================
+    // PANEL NAVIGATION
+    // ==========================================
+    function showPanel(panel) {
+      document.querySelectorAll('.content-panel').forEach(p => p.classList.remove('active'));
+      const panelEl = document.getElementById(`${panel}Panel`);
+      if (panelEl) panelEl.classList.add('active');
+      
+      document.querySelectorAll('.sidebar-nav .nav-item').forEach(item => {
+        if (item.dataset.page === panel) {
+          item.classList.add('nav-active');
+          item.style.color = 'white';
+        } else {
+          item.classList.remove('nav-active');
+          item.style.color = 'var(--text-secondary)';
+        }
+      });
+      
+      if (panel === 'dashboard') {
+        loadDashboardStats();
+        loadEnrollmentChart();
+        loadFeeChart();
+        loadRecentActivity();
+      } else {
+        setTimeout(() => {
+          const savedTheme = localStorage.getItem('learnpro_theme') || 'light';
+          sendThemeToIframes(savedTheme);
+        }, 500);
+      }
+    }
+
+    function refreshChart(chartId) {
+      if (chartId === 'enrollmentChart') loadEnrollmentChart();
+      else if (chartId === 'feeChart') loadFeeChart();
+      showToast('Chart refreshed!');
+    }
+
+    // ==========================================
+    // DASHBOARD STATS
+    // ==========================================
+    async function loadDashboardStats() {
+      if (!currentSchoolCode) return;
+      const [students, teachers, assessments, fees] = await Promise.all([
+        db.collection('schools').doc(currentSchoolCode).collection('students').where('deleted', '==', false).get(),
+        db.collection('schools').doc(currentSchoolCode).collection('teachers').where('deleted', '==', false).get(),
+        db.collection('schools').doc(currentSchoolCode).collection('assessments').get(),
+        db.collection('schools').doc(currentSchoolCode).collection('fees').get()
+      ]);
+      document.getElementById('totalStudents').innerText = students.size;
+      document.getElementById('totalTeachers').innerText = teachers.size;
+      let total = 0, passed = 0;
+      assessments.forEach(d => { if (!d.data().deleted) { total++; if (d.data().competency === 'EE' || d.data().competency === 'ME') passed++; } });
+      document.getElementById('passRate').innerText = total ? Math.round((passed/total)*100) + '%' : '0%';
+      let feesTotal = 0;
+      fees.forEach(d => feesTotal += d.data().amount || 0);
+      document.getElementById('feeCollected').innerText = `KSh ${(feesTotal/1000000).toFixed(1)}M`;
+      const currentMonth = new Date().getMonth();
+      let currentCount = 0, lastCount = 0;
+      students.forEach(d => {
+        const date = d.data().createdAt;
+        if (date) {
+          const month = new Date(date).getMonth();
+          if (month === currentMonth) currentCount++;
+          else if (month === currentMonth - 1 || (currentMonth === 0 && month === 11)) lastCount++;
+        }
+      });
+      const growth = lastCount ? Math.round(((currentCount - lastCount) / lastCount) * 100) : 0;
+      document.getElementById('studentGrowth').innerHTML = `${growth >= 0 ? '+' : ''}${growth}%`;
+    }
+
+    async function loadEnrollmentChart() {
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+      const data = [0,0,0,0,0,0];
+      const students = await db.collection('schools').doc(currentSchoolCode).collection('students').where('deleted', '==', false).get();
+      students.forEach(d => {
+        const date = d.data().createdAt;
+        if (date) {
+          const month = new Date(date).getMonth();
+          if (month >= 0 && month <= 5) data[month]++;
+        }
+      });
+      for (let i = 1; i < data.length; i++) data[i] += data[i-1];
+      const ctx = document.getElementById('enrollmentChart')?.getContext('2d');
+      if (ctx) {
+        if (enrollmentChart) enrollmentChart.destroy();
+        enrollmentChart = new Chart(ctx, {
+          type: 'line',
+          data: { labels: months, datasets: [{ label: 'Students', data: data, borderColor: 'var(--primary)', backgroundColor: 'rgba(0,86,179,0.1)', fill: true, tension: 0.4 }] },
+          options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom' } }, scales: { y: { beginAtZero: true, ticks: { stepSize: Math.max(1, Math.ceil(Math.max(...data) / 5)) } } } }
+        });
+      }
+    }
+
+    async function loadFeeChart() {
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+      const data = [0,0,0,0,0,0];
+      const fees = await db.collection('schools').doc(currentSchoolCode).collection('fees').get();
+      fees.forEach(d => {
+        let date = d.data().date;
+        if (date) {
+          if (date.toDate) date = date.toDate();
+          else if (typeof date === 'string') date = new Date(date);
+          const month = date.getMonth();
+          if (month >= 0 && month <= 5) data[month] += d.data().amount || 0;
+        }
+      });
+      const ctx = document.getElementById('feeChart')?.getContext('2d');
+      if (ctx) {
+        if (feeChart) feeChart.destroy();
+        feeChart = new Chart(ctx, {
+          type: 'bar',
+          data: { labels: months, datasets: [{ label: 'Collections (KES)', data: data, backgroundColor: 'var(--primary)', borderRadius: 8 }] },
+          options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom' } }, scales: { y: { beginAtZero: true, ticks: { callback: v => `KSh ${v/1000}K` } } } }
+        });
+      }
+    }
+
+    async function loadRecentActivity() {
+      const container = document.getElementById('recentActivity');
+      if (!currentSchoolCode) return;
+      try {
+        const [students, fees, registrations] = await Promise.all([
+          db.collection('schools').doc(currentSchoolCode).collection('students').where('deleted', '==', false).orderBy('createdAt', 'desc').limit(5).get().catch(() => ({ forEach: () => {} })),
+          db.collection('schools').doc(currentSchoolCode).collection('fees').orderBy('date', 'desc').limit(5).get().catch(() => ({ forEach: () => {} })),
+          db.collection('schools').doc(currentSchoolCode).collection('knecRegistrations').orderBy('registeredAt', 'desc').limit(5).get().catch(() => ({ forEach: () => {} }))
+        ]);
+        let activities = [];
+        students.forEach(d => activities.push({ type: 'Student', title: 'New Student Enrolled', desc: `${d.data().name} • Grade ${d.data().grade}`, time: d.data().createdAt, icon: 'person_add' }));
+        fees.forEach(d => activities.push({ type: 'Fee', title: 'Payment Received', desc: `${d.data().student} • KSh ${(d.data().amount||0).toLocaleString()}`, time: d.data().date, icon: 'payments' }));
+        registrations.forEach(d => activities.push({ type: 'KNEC', title: 'KNEC Registration', desc: `${d.data().name} • ${d.data().grade}`, time: d.data().registeredAt, icon: 'how_to_reg' }));
+        activities.sort((a,b) => new Date(b.time) - new Date(a.time));
+        if (activities.length === 0) { container.innerHTML = '<div class="text-center py-8" style="color: var(--text-secondary);">No recent activity</div>'; return; }
+        container.innerHTML = activities.slice(0, 5).map(a => `
+          <div class="flex items-start gap-3 p-3 rounded-xl" style="background: var(--bg-light);">
+            <div class="w-8 h-8 rounded-full flex items-center justify-center" style="background: var(--primary)20;">
+              <span class="material-symbols-outlined text-sm" style="color: var(--primary);">${a.icon}</span>
+            </div>
+            <div>
+              <p class="font-semibold text-sm" style="color: var(--text-primary);">${a.title}</p>
+              <p class="text-xs" style="color: var(--text-secondary);">${a.desc}</p>
+              <p class="text-xs mt-0.5" style="color: var(--text-secondary);">${new Date(a.time).toLocaleDateString()}</p>
+            </div>
+          </div>
+        `).join('');
+      } catch (err) {
+        container.innerHTML = '<div class="text-center py-8" style="color: var(--text-secondary);">No recent activity</div>';
+      }
+    }
+
+    // ==========================================
+    // DATE / TIME
+    // ==========================================
+    function updateDateTime() {
+      const now = new Date();
+      document.getElementById('currentDate').innerText = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+      document.getElementById('currentTime').innerText = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+    setInterval(updateDateTime, 1000);
+    updateDateTime();
+
+    // ==========================================
+    // LOGOUT
+    // ==========================================
+    async function logout() {
+      await auth.signOut();
+      sessionStorage.clear();
+      window.location.href = 'index.html';
+    }
+
+    // ==========================================
+    // IFRAME MESSAGE LISTENER
+    // ==========================================
+    window.addEventListener('message', function(event) {
+      if (event.data && event.data.type === 'iframeReady') {
+        const savedTheme = localStorage.getItem('learnpro_theme') || 'light';
+        sendThemeToIframes(savedTheme);
+      }
+    });
+
+    // Initialize the developer avatar immediately so it is never blank.
+    loadDeveloperAvatar();
+
+    // ==========================================
+    // AUTH STATE
+    // ==========================================
+    auth.onAuthStateChanged(async (user) => {
+      if (!user) { window.location.href = 'index.html'; return; }
+      
+      document.getElementById('adminEmail').innerText = user.email;
+      document.getElementById('sidebarAdminName').innerText = user.email.split('@')[0];
+      
+      currentSchoolCode = sessionStorage.getItem('currentSchoolCode');
+      if (!currentSchoolCode) {
+        const snap = await db.collection('schools').where('adminId', '==', user.uid).get();
+        if (!snap.empty) {
+          currentSchoolCode = snap.docs[0].id;
+          sessionStorage.setItem('currentSchoolCode', currentSchoolCode);
+          sessionStorage.setItem('currentSchoolName', snap.docs[0].data().schoolName);
+        }
+      }
+      
+      const schoolName = sessionStorage.getItem('currentSchoolName');
+      document.getElementById('schoolBadge').innerText = schoolName || 'School';
+      document.getElementById('welcomeMsg').innerHTML = `Welcome back, ${schoolName?.split(' ')[0] || 'Admin'}!`;
+      document.getElementById('schoolNameMsg').innerText = schoolName || '';
+      
+      // Load persistent school logo and robust developer avatar
+      loadDeveloperAvatar();
+      await loadSchoolLogo();
+      
+      // Load dashboard
+      await loadDashboardStats();
+      await loadEnrollmentChart();
+      await loadFeeChart();
+      await loadRecentActivity();
+      await loadNotifications();
+      
+      // Apply saved theme
+      const savedTheme = localStorage.getItem('learnpro_theme') || 'light';
+      setTheme(savedTheme);
+    });
+  </script>
+</body>
+</html>
