@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>School Announcements | LearnPro Kenya</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: #f0f2f5; }
+        .announcement-card { background: white; border-radius: 20px; transition: all 0.3s ease; border: 1px solid #eef2ff; }
+        .announcement-card:hover { transform: translateY(-4px); box-shadow: 0 20px 25px -12px rgba(0,63,135,0.15); }
+        .toast { position: fixed; bottom: 24px; right: 24px; background: #003f87; color: white; padding: 12px 24px; border-radius: 48px; z-index: 1000; font-weight: 600; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .toast-error { background: #dc2626; }
+        .toast-success { background: #059669; }
+        .nav-tab { cursor: pointer; padding: 10px 24px; border-radius: 30px; font-size: 14px; font-weight: 500; transition: all 0.2s; border: 1px solid transparent; }
+        .nav-tab-active { background: #003f87; color: white; border-color: #003f87; }
+        .nav-tab-inactive { background: white; color: #4a5568; border: 1px solid #e2e8f0; }
+        .nav-tab-inactive:hover { background: #f1f5f9; border-color: #003f87; }
+        .status-badge { display: inline-flex; padding: 4px 12px; border-radius: 30px; font-size: 11px; font-weight: 600; }
+        .status-published { background: #dcfce7; color: #166534; }
+        .status-draft { background: #fef3c7; color: #92400e; }
+        .status-archived { background: #fee2e2; color: #991b1b; }
+        .deleted-row { background-color: #fef2f2; opacity: 0.7; }
+        .modal { z-index: 1000; }
+        @media print { .no-print { display: none; } }
+    </style>
+</head>
+<body>
+    <!-- Top Bar -->
+    <div class="bg-white shadow-sm fixed top-0 left-0 right-0 z-40 border-b border-gray-100 no-print">
+        <div class="flex justify-between items-center px-6 py-2">
+            <div class="flex items-center gap-3">
+                <span class="text-sm font-bold text-[#003f87]" id="schoolNameDisplay">Loading...</span>
+                <span class="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">Announcements</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="pt-14 px-6 pb-6 max-w-7xl mx-auto">
+        <!-- Page Header -->
+        <div class="mb-6 flex justify-between items-center flex-wrap gap-4">
+            <div>
+                <h2 class="text-2xl font-bold text-gray-800">📢 School Announcements</h2>
+                <p class="text-gray-500 text-sm">School-wide communication and updates</p>
+            </div>
+            <button onclick="openNewAnnouncementModal()" class="px-6 py-3 bg-[#003f87] text-white rounded-xl flex items-center gap-2 hover:bg-[#002a5c] transition">
+                <span class="material-symbols-outlined text-sm">add_comment</span> New Announcement
+            </button>
+        </div>
+
+        <!-- Top Navigation Tabs -->
+        <div class="flex gap-2 mb-6 border-b pb-3 flex-wrap">
+            <button onclick="filterAnnouncements('all')" id="filterAll" class="nav-tab nav-tab-active">📋 All</button>
+            <button onclick="filterAnnouncements('academic')" id="filterAcademic" class="nav-tab nav-tab-inactive">📚 Academic</button>
+            <button onclick="filterAnnouncements('financial')" id="filterFinancial" class="nav-tab nav-tab-inactive">💰 Financial</button>
+            <button onclick="filterAnnouncements('sports')" id="filterSports" class="nav-tab nav-tab-inactive">⚽ Sports</button>
+            <button onclick="filterAnnouncements('policy')" id="filterPolicy" class="nav-tab nav-tab-inactive">📜 Policy</button>
+            <button onclick="filterAnnouncements('general')" id="filterGeneral" class="nav-tab nav-tab-inactive">📌 General</button>
+            <button onclick="showTrash()" id="tabTrash" class="nav-tab nav-tab-inactive flex items-center gap-1">
+                🗑️ Trash <span id="trashCountBadge" class="ml-1 text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full">0</span>
+            </button>
+        </div>
+
+        <!-- Announcements Grid -->
+        <div id="announcementsGrid" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="lg:col-span-2 text-center py-10 text-gray-400">Loading announcements...</div>
+        </div>
+
+        <!-- Trash Grid -->
+        <div id="trashGrid" class="grid grid-cols-1 lg:grid-cols-2 gap-6 hidden">
+            <div class="lg:col-span-2 text-center py-10 text-gray-400">Loading trash...</div>
+        </div>
+    </div>
+
+    <!-- New Announcement Modal -->
+    <div id="newAnnouncementModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden modal">
+        <div class="bg-white rounded-2xl p-6 max-w-lg w-full mx-4">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-[#003f87]" id="modalTitle">Create New Announcement</h3>
+                <button onclick="closeNewAnnouncementModal()" class="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <form id="announcementForm" class="space-y-4">
+                <input type="hidden" id="editAnnouncementId">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Title *</label>
+                    <input type="text" id="announcementTitle" placeholder="Announcement title" class="w-full p-3 border rounded-xl" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Category *</label>
+                    <select id="announcementCategory" class="w-full p-3 border rounded-xl" required>
+                        <option value="academic">📚 Academic</option>
+                        <option value="financial">💰 Financial</option>
+                        <option value="sports">⚽ Sports</option>
+                        <option value="policy">📜 Policy</option>
+                        <option value="general">📌 General</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Content *</label>
+                    <textarea id="announcementContent" rows="4" placeholder="Announcement content..." class="w-full p-3 border rounded-xl" required></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                    <select id="announcementStatus" class="w-full p-3 border rounded-xl">
+                        <option value="published">Published</option>
+                        <option value="draft">Draft</option>
+                        <option value="archived">Archived</option>
+                    </select>
+                </div>
+                <div class="flex gap-3">
+                    <button type="submit" class="flex-1 py-3 bg-[#003f87] text-white rounded-xl font-medium">Save</button>
+                    <button type="button" onclick="closeNewAnnouncementModal()" class="flex-1 py-3 border border-gray-200 rounded-xl font-medium">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden modal">
+        <div class="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 text-center">
+            <div class="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span class="material-symbols-outlined text-red-600 text-3xl">delete</span>
+            </div>
+            <h3 class="text-xl font-bold text-gray-800 mb-2">Confirm Delete</h3>
+            <p class="text-gray-500 mb-5" id="deleteMessage">This action cannot be undone.</p>
+            <div class="flex gap-3">
+                <button id="confirmDeleteBtn" class="flex-1 py-2.5 bg-red-600 text-white rounded-lg font-medium">Move to Trash</button>
+                <button onclick="closeDeleteModal()" class="flex-1 py-2.5 border border-gray-200 rounded-lg font-medium">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Restore Confirmation Modal -->
+    <div id="restoreModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden modal">
+        <div class="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 text-center">
+            <div class="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span class="material-symbols-outlined text-green-600 text-3xl">restore_from_trash</span>
+            </div>
+            <h3 class="text-xl font-bold text-gray-800 mb-2">Restore Item?</h3>
+            <p class="text-gray-500 mb-5" id="restoreMessage">This will be restored to active announcements.</p>
+            <div class="flex gap-3">
+                <button id="confirmRestoreBtn" class="flex-1 py-2.5 bg-green-600 text-white rounded-lg font-medium">Restore</button>
+                <button onclick="closeRestoreModal()" class="flex-1 py-2.5 border border-gray-200 rounded-lg font-medium">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Permanent Delete Modal -->
+    <div id="permanentDeleteModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden modal">
+        <div class="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 text-center">
+            <div class="w-14 h-14 bg-red-700/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span class="material-symbols-outlined text-red-700 text-3xl">delete_forever</span>
+            </div>
+            <h3 class="text-xl font-bold text-gray-800 mb-2">Delete Permanently?</h3>
+            <p class="text-gray-500 mb-5" id="permanentDeleteMessage">This action cannot be undone.</p>
+            <div class="flex gap-3">
+                <button id="confirmPermanentDeleteBtn" class="flex-1 py-2.5 bg-red-700 text-white rounded-lg font-medium">Delete Forever</button>
+                <button onclick="closePermanentDeleteModal()" class="flex-1 py-2.5 border border-gray-200 rounded-lg font-medium">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" style="display:none" class="toast"></div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyA4cm7chJXz90yOLWPtbdIW8KlEozG1lxo",
+            authDomain: "learnpro-kenya-erp.firebaseapp.com",
+            projectId: "learnpro-kenya-erp",
+            storageBucket: "learnpro-kenya-erp.firebasestorage.app",
+            messagingSenderId: "327168081514",
+            appId: "1:327168081514:web:13cdc8b827fa76d95a9413",
+            measurementId: "G-CL7LTBL2XD"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        let currentSchoolCode = null;
+        let allAnnouncements = [];
+        let deletedAnnouncements = [];
+        let currentFilter = 'all';
+        let showingTrash = false;
+        let deleteTargetId = null;
+        let deleteTargetType = null;
+        let restoreTargetId = null;
+
+        function showToast(msg, isError = false) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.className = `toast ${isError ? 'toast-error' : 'toast-success'}`;
+            toast.style.display = 'block';
+            setTimeout(() => toast.style.display = 'none', 3000);
+        }
+
+        function openNewAnnouncementModal() {
+            document.getElementById('modalTitle').innerText = 'Create New Announcement';
+            document.getElementById('editAnnouncementId').value = '';
+            document.getElementById('announcementForm').reset();
+            document.getElementById('newAnnouncementModal').classList.remove('hidden');
+        }
+
+        function closeNewAnnouncementModal() {
+            document.getElementById('newAnnouncementModal').classList.add('hidden');
+        }
+
+        function closeDeleteModal() {
+            document.getElementById('deleteModal').classList.add('hidden');
+            deleteTargetId = null;
+        }
+
+        function closeRestoreModal() {
+            document.getElementById('restoreModal').classList.add('hidden');
+            restoreTargetId = null;
+        }
+
+        function closePermanentDeleteModal() {
+            document.getElementById('permanentDeleteModal').classList.add('hidden');
+            deleteTargetId = null;
+        }
+
+        function filterAnnouncements(category) {
+            currentFilter = category;
+            showingTrash = false;
+            
+            document.querySelectorAll('.nav-tab').forEach(btn => {
+                btn.classList.remove('nav-tab-active');
+                btn.classList.add('nav-tab-inactive');
+            });
+            
+            const tabMap = {
+                'all': 'filterAll',
+                'academic': 'filterAcademic',
+                'financial': 'filterFinancial',
+                'sports': 'filterSports',
+                'policy': 'filterPolicy',
+                'general': 'filterGeneral'
+            };
+            
+            const activeBtn = document.getElementById(tabMap[category]);
+            if (activeBtn) {
+                activeBtn.classList.add('nav-tab-active');
+                activeBtn.classList.remove('nav-tab-inactive');
+            }
+            
+            document.getElementById('announcementsGrid').classList.remove('hidden');
+            document.getElementById('trashGrid').classList.add('hidden');
+            renderAnnouncements();
+        }
+
+        function showTrash() {
+            showingTrash = true;
+            
+            document.querySelectorAll('.nav-tab').forEach(btn => {
+                btn.classList.remove('nav-tab-active');
+                btn.classList.add('nav-tab-inactive');
+            });
+            document.getElementById('tabTrash').classList.add('nav-tab-active');
+            document.getElementById('tabTrash').classList.remove('nav-tab-inactive');
+            
+            document.getElementById('announcementsGrid').classList.add('hidden');
+            document.getElementById('trashGrid').classList.remove('hidden');
+            renderTrash();
+        }
+
+        async function loadAnnouncements() {
+            if (!currentSchoolCode) {
+                document.getElementById('announcementsGrid').innerHTML = 
+                    '<div class="lg:col-span-2 text-center py-10 text-gray-400">Please select a school</div>';
+                return;
+            }
+            
+            try {
+                // Load active announcements
+                const snap = await db.collection('schools').doc(currentSchoolCode)
+                    .collection('announcements')
+                    .where('deleted', '==', false)
+                    .get();
+                
+                allAnnouncements = [];
+                snap.forEach(doc => allAnnouncements.push({ id: doc.id, ...doc.data() }));
+                allAnnouncements.sort((a, b) => {
+                    const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
+                    const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
+                    return dateB - dateA;
+                });
+                
+                // Load deleted announcements
+                const deletedSnap = await db.collection('schools').doc(currentSchoolCode)
+                    .collection('announcements')
+                    .where('deleted', '==', true)
+                    .get();
+                
+                deletedAnnouncements = [];
+                deletedSnap.forEach(doc => deletedAnnouncements.push({ id: doc.id, ...doc.data() }));
+                deletedAnnouncements.sort((a, b) => {
+                    const dateA = a.deletedAt ? new Date(a.deletedAt) : new Date(0);
+                    const dateB = b.deletedAt ? new Date(b.deletedAt) : new Date(0);
+                    return dateB - dateA;
+                });
+                
+                document.getElementById('trashCountBadge').innerText = deletedAnnouncements.length;
+                
+                if (showingTrash) {
+                    renderTrash();
+                } else {
+                    renderAnnouncements();
+                }
+            } catch (error) {
+                console.error("Error loading announcements:", error);
+                showToast("Error loading announcements", true);
+            }
+        }
+
+        function renderAnnouncements() {
+            const grid = document.getElementById('announcementsGrid');
+            
+            let filtered = allAnnouncements;
+            if (currentFilter !== 'all') {
+                filtered = filtered.filter(a => a.category === currentFilter);
+            }
+            
+            if (filtered.length === 0) {
+                grid.innerHTML = `<div class="lg:col-span-2 text-center py-10 text-gray-400">No announcements found in this category</div>`;
+                return;
+            }
+            
+            grid.innerHTML = filtered.map(a => {
+                const statusClass = a.status === 'published' ? 'status-published' : 
+                                   a.status === 'draft' ? 'status-draft' : 'status-archived';
+                const categoryEmojis = {
+                    'academic': '📚',
+                    'financial': '💰',
+                    'sports': '⚽',
+                    'policy': '📜',
+                    'general': '📌'
+                };
+                const categoryEmoji = categoryEmojis[a.category] || '📌';
+                
+                return `
+                    <div class="announcement-card p-6 border-l-4 ${a.status === 'published' ? 'border-green-500' : a.status === 'draft' ? 'border-yellow-500' : 'border-red-500'}">
+                        <div class="flex justify-between items-start mb-3">
+                            <div>
+                                <span class="text-xs font-bold px-3 py-1 rounded-full ${a.status === 'published' ? 'bg-green-100 text-green-700' : a.status === 'draft' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}">
+                                    ${categoryEmoji} ${a.category || 'General'}
+                                </span>
+                                <span class="status-badge ${statusClass} ml-2">${a.status || 'Published'}</span>
+                            </div>
+                            <span class="text-xs text-gray-400">${a.createdAt ? new Date(a.createdAt).toLocaleDateString() : 'N/A'}</span>
+                        </div>
+                        <h4 class="text-lg font-bold text-gray-800 mb-2">${a.title || 'Untitled'}</h4>
+                        <p class="text-sm text-gray-600 mb-4">${a.content || 'No content'}</p>
+                        <div class="flex gap-2">
+                            ${a.status !== 'archived' ? `<button onclick="editAnnouncement('${a.id}')" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm">Edit</button>` : ''}
+                            <button onclick="moveToTrash('${a.id}', '${a.title}')" class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm">Delete</button>
+                            ${a.status === 'published' ? `<button onclick="changeStatus('${a.id}', 'draft')" class="px-4 py-2 border rounded-lg text-sm">Unpublish</button>` : ''}
+                            ${a.status === 'draft' ? `<button onclick="changeStatus('${a.id}', 'published')" class="px-4 py-2 bg-green-600 text-white rounded-lg text-sm">Publish</button>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderTrash() {
+            const grid = document.getElementById('trashGrid');
+            
+            if (deletedAnnouncements.length === 0) {
+                grid.innerHTML = `<div class="lg:col-span-2 text-center py-10 text-gray-400">🗑️ Trash is empty</div>`;
+                return;
+            }
+            
+            grid.innerHTML = deletedAnnouncements.map(a => {
+                const categoryEmojis = {
+                    'academic': '📚',
+                    'financial': '💰',
+                    'sports': '⚽',
+                    'policy': '📜',
+                    'general': '📌'
+                };
+                const categoryEmoji = categoryEmojis[a.category] || '📌';
+                
+                return `
+                    <div class="announcement-card p-6 border-l-4 border-red-400 deleted-row">
+                        <div class="flex justify-between items-start mb-3">
+                            <div>
+                                <span class="text-xs font-bold px-3 py-1 rounded-full bg-red-100 text-red-700">
+                                    ${categoryEmoji} ${a.category || 'General'}
+                                </span>
+                                <span class="status-badge status-archived ml-2">Deleted</span>
+                            </div>
+                            <span class="text-xs text-gray-400">${a.deletedAt ? new Date(a.deletedAt).toLocaleDateString() : 'N/A'}</span>
+                        </div>
+                        <h4 class="text-lg font-bold text-gray-600 line-through mb-2">${a.title || 'Untitled'}</h4>
+                        <p class="text-sm text-gray-500 mb-4">${a.content || 'No content'}</p>
+                        <div class="flex gap-2">
+                            <button onclick="restoreAnnouncement('${a.id}', '${a.title}')" class="px-4 py-2 bg-green-600 text-white rounded-lg text-sm flex items-center gap-1">
+                                ♻️ Restore
+                            </button>
+                            <button onclick="permanentDelete('${a.id}', '${a.title}')" class="px-4 py-2 bg-red-700 text-white rounded-lg text-sm flex items-center gap-1">
+                                🗑️ Delete Forever
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function changeStatus(id, newStatus) {
+            try {
+                await db.collection('schools').doc(currentSchoolCode)
+                    .collection('announcements')
+                    .doc(id)
+                    .update({ 
+                        status: newStatus,
+                        updatedAt: new Date().toISOString()
+                    });
+                showToast(`Status updated to ${newStatus}`);
+                await loadAnnouncements();
+            } catch (error) {
+                showToast("Error updating status", true);
+            }
+        }
+
+        function editAnnouncement(id) {
+            const announcement = allAnnouncements.find(a => a.id === id);
+            if (announcement) {
+                document.getElementById('modalTitle').innerText = 'Edit Announcement';
+                document.getElementById('editAnnouncementId').value = id;
+                document.getElementById('announcementTitle').value = announcement.title || '';
+                document.getElementById('announcementCategory').value = announcement.category || 'general';
+                document.getElementById('announcementContent').value = announcement.content || '';
+                document.getElementById('announcementStatus').value = announcement.status || 'published';
+                document.getElementById('newAnnouncementModal').classList.remove('hidden');
+            }
+        }
+
+        function moveToTrash(id, name) {
+            deleteTargetId = id;
+            deleteTargetType = 'move_to_trash';
+            document.getElementById('deleteMessage').innerHTML = `Move announcement "<strong>${name}</strong>" to trash?`;
+            document.getElementById('deleteModal').classList.remove('hidden');
+        }
+
+        function restoreAnnouncement(id, name) {
+            restoreTargetId = id;
+            document.getElementById('restoreMessage').innerHTML = `Restore "<strong>${name}</strong>" to active announcements?`;
+            document.getElementById('restoreModal').classList.remove('hidden');
+        }
+
+        function permanentDelete(id, name) {
+            deleteTargetId = id;
+            deleteTargetType = 'permanent';
+            document.getElementById('permanentDeleteMessage').innerHTML = `Permanently delete "<strong>${name}</strong>"? This cannot be undone.`;
+            document.getElementById('permanentDeleteModal').classList.remove('hidden');
+        }
+
+        async function confirmDelete() {
+            if (!deleteTargetId) return;
+            
+            try {
+                await db.collection('schools').doc(currentSchoolCode)
+                    .collection('announcements')
+                    .doc(deleteTargetId)
+                    .update({ 
+                        deleted: true,
+                        deletedAt: new Date().toISOString()
+                    });
+                showToast('Announcement moved to trash');
+                closeDeleteModal();
+                await loadAnnouncements();
+            } catch (error) {
+                showToast("Error moving to trash", true);
+            }
+        }
+
+        async function confirmRestore() {
+            if (!restoreTargetId) return;
+            
+            try {
+                await db.collection('schools').doc(currentSchoolCode)
+                    .collection('announcements')
+                    .doc(restoreTargetId)
+                    .update({ 
+                        deleted: false,
+                        deletedAt: null,
+                        updatedAt: new Date().toISOString()
+                    });
+                showToast('Announcement restored');
+                closeRestoreModal();
+                await loadAnnouncements();
+            } catch (error) {
+                showToast("Error restoring", true);
+            }
+        }
+
+        async function confirmPermanentDelete() {
+            if (!deleteTargetId) return;
+            
+            try {
+                await db.collection('schools').doc(currentSchoolCode)
+                    .collection('announcements')
+                    .doc(deleteTargetId)
+                    .delete();
+                showToast('Announcement permanently deleted');
+                closePermanentDeleteModal();
+                await loadAnnouncements();
+            } catch (error) {
+                showToast("Error deleting permanently", true);
+            }
+        }
+
+        document.getElementById('announcementForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const editId = document.getElementById('editAnnouncementId').value;
+            const data = {
+                title: document.getElementById('announcementTitle').value,
+                category: document.getElementById('announcementCategory').value,
+                content: document.getElementById('announcementContent').value,
+                status: document.getElementById('announcementStatus').value,
+                updatedAt: new Date().toISOString()
+            };
+            
+            try {
+                if (editId) {
+                    await db.collection('schools').doc(currentSchoolCode)
+                        .collection('announcements')
+                        .doc(editId)
+                        .update(data);
+                    showToast('Announcement updated');
+                } else {
+                    data.createdAt = new Date().toISOString();
+                    data.deleted = false;
+                    await db.collection('schools').doc(currentSchoolCode)
+                        .collection('announcements')
+                        .add(data);
+                    showToast('Announcement published');
+                }
+                closeNewAnnouncementModal();
+                await loadAnnouncements();
+            } catch (error) {
+                showToast("Error saving announcement", true);
+            }
+        });
+
+        document.getElementById('confirmDeleteBtn').onclick = confirmDelete;
+        document.getElementById('confirmRestoreBtn').onclick = confirmRestore;
+        document.getElementById('confirmPermanentDeleteBtn').onclick = confirmPermanentDelete;
+
+        auth.onAuthStateChanged(async (user) => {
+            if (!user) {
+                window.location.href = 'index.html';
+                return;
+            }
+            
+            currentSchoolCode = sessionStorage.getItem('currentSchoolCode');
+            if (!currentSchoolCode) {
+                try {
+                    const snap = await db.collection('schools').where('adminId', '==', user.uid).get();
+                    if (!snap.empty) {
+                        currentSchoolCode = snap.docs[0].id;
+                        sessionStorage.setItem('currentSchoolCode', currentSchoolCode);
+                        sessionStorage.setItem('currentSchoolName', snap.docs[0].data().schoolName);
+                    }
+                } catch (err) {
+                    console.error(err);
+                }
+            }
+            
+            const schoolName = sessionStorage.getItem('currentSchoolName') || currentSchoolCode || 'School';
+            document.getElementById('schoolNameDisplay').innerText = schoolName;
+            await loadAnnouncements();
+        });
+
+        window.addEventListener('message', function(event) {
+            if (event.data && event.data.type === 'themeChange') {
+                const theme = event.data.theme;
+                document.body.className = '';
+                if (theme === 'dark') document.body.classList.add('theme-dark');
+                else if (theme === 'green') document.body.classList.add('theme-green');
+                else if (theme === 'grey') document.body.classList.add('theme-grey');
+            }
+        });
+
+        if (window.parent !== window) {
+            window.parent.postMessage({ type: 'iframeReady' }, '*');
+        }
+    </script>
+</body>
+</html>
